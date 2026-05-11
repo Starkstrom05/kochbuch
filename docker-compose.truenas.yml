@@ -1,0 +1,76 @@
+# Kochbuch — TrueNAS Scale Custom App
+#
+# Fertig zum Einfügen in: Apps → Discover → Custom App
+#
+# VORBEREITUNG (einmalig):
+#   1. Image lokal bauen + auf NAS laden:
+#        ./scripts/build-and-save.sh
+#        scp kochbuch-image-0.1.0.tar.gz root@<nas-ip>:/tmp/
+#        ssh root@<nas-ip> 'gunzip -c /tmp/kochbuch-image-0.1.0.tar.gz | docker load'
+#
+#   2. ZFS-Datasets anlegen (TrueNAS UI):
+#        /mnt/tank/apps/kochbuch/db
+#        /mnt/tank/apps/kochbuch/images
+#        /mnt/tank/apps/kochbuch/ollama
+#      (Pool-Name "tank" ggf. anpassen)
+#
+#   3. AUTH_SECRET generieren auf deinem Laptop:
+#        openssl rand -base64 32
+#      und unten in services.app.environment.AUTH_SECRET einsetzen.
+#
+#   4. Pfad "/mnt/tank/apps/kochbuch" unten 3× an deinen Pool anpassen.
+#
+#   5. <nas-ip> in AUTH_URL durch die LAN-IP deines NAS ersetzen.
+#
+# NACH DEM ERSTEN START (TrueNAS App → Shell):
+#   docker exec -it kochbuch-app npx tsx prisma/seed.ts
+#   docker exec -it kochbuch-ollama ollama pull phi3:3.8b-mini-4k-instruct-q4_K_M
+
+services:
+  app:
+    image: kochbuch:local-0.1.0
+    pull_policy: never
+    container_name: kochbuch-app
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "file:/data/db/kochbuch.db"
+      AUTH_SECRET: "REPLACE_WITH_OPENSSL_RAND_BASE64_32"
+      AUTH_URL: "http://<nas-ip>:3000"
+      AUTH_TRUST_HOST: "true"
+      OLLAMA_BASE_URL: "http://ollama:11434"
+      OLLAMA_MODEL: "phi3:3.8b-mini-4k-instruct-q4_K_M"
+      UPLOAD_DIR: "/data/images"
+      KOCHBUCH_VERSION: "0.1.0"
+      TZ: "Europe/Berlin"
+    volumes:
+      - /mnt/tank/apps/kochbuch/db:/data/db
+      - /mnt/tank/apps/kochbuch/images:/data/images
+    ports:
+      - "3000:3000"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    mem_limit: 2g
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: kochbuch-ollama
+    restart: unless-stopped
+    environment:
+      OLLAMA_KEEP_ALIVE: "30m"
+      OLLAMA_NUM_PARALLEL: "1"
+    volumes:
+      - /mnt/tank/apps/kochbuch/ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    mem_limit: 7g

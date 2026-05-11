@@ -1,15 +1,44 @@
+# Kochbuch — Caddy Reverse-Proxy Konfiguration
+# Domain in AUTH_URL/.env setzen: AUTH_URL=https://kochbuch.example.com
+#
+# Fuer lokales LAN ohne oeffentliche Domain:
+#   1. "auto_https off" im globalen Block aktivieren
+#   2. Domain durch IP oder .lan-Adresse ersetzen oder ":80"-Block unten nutzen
+
 {
-	# Globaler Block — bei lokalem LAN ohne oeffentliche Domain:
-	# auto_https off
-	email admin@example.com
+	# email admin@example.com  # fuer Let's Encrypt Benachrichtigungen
+	# auto_https off           # bei rein lokalem Betrieb ohne Domain
 }
 
-# Production: durch eigene Domain ersetzen (Caddy holt sich automatisch ein TLS-Zertifikat via Let's Encrypt)
 kochbuch.example.com {
 	encode zstd gzip
-	reverse_proxy app:3000
 
-	# Uploads/Assets duerfen gecached werden
-	@static path /assets/* /_next/static/*
-	header @static Cache-Control "public, max-age=31536000, immutable"
+	# Security-Header
+	header {
+		X-Frame-Options "SAMEORIGIN"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# Statische Assets (Next.js content-hashing — immutable)
+	@immutable path /_next/static/* /assets/* /icon-*.png /apple-touch-icon.png
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	# Upload-Bilder: 30 Tage cachen
+	@images path /api/images/*
+	header @images Cache-Control "public, max-age=2592000"
+
+	# PWA-Dateien: 1 Stunde cachen
+	@pwa path /manifest.webmanifest /sw.js
+	header @pwa Cache-Control "public, max-age=3600"
+
+	reverse_proxy app:3000
 }
+
+# Lokales LAN ohne Domain (rein http):
+# :80 {
+# 	encode zstd gzip
+# 	reverse_proxy app:3000
+# }

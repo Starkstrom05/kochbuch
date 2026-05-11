@@ -1,0 +1,29 @@
+# Production-Override fuer TrueNAS Scale (LAN-only, ohne Caddy).
+# Verwendung:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Erwartet Bind-Mount-Pfade unter ${KOCHBUCH_DATA_DIR}, z.B. /mnt/tank/apps/kochbuch
+# - <data>/db        → SQLite + Backups
+# - <data>/images    → Uploads (Cover/Originals/Thumbnails)
+# - <data>/ollama    → LLM-Modelle (~3 GB)
+
+services:
+  app:
+    volumes:
+      - ${KOCHBUCH_DATA_DIR:?Set KOCHBUCH_DATA_DIR in .env}/db:/data/db
+      - ${KOCHBUCH_DATA_DIR}/images:/data/images
+    # Direkt-Zugriff im LAN: http://<nas-ip>:3000
+    ports:
+      - "3000:3000"
+
+  ollama:
+    volumes:
+      - ${KOCHBUCH_DATA_DIR}/ollama:/root/.ollama
+    # Ollama auf NAS sichtbar machen ist optional — auskommentieren falls
+    # du es manuell mit `ollama pull` von außerhalb nutzen willst.
+    # ports:
+    #   - "11434:11434"
+
+  # Kein Caddy in dieser LAN-only-Konfiguration
+  caddy:
+    profiles: ["disabled"]

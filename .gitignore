@@ -46,7 +46,16 @@ next-env.d.ts
 /uploads
 /data
 
+# E2E auth artifact (contains session cookie)
+/e2e/.auth.json
+
+# Image exports built by scripts/build-and-save.sh
+/kochbuch-image-*.tar.gz
+
 # editor
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Claude Code local working files
+/.claude/

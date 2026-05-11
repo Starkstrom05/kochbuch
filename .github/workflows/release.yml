@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/kochbuch
+
+jobs:
+  build-and-push:
+    name: Build Docker image + push to GHCR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # for GitHub Release
+      packages: write   # for GHCR push
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: ver
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          echo "version=$TAG"                       >> "$GITHUB_OUTPUT"
+          echo "major_minor=${TAG%.*}"              >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ steps.ver.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.ver.outputs.major_minor }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          build-args: |
+            KOCHBUCH_VERSION=${{ steps.ver.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          body: |
+            ## Update auf TrueNAS / Docker
+
+            ```bash
+            docker compose pull
+            docker compose up -d
+            ```
+
+            Das Entrypoint-Skript sichert die Datenbank automatisch vor der Migration.

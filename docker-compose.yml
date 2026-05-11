@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ghcr.io/jonas/kochbuch:${KOCHBUCH_VERSION:-dev}
+    image: ghcr.io/starkstrom05/kochbuch:${KOCHBUCH_VERSION:-dev}
     container_name: kochbuch-app
     restart: unless-stopped
     environment:
@@ -12,7 +12,7 @@ services:
       AUTH_URL: "${AUTH_URL:-http://localhost:3000}"
       AUTH_TRUST_HOST: "true"
       OLLAMA_BASE_URL: "http://ollama:11434"
-      OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3.1:8b-instruct-q4_K_M}"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-phi3:3.8b-mini-4k-instruct-q4_K_M}"
       UPLOAD_DIR: "/data/images"
       KOCHBUCH_VERSION: "${KOCHBUCH_VERSION:-dev}"
       TZ: "Europe/Berlin"
@@ -24,7 +24,7 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
-    mem_limit: 1g
+    mem_limit: 2g
 
   ollama:
     image: ollama/ollama:latest
@@ -41,7 +41,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
-    mem_limit: 7g
+    mem_limit: 8g
     # GPU optional — auskommentieren falls vorhanden
     # deploy:
     #   resources:

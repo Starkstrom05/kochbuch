@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Caveat, Kalam, Lora } from "next/font/google";
+import { InkFilters } from "@/components/oma/InkFilters";
+import { ServiceWorkerRegistrar } from "@/components/pwa/ServiceWorkerRegistrar";
 import "./globals.css";
 
 const caveat = Caveat({
@@ -27,6 +29,14 @@ export const metadata: Metadata = {
   title: "Omas Kochbuch",
   description: "Familien-Rezepte, liebevoll handgeschrieben",
   manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Kochbuch",
+  },
+  icons: {
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {
@@ -42,7 +52,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="de" className={`${caveat.variable} ${kalam.variable} ${lora.variable}`}>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <InkFilters />
+        <ServiceWorkerRegistrar />
+        {children}
+      </body>
     </html>
   );
 }
