@@ -2,12 +2,19 @@
 # --- Builder ---------------------------------------------------------------
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
+# openssl required by Prisma's query engine at install + runtime
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json* ./
 RUN npm ci --no-audit --no-fund
 
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
@@ -24,10 +31,10 @@ ENV NODE_ENV=production \
     PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Chromium fuer Puppeteer + Tesseract-Sprachdaten + minimale Build-Tools
+# Chromium fuer Puppeteer + openssl fuer Prisma + Build-Tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium fonts-liberation fonts-noto-color-emoji \
-    ca-certificates dumb-init wget \
+    openssl ca-certificates dumb-init wget \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --system --gid 1001 nodejs && \
