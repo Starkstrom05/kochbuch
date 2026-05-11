@@ -8,6 +8,7 @@ node_modules
 Dockerfile
 docker-compose*.yml
 docker/
+!docker/entrypoint.sh
 README.md
 CLAUDE.md
 *.log
