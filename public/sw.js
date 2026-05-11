@@ -1,7 +1,7 @@
 // Service Worker — Kochbuch PWA
 // Manual caching without Workbox (Turbopack-compatible)
 
-const CACHE_VER = "kochbuch-v1";
+const CACHE_VER = "kochbuch-v2";
 const STATIC_CACHE = `${CACHE_VER}-static`;
 const PAGE_CACHE = `${CACHE_VER}-pages`;
 const IMAGE_CACHE = `${CACHE_VER}-images`;
@@ -72,12 +72,18 @@ self.addEventListener("fetch", (event) => {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
+function isCacheable(response) {
+  // Don't cache redirects (e.g. 302 to /login from middleware) or
+  // opaqueredirect responses — they'd leak authed pages to logged-out users.
+  return response && response.ok && !response.redirected && response.type !== "opaqueredirect";
+}
+
 async function cacheFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
   if (cached) return cached;
   const response = await fetch(request);
-  if (response.ok) cache.put(request, response.clone());
+  if (isCacheable(response)) cache.put(request, response.clone());
   return response;
 }
 
@@ -87,7 +93,7 @@ async function staleWhileRevalidate(request, cacheName) {
 
   const fetchPromise = fetch(request)
     .then((response) => {
-      if (response.ok) cache.put(request, response.clone());
+      if (isCacheable(response)) cache.put(request, response.clone());
       return response;
     })
     .catch(() => cached);

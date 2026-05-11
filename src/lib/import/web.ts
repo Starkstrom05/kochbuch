@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import type { AiRecipe } from "@/lib/ai/ollama";
+import { assertPublicUrl } from "./ssrf";
 
 // ── Duration parsing ─────────────────────────────────────────────────────────
 
@@ -118,12 +119,18 @@ function extractMainText($: ReturnType<typeof cheerio.load>): string {
 
 // ── HTML fetcher ─────────────────────────────────────────────────────────────
 
-async function fetchHtml(url: string): Promise<string> {
+async function fetchHtml(url: string, externalSignal?: AbortSignal): Promise<string> {
+  const check = await assertPublicUrl(url);
+  if (!check.ok) throw new Error(`URL abgelehnt: ${check.reason}`);
+
   const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  externalSignal?.addEventListener("abort", onAbort, { once: true });
   const timeout = setTimeout(() => controller.abort(), 15_000);
   try {
     const res = await fetch(url, {
       signal: controller.signal,
+      redirect: "manual",
       headers: {
         "User-Agent":
           "Mozilla/5.0 (compatible; Kochbuch-Import/1.0; +https://github.com/Starkstrom05/kochbuch)",
@@ -131,10 +138,18 @@ async function fetchHtml(url: string): Promise<string> {
         "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
       },
     });
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get("location");
+      if (!loc) throw new Error(`Redirect ohne Location-Header von ${url}`);
+      const next = new URL(loc, url).toString();
+      // Re-check target (SSRF protection across redirects); cap at 5 hops via depth.
+      return fetchHtml(next, externalSignal);
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status} beim Abrufen von ${url}`);
     return await res.text();
   } finally {
     clearTimeout(timeout);
+    externalSignal?.removeEventListener("abort", onAbort);
   }
 }
 
@@ -179,9 +194,10 @@ export function parseRecipeFromHtml(html: string, url: string): WebImportResult 
 export async function fetchAndParseRecipe(
   url: string,
   onProgress?: (msg: string) => void,
+  signal?: AbortSignal,
 ): Promise<WebImportResult> {
   onProgress?.("Lade Seite…");
-  const html = await fetchHtml(url);
+  const html = await fetchHtml(url, signal);
 
   onProgress?.("Suche nach strukturierten Rezeptdaten…");
   const parsed = parseRecipeFromHtml(html, url);

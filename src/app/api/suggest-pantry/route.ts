@@ -1,40 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { suggestFromPantry } from "@/lib/ai/ollama";
+import { sseStream } from "@/lib/sse";
 
 export const maxDuration = 120;
-
-function sseStream(
-  work: (send: (event: string, data: unknown) => void) => Promise<void>,
-): Response {
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    async start(controller) {
-      const send = (event: string, data: unknown) => {
-        controller.enqueue(
-          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
-        );
-      };
-      try {
-        await work(send);
-      } catch (err) {
-        send("error", {
-          message: err instanceof Error ? err.message : "Unbekannter Fehler",
-        });
-      } finally {
-        controller.close();
-      }
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
-  });
-}
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -55,11 +24,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Keine Zutaten erkannt" }, { status: 400 });
   }
 
-  return sseStream(async (send) => {
+  return sseStream(req, async (send, signal) => {
     send("progress", {
       message: `${ingredients.length} Zutaten erkannt — frage Ollama (kann 30–60 s dauern)…`,
     });
-    const suggestions = await suggestFromPantry(ingredients);
+    const suggestions = await suggestFromPantry(ingredients, undefined, signal);
     send("result", { suggestions });
   });
 }

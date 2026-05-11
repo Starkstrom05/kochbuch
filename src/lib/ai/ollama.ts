@@ -29,8 +29,20 @@ export type AiRecipe = z.infer<typeof aiRecipeSchema>;
 
 // ── Low-level fetch ──────────────────────────────────────────────────────────
 
-async function ollamaChat(messages: { role: string; content: string }[]): Promise<string> {
+export class OllamaUnreachableError extends Error {
+  constructor() {
+    super("KI-Server (Ollama) ist nicht erreichbar");
+    this.name = "OllamaUnreachableError";
+  }
+}
+
+async function ollamaChat(
+  messages: { role: string; content: string }[],
+  externalSignal?: AbortSignal,
+): Promise<string> {
   const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  externalSignal?.addEventListener("abort", onAbort, { once: true });
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     const res = await fetch(`${BASE_URL}/api/chat`, {
@@ -50,6 +62,7 @@ async function ollamaChat(messages: { role: string; content: string }[]): Promis
     return data.message?.content ?? "";
   } finally {
     clearTimeout(timeout);
+    externalSignal?.removeEventListener("abort", onAbort);
   }
 }
 
@@ -89,17 +102,28 @@ function recipeUserPrompt(text: string, retry = false): string {
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
-export async function structureRecipeFromText(rawText: string): Promise<AiRecipe> {
+export async function structureRecipeFromText(
+  rawText: string,
+  signal?: AbortSignal,
+): Promise<AiRecipe> {
+  if (!(await checkOllamaHealth())) throw new OllamaUnreachableError();
+
   let lastError: unknown;
   for (let attempt = 0; attempt <= 2; attempt++) {
+    if (signal?.aborted) throw new Error("Abgebrochen");
     try {
-      const raw = await ollamaChat([
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: recipeUserPrompt(rawText, attempt > 0) },
-      ]);
+      const raw = await ollamaChat(
+        [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: recipeUserPrompt(rawText, attempt > 0) },
+        ],
+        signal,
+      );
       const parsed = JSON.parse(extractJson(raw));
       return aiRecipeSchema.parse(parsed);
     } catch (e) {
+      // Don't burn 90s retrying when caller aborted or Ollama gave up
+      if (signal?.aborted || (e instanceof Error && e.name === "AbortError")) throw e;
       lastError = e;
     }
   }
@@ -109,16 +133,22 @@ export async function structureRecipeFromText(rawText: string): Promise<AiRecipe
 export async function suggestFromPantry(
   ingredients: string[],
   onChunk?: (text: string) => void,
+  signal?: AbortSignal,
 ): Promise<string[]> {
+  if (!(await checkOllamaHealth())) throw new OllamaUnreachableError();
+
   const userPrompt = `Ich habe folgende Zutaten vorrätig: ${ingredients.join(", ")}.
 Schlage 3–5 Rezepte vor, die ich damit kochen könnte.
 Antworte als JSON: {"suggestions": ["Rezept 1", "Rezept 2"]}`;
 
   try {
-    const raw = await ollamaChat([
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: userPrompt },
-    ]);
+    const raw = await ollamaChat(
+      [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
+      signal,
+    );
     onChunk?.(raw);
     const parsed = JSON.parse(extractJson(raw)) as { suggestions?: string[] };
     return Array.isArray(parsed.suggestions) ? parsed.suggestions : [];

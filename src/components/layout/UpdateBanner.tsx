@@ -39,7 +39,7 @@ export async function UpdateBanner() {
       <strong className="font-semibold">{latest}</strong>{" "}
       ist verfügbar (aktuell: {current}).{" "}
       <a
-        href="https://github.com/jonas/kochbuch/releases/latest"
+        href="https://github.com/Starkstrom05/kochbuch/releases/latest"
         target="_blank"
         rel="noreferrer"
         className="text-ribbon underline underline-offset-2"
