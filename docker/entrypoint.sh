@@ -11,8 +11,9 @@ if [ -f "$DB_PATH" ]; then
   cp "$DB_PATH" "$BACKUP_DIR/pre-${VERSION}-${TS}.db" || true
 fi
 
-# Migrationen anwenden — direkter Pfad statt npx, damit kein Registry-Fetch
-# zur Laufzeit nötig ist
-/app/node_modules/.bin/prisma migrate deploy
+# Migrationen anwenden — direkter Pfad ins echte Script, damit der bundle
+# seine WASM-Datei via __dirname findet (.bin-Symlinks werden beim COPY
+# dereferenziert und brechen die Pfad-Auflösung).
+node /app/node_modules/prisma/build/index.js migrate deploy
 
 exec "$@"
