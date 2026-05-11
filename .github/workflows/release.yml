@@ -7,7 +7,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/kochbuch
 
 jobs:
   build-and-push:
@@ -20,6 +19,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Lowercase image name
+        id: img
+        run: |
+          OWNER_LC="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "name=${OWNER_LC}/kochbuch" >> "$GITHUB_OUTPUT"
 
       - name: Extract version from tag
         id: ver
@@ -45,9 +50,9 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ steps.ver.outputs.version }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.ver.outputs.major_minor }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ steps.img.outputs.name }}:v${{ steps.ver.outputs.version }}
+            ${{ env.REGISTRY }}/${{ steps.img.outputs.name }}:${{ steps.ver.outputs.major_minor }}
+            ${{ env.REGISTRY }}/${{ steps.img.outputs.name }}:latest
           build-args: |
             KOCHBUCH_VERSION=${{ steps.ver.outputs.version }}
           cache-from: type=gha
