@@ -11,7 +11,8 @@ if [ -f "$DB_PATH" ]; then
   cp "$DB_PATH" "$BACKUP_DIR/pre-${VERSION}-${TS}.db" || true
 fi
 
-# Migrationen anwenden
-npx prisma migrate deploy
+# Migrationen anwenden — direkter Pfad statt npx, damit kein Registry-Fetch
+# zur Laufzeit nötig ist
+/app/node_modules/.bin/prisma migrate deploy
 
 exec "$@"

@@ -28,7 +28,7 @@
 
 services:
   app:
-    image: ghcr.io/starkstrom05/kochbuch:v0.1.1
+    image: ghcr.io/starkstrom05/kochbuch:v0.1.2
     container_name: kochbuch-app
     restart: unless-stopped
     environment:
@@ -39,7 +39,7 @@ services:
       OLLAMA_BASE_URL: "http://ollama:11434"
       OLLAMA_MODEL: "phi3:3.8b-mini-4k-instruct-q4_K_M"
       UPLOAD_DIR: "/data/images"
-      KOCHBUCH_VERSION: "0.1.1"
+      KOCHBUCH_VERSION: "0.1.2"
       TZ: "Europe/Berlin"
     volumes:
       - /mnt/tank/apps/kochbuch/db:/data/db

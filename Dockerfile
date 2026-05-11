@@ -42,9 +42,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --system --gid 1001 nodejs && \
-    useradd --system --uid 1001 --gid nodejs nextjs && \
+    useradd --system --uid 1001 --gid nodejs --create-home --home-dir /home/nextjs nextjs && \
     mkdir -p /data/db /data/images /data/db/backups && \
-    chown -R nextjs:nodejs /data
+    chown -R nextjs:nodejs /data /home/nextjs
+
+ENV HOME=/home/nextjs
 
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
@@ -52,6 +54,15 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+# Prisma CLI (devDependency) and its engines — needed for `prisma migrate deploy`
+# in the entrypoint. Without these npx tries to hit the npm registry at runtime.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+# tsx and its deps — needed by the seed and import scripts run via
+# `docker exec ... npx tsx ...`
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/tsx ./node_modules/tsx
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin/tsx ./node_modules/.bin/tsx
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --chown=nextjs:nodejs docker/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
