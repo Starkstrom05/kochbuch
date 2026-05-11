@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-# --- Builder ---------------------------------------------------------------
+# --- Dev deps (for builder) -------------------------------------------------
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 # openssl required by Prisma's query engine at install + runtime
@@ -8,6 +8,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json* ./
 RUN npm ci --no-audit --no-fund
+
+# --- Prod deps (for runtime) ------------------------------------------------
+# Separate stage with only production dependencies. We copy this into the
+# runner so puppeteer/bcryptjs and their transitive deps (ws, chromium-bidi,
+# @puppeteer/browsers, ...) are guaranteed to be there, regardless of what
+# Next.js's standalone tracing did or didn't pick up.
+FROM node:20-bookworm-slim AS prod-deps
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+COPY package.json package-lock.json* ./
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+RUN npm ci --omit=dev --no-audit --no-fund
 
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
@@ -48,15 +62,18 @@ RUN groupadd --system --gid 1001 nodejs && \
 
 ENV HOME=/home/nextjs
 
+# Full production node_modules (puppeteer, bcryptjs, cheerio, sharp, ...)
+COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+# Next.js standalone build — overlays its tracing output on top, but the
+# important transitive deps are already covered by prod-deps above.
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
-# Prisma CLI + tsx (devDependencies) — needed for migrations and seed/import
-# scripts. Skip the .bin/ symlinks: COPY dereferences them, which breaks the
-# bundle's __dirname-relative WASM lookup. Call the real scripts directly.
+# DevDeps needed for migrate + seed/import scripts (called directly via node,
+# not via .bin/ symlinks because COPY dereferences them and breaks the
+# bundle's __dirname-relative WASM lookup for prisma's WASM file).
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/tsx ./node_modules/tsx
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/esbuild ./node_modules/esbuild
