@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { formatAmount } from "@/lib/units/fraction";
 
+export const dynamic = "force-dynamic";
+
 export default async function PrintRecipePage({
   params,
 }: {

@@ -18,6 +18,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
+# Build-time placeholder so prisma validates the schema; real DATABASE_URL
+# is injected at runtime by docker compose. No queries are run at build.
+ENV DATABASE_URL="file:./build-time-placeholder.db" \
+    AUTH_SECRET="build-time-only"
 RUN npm run build
 
 # --- Runtime ---------------------------------------------------------------

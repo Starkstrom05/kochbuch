@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { signIn } from "@/lib/auth/auth";
 import { auth } from "@/lib/auth/auth";
 
+export const dynamic = "force-dynamic";
+
 export default async function LoginPage({
   searchParams,
 }: {
