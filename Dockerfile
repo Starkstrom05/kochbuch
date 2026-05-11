@@ -60,6 +60,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modul
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/tsx ./node_modules/tsx
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/esbuild ./node_modules/esbuild
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@esbuild ./node_modules/@esbuild
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/get-tsconfig ./node_modules/get-tsconfig
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/resolve-pkg-maps ./node_modules/resolve-pkg-maps
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
