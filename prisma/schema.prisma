@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String
+  passwordHash  String
+  role          String         @default("MEMBER")
+  createdAt     DateTime       @default(now())
+  recipes       Recipe[]
+  ratings       Rating[]
+  shoppingLists ShoppingList[]
+  sessions      Session[]
+  accounts      Account[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Recipe {
+  id              String             @id @default(cuid())
+  title           String
+  slug            String             @unique
+  description     String?
+  servings        Int                @default(4)
+  prepMinutes     Int?
+  cookMinutes     Int?
+  difficulty      Int?
+  sourceUrl       String?
+  sourceType      String             @default("MANUAL")
+  instructions    String
+  notes           String?
+  coverImagePath  String?
+  handwrittenPath String?
+  isPublic        Boolean            @default(false)
+  shareToken      String?            @unique
+  tags            String?
+  createdById     String
+  createdBy       User               @relation(fields: [createdById], references: [id])
+  ingredients     RecipeIngredient[]
+  categories      CategoryOnRecipe[]
+  ratings         Rating[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([createdById])
+  @@index([title])
+}
+
+model Ingredient {
+  id        String             @id @default(cuid())
+  name      String             @unique
+  aliases   String?
+  category  String?
+  density   Float?
+  uses      RecipeIngredient[]
+}
+
+model RecipeIngredient {
+  id           String     @id @default(cuid())
+  recipeId     String
+  ingredientId String
+  amount       Float?
+  unit         String?
+  note         String?
+  group        String?
+  order        Int        @default(0)
+  recipe       Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@index([recipeId])
+}
+
+model Category {
+  id      String             @id @default(cuid())
+  name    String             @unique
+  icon    String?
+  recipes CategoryOnRecipe[]
+}
+
+model CategoryOnRecipe {
+  recipeId   String
+  categoryId String
+  recipe     Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([recipeId, categoryId])
+  @@index([categoryId])
+}
+
+model Rating {
+  id        String   @id @default(cuid())
+  recipeId  String
+  userId    String
+  stars     Int
+  comment   String?
+  createdAt DateTime @default(now())
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([recipeId, userId])
+}
+
+model ShoppingList {
+  id        String         @id @default(cuid())
+  name      String
+  ownerId   String
+  owner     User           @relation(fields: [ownerId], references: [id])
+  items     ShoppingItem[]
+  createdAt DateTime       @default(now())
+
+  @@index([ownerId])
+}
+
+model ShoppingItem {
+  id        String       @id @default(cuid())
+  listId    String
+  name      String
+  amount    Float?
+  unit      String?
+  checked   Boolean      @default(false)
+  recipeRef String?
+  list      ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@index([listId])
+}
+
+model AppMeta {
+  key   String @id
+  value String
+}

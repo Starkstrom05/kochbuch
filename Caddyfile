@@ -1,0 +1,15 @@
+{
+	# Globaler Block — bei lokalem LAN ohne oeffentliche Domain:
+	# auto_https off
+	email admin@example.com
+}
+
+# Production: durch eigene Domain ersetzen (Caddy holt sich automatisch ein TLS-Zertifikat via Let's Encrypt)
+kochbuch.example.com {
+	encode zstd gzip
+	reverse_proxy app:3000
+
+	# Uploads/Assets duerfen gecached werden
+	@static path /assets/* /_next/static/*
+	header @static Cache-Control "public, max-age=31536000, immutable"
+}
