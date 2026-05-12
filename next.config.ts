@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // LAN-Geraete (z.B. iPad) duerfen die Dev-HMR-Ressourcen abrufen. Greift
+  // nur im dev-Modus; in Production ist die App ohnehin host-gebunden.
+  allowedDevOrigins: ["192.168.188.55", "192.168.188.*"],
   images: {
     remotePatterns: [],
   },
