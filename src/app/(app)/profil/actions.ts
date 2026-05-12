@@ -1,10 +1,14 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
-import { changePasswordSchema } from "@/lib/schemas/profile";
+import {
+  changePasswordSchema,
+  createUserSchema,
+} from "@/lib/schemas/profile";
 
 export type ChangePasswordState =
   | { status: "idle" }
@@ -51,4 +55,83 @@ export async function changePasswordAction(
   // Invalidierung — Re-Login ist der pragmatische Weg.)
   await signOut({ redirect: false });
   redirect("/login?passwordChanged=1");
+}
+
+export type CreateUserState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | { status: "success"; message: string };
+
+export async function createUserAction(
+  _prev: CreateUserState,
+  formData: FormData,
+): Promise<CreateUserState> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { status: "error", message: "Nicht angemeldet" };
+  }
+  if (session.user.role !== "ADMIN") {
+    return { status: "error", message: "Nur Admins dürfen Benutzer anlegen" };
+  }
+
+  const parsed = createUserSchema.safeParse({
+    email: String(formData.get("email") ?? "").trim().toLowerCase(),
+    name: String(formData.get("name") ?? "").trim(),
+    password: String(formData.get("password") ?? ""),
+    role: String(formData.get("role") ?? "MEMBER"),
+  });
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: parsed.error.issues[0]?.message ?? "Ungültige Eingabe",
+    };
+  }
+
+  const existing = await prisma.user.findUnique({
+    where: { email: parsed.data.email },
+  });
+  if (existing) {
+    return { status: "error", message: "E-Mail ist bereits vergeben" };
+  }
+
+  const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+  await prisma.user.create({
+    data: {
+      email: parsed.data.email,
+      name: parsed.data.name,
+      role: parsed.data.role,
+      passwordHash,
+    },
+  });
+
+  revalidatePath("/profil");
+  return {
+    status: "success",
+    message: `Benutzer „${parsed.data.name}" angelegt`,
+  };
+}
+
+export async function deleteUserAction(targetId: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Nicht angemeldet");
+  if (session.user.role !== "ADMIN") throw new Error("Keine Berechtigung");
+  if (session.user.id === targetId) {
+    throw new Error("Du kannst dich nicht selbst löschen");
+  }
+  // Vor dem Löschen prüfen, dass mindestens ein Admin übrig bleibt.
+  const target = await prisma.user.findUnique({
+    where: { id: targetId },
+    select: { role: true },
+  });
+  if (!target) return;
+  if (target.role === "ADMIN") {
+    const otherAdmins = await prisma.user.count({
+      where: { role: "ADMIN", id: { not: targetId } },
+    });
+    if (otherAdmins === 0) {
+      throw new Error("Der letzte Admin kann nicht gelöscht werden");
+    }
+  }
+  await prisma.user.delete({ where: { id: targetId } });
+  revalidatePath("/profil");
 }
