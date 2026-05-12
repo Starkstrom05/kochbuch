@@ -36,7 +36,13 @@ export default async function RezeptePage({
         <div>
           <h1 className="font-hand text-6xl text-ink ink-text">Rezeptbuch</h1>
           <p className="font-written text-ink-faded">
-            Angemeldet als {session?.user?.name ?? session?.user?.email}
+            Angemeldet als{" "}
+            <Link
+              href="/profil"
+              className="underline decoration-dotted underline-offset-4 hover:text-ink"
+            >
+              {session?.user?.name ?? session?.user?.email}
+            </Link>
           </p>
         </div>
         <div className="flex items-center gap-4">
