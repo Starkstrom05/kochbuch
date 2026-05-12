@@ -24,7 +24,7 @@ export async function GET(
   }
 
   try {
-    const pdf = await renderPdf({ path: `/_print/recipe/${id}`, internal: true });
+    const pdf = await renderPdf({ path: `/print/recipe/${id}`, internal: true });
     const filename = recipe.title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")

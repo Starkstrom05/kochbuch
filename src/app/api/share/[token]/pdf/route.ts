@@ -16,7 +16,7 @@ export async function GET(
   if (!recipe) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
   try {
-    const pdf = await renderPdf({ path: `/_print/recipe/${recipe.id}`, internal: true });
+    const pdf = await renderPdf({ path: `/print/recipe/${recipe.id}`, internal: true });
     const filename = recipe.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 60);
     return new Response(pdf.buffer as ArrayBuffer, {
       headers: {

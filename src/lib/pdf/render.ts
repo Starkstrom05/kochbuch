@@ -13,7 +13,7 @@ function getInternalUrl(): string {
 }
 
 type RenderOptions = {
-  /** Relative path inside the app, e.g. "/_print/recipe/<id>" */
+  /** Relative path inside the app, e.g. "/print/recipe/<id>" */
   path: string;
   /** Whether the page requires the internal-only auth header */
   internal: boolean;
@@ -30,14 +30,14 @@ async function renderOne({ path, internal }: RenderOptions): Promise<Buffer> {
     if (internal && secret) {
       await page.setExtraHTTPHeaders({ "x-internal-token": secret });
     }
-    await page.setViewport({ width: 559, height: 794 }); // A5 @ 96 dpi
+    await page.setViewport({ width: 794, height: 1123 }); // A4 @ 96 dpi
 
     const url = `${getInternalUrl()}${path}`;
     await page.goto(url, { waitUntil: "networkidle0", timeout: 60_000 });
     await page.evaluateHandle("document.fonts.ready");
 
     const pdf = await page.pdf({
-      format: "A5",
+      format: "A4",
       printBackground: true,
       margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
     });
