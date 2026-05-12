@@ -1,8 +1,10 @@
-// Puppeteer runs Chromium — on a 4-core Celeron N5095 each instance is ~300-500 MB
-// and several in parallel will OOM the NAS. We serialize through a mutex so only
-// one PDF renders at a time, and guarantee browser.close() in finally.
+// Puppeteer runs Chromium — on a 4-core Celeron N5095 each instance is ~300-500 MB.
+// We serialise all Puppeteer-Jobs (PDF + Web-Import) through einen gemeinsamen
+// Mutex (siehe @/lib/puppeteer/queue). Browser-Lifecycle (launch vs. connect)
+// liegt in @/lib/puppeteer/browser.
 
-let queue: Promise<unknown> = Promise.resolve();
+import { runOnPuppeteer } from "@/lib/puppeteer/queue";
+import { withBrowser } from "@/lib/puppeteer/browser";
 
 function getInternalUrl(): string {
   if (process.env.APP_URL) return process.env.APP_URL;
@@ -23,20 +25,7 @@ async function renderOne({ path, internal }: RenderOptions): Promise<Buffer> {
     throw new Error("AUTH_SECRET nicht gesetzt — interner Print-Aufruf unmöglich");
   }
 
-  const puppeteer = await import("puppeteer");
-  const browser = await puppeteer.default.launch({
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-    ],
-    headless: true,
-    timeout: 30_000,
-  });
-
-  try {
+  return withBrowser(async (browser) => {
     const page = await browser.newPage();
     if (internal && secret) {
       await page.setExtraHTTPHeaders({ "x-internal-token": secret });
@@ -53,17 +42,13 @@ async function renderOne({ path, internal }: RenderOptions): Promise<Buffer> {
       margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
     });
     return Buffer.from(pdf);
-  } finally {
-    await browser.close().catch(() => {});
-  }
+  });
 }
 
 /**
- * Render a PDF, serialized through a global mutex so we never run two browsers
- * in parallel on the NAS.
+ * Render a PDF, serialized through the shared Puppeteer mutex so we never run
+ * two Chromium instances in parallel on the NAS.
  */
-export async function renderPdf(opts: RenderOptions): Promise<Buffer> {
-  const job = queue.then(() => renderOne(opts), () => renderOne(opts));
-  queue = job.catch(() => undefined);
-  return job;
+export function renderPdf(opts: RenderOptions): Promise<Buffer> {
+  return runOnPuppeteer(() => renderOne(opts));
 }
