@@ -18,7 +18,7 @@
 
 import * as cheerio from "cheerio";
 import { prisma } from "@/lib/db/prisma";
-import { processAndSaveCoverImage } from "@/lib/images/upload";
+import { downloadAndAttachCover } from "@/lib/recipes/cover";
 import { withBrowser } from "@/lib/puppeteer/browser";
 import { runOnPuppeteer } from "@/lib/puppeteer/queue";
 
@@ -85,21 +85,6 @@ async function fetchHtmlViaPuppeteer(url: string): Promise<string> {
   );
 }
 
-async function fetchImage(imageUrl: string): Promise<Buffer> {
-  const res = await fetch(imageUrl, {
-    headers: {
-      "User-Agent": UA,
-      Accept: "image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8",
-    },
-    signal: AbortSignal.timeout(20_000),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status} beim Laden des Bilds`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  if (buf.length < 1024) throw new Error("Bild verdächtig klein (<1 KB)");
-  if (buf.length > 20 * 1024 * 1024) throw new Error("Bild zu groß (>20 MB)");
-  return buf;
-}
-
 async function main() {
   console.log(`Cover-Backfill (max ${MAX_COUNT} Rezepte)\n`);
 
@@ -134,14 +119,8 @@ async function main() {
         failed++;
         continue;
       }
-      const absolute = new URL(imageUrl, r.sourceUrl).toString();
-      const buf = await fetchImage(absolute);
-      const { coverPath } = await processAndSaveCoverImage(buf, r.id);
-      await prisma.recipe.update({
-        where: { id: r.id },
-        data: { coverImagePath: coverPath },
-      });
-      console.log(`✓ ${coverPath} (${(buf.length / 1024).toFixed(0)} KB)`);
+      await downloadAndAttachCover(r.id, imageUrl, r.sourceUrl);
+      console.log(`✓`);
       ok++;
     } catch (err) {
       console.log(`✗ ${err instanceof Error ? err.message : err}`);

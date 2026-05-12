@@ -28,6 +28,9 @@ type Props = {
     tags: string;
     categoryIds: string[];
     ingredients: IngredientDraft[];
+    /** Optional: Bild-URL aus dem Web-Import. Wird beim Speichern serverseitig
+     *  heruntergeladen und als Cover gespeichert. */
+    imageUrl?: string | null;
   };
   submitLabel: string;
 };
@@ -56,6 +59,9 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
   return (
     <form action={action} className="space-y-8">
       <input type="hidden" name="sourceType" value={initial?.sourceType ?? "MANUAL"} />
+      {initial?.imageUrl ? (
+        <input type="hidden" name="imageUrl" value={initial.imageUrl} />
+      ) : null}
       <PaperSheet seed={initial?.id ?? "new"} className="p-6 sm:p-10">
         <div className="space-y-6">
           <label className="block">

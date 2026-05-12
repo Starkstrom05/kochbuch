@@ -8,6 +8,7 @@ import {
   updateRecipe as svUpdate,
   deleteRecipe as svDelete,
 } from "@/lib/recipes/server";
+import { downloadAndAttachCover } from "@/lib/recipes/cover";
 import { recipeInputSchema } from "@/lib/schemas/recipe";
 
 function parseIngredients(formData: FormData) {
@@ -59,6 +60,23 @@ export async function createRecipeAction(formData: FormData) {
   if (!session?.user) throw new Error("Nicht angemeldet");
   const input = buildInput(formData);
   const recipe = await svCreate(input, session.user.id);
+  if (!recipe) throw new Error("Rezept konnte nicht erstellt werden");
+
+  // Optional: Cover-URL aus dem Web-Import (RecipeEditor reicht sie als hidden
+  // input durch). Best-effort — Fehler beim Bild-Download dürfen den Save nicht
+  // verhindern, der User kann später scripts/backfill-covers.ts laufen lassen.
+  const imageUrl = String(formData.get("imageUrl") ?? "").trim();
+  if (imageUrl) {
+    try {
+      await downloadAndAttachCover(recipe.id, imageUrl, input.sourceUrl ?? undefined);
+    } catch (err) {
+      console.error(
+        `Cover-Download fuer ${recipe.id} fehlgeschlagen:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
   revalidatePath("/rezepte");
   redirect(`/rezepte/${recipe.slug}`);
 }

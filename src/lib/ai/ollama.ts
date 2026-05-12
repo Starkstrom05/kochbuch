@@ -23,6 +23,7 @@ export const aiRecipeSchema = z.object({
   ingredients: z.array(aiIngredientSchema).min(1),
   instructions: z.string().min(1),
   tags: z.array(z.string()).default([]),
+  imageUrl: z.string().nullable().optional(),
 });
 
 export type AiRecipe = z.infer<typeof aiRecipeSchema>;

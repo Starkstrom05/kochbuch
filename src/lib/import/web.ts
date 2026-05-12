@@ -83,6 +83,23 @@ function flattenInstructions(value: unknown): string[] {
   return [];
 }
 
+// image kann String, Array<String>, ImageObject {url} oder Array davon sein.
+function extractImageUrl(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    for (const v of value) {
+      const found = extractImageUrl(v);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (value && typeof value === "object") {
+    const url = (value as Record<string, unknown>).url;
+    if (typeof url === "string") return url;
+  }
+  return null;
+}
+
 function mapJsonLdToAiRecipe(ld: LdRecipe): AiRecipe {
   // Instructions
   const steps = flattenInstructions(ld.recipeInstructions);
@@ -120,6 +137,7 @@ function mapJsonLdToAiRecipe(ld: LdRecipe): AiRecipe {
     ingredients,
     instructions,
     tags,
+    imageUrl: extractImageUrl(ld.image),
   };
 }
 
