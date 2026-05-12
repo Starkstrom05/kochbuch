@@ -69,7 +69,6 @@ model Recipe {
   sourceType      String             @default("MANUAL")
   instructions    String
   notes           String?
-  coverImagePath  String?
   handwrittenPath String?
   isPublic        Boolean            @default(false)
   shareToken      String?            @unique
@@ -79,6 +78,7 @@ model Recipe {
   ingredients     RecipeIngredient[]
   categories      CategoryOnRecipe[]
   ratings         Rating[]
+  images          RecipeImage[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
@@ -86,6 +86,18 @@ model Recipe {
   @@index([title])
   @@index([sourceUrl])
   @@index([updatedAt])
+}
+
+model RecipeImage {
+  id        String   @id @default(cuid())
+  recipeId  String
+  path      String
+  order     Int      @default(0)
+  caption   String?
+  createdAt DateTime @default(now())
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([recipeId, order])
 }
 
 model Ingredient {
