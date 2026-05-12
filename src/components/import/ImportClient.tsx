@@ -170,7 +170,7 @@ export function ImportClient({ categories, createAction }: Props) {
         unit: ing.unit ?? "",
         note: ing.note ?? "",
       })),
-      imageUrl: draft.imageUrl ?? null,
+      imageUrls: draft.imageUrls ?? [],
     };
 
     return (
