@@ -103,7 +103,7 @@ export function ImportClient({ categories, createAction }: Props) {
       (msg) => setProgress((p) => [...p, msg]),
       ({ recipe, method }) => {
         setDraft(recipe);
-        setImportMethod(method ?? "ollama");
+        setImportMethod(method ?? "json-ld");
         setStep("editing");
       },
       (msg) => {

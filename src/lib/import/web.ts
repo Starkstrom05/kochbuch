@@ -1,5 +1,7 @@
 import * as cheerio from "cheerio";
 import type { AiRecipe } from "@/lib/ai/ollama";
+import { withBrowser } from "@/lib/puppeteer/browser";
+import { runOnPuppeteer } from "@/lib/puppeteer/queue";
 import { assertPublicUrl } from "./ssrf";
 
 // ── Duration parsing ─────────────────────────────────────────────────────────
@@ -110,11 +112,16 @@ function mapJsonLdToAiRecipe(ld: LdRecipe): AiRecipe {
   };
 }
 
-// ── Main text extractor (for Ollama fallback) ────────────────────────────────
+// ── Errors ───────────────────────────────────────────────────────────────────
 
-function extractMainText($: ReturnType<typeof cheerio.load>): string {
-  $("script, style, nav, footer, header, aside, [class*='cookie'], [class*='banner'], [class*='ad-']").remove();
-  return $("body").text().replace(/\s+/g, " ").trim().slice(0, 8000);
+export class NoStructuredRecipeError extends Error {
+  constructor(url: string) {
+    super(
+      `Auf ${url} wurden keine strukturierten Rezeptdaten (JSON-LD) gefunden. ` +
+        `Bitte das Rezept manuell eintragen oder eine andere Quelle nutzen.`,
+    );
+    this.name = "NoStructuredRecipeError";
+  }
 }
 
 // ── HTML fetcher ─────────────────────────────────────────────────────────────
@@ -153,12 +160,48 @@ async function fetchHtml(url: string, externalSignal?: AbortSignal): Promise<str
   }
 }
 
+// Cloudflare/JS-protected Sites (Chefkoch, Rewe, …) liefern auf einen simplen
+// fetch nur eine "Just a moment …"-Wartepage. Puppeteer rendert echtes HTML
+// inkl. JSON-LD, kostet aber auf dem NAS ~300–500 MB pro Instanz — deshalb
+// laufen alle Puppeteer-Jobs durch denselben Mutex wie der PDF-Renderer.
+const PUPPETEER_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36";
+
+async function fetchHtmlViaPuppeteer(
+  url: string,
+  externalSignal?: AbortSignal,
+): Promise<string> {
+  const check = await assertPublicUrl(url);
+  if (!check.ok) throw new Error(`URL abgelehnt: ${check.reason}`);
+
+  return runOnPuppeteer(async () => {
+    if (externalSignal?.aborted) throw new Error("Abgebrochen");
+    return withBrowser(async (browser) => {
+      const page = await browser.newPage();
+      await page.setUserAgent(PUPPETEER_UA);
+      await page.setExtraHTTPHeaders({ "Accept-Language": "de-DE,de;q=0.9" });
+      await page.setViewport({ width: 1280, height: 800 });
+      await page.evaluateOnNewDocument(() => {
+        Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+        Object.defineProperty(navigator, "languages", {
+          get: () => ["de-DE", "de", "en"],
+        });
+        Object.defineProperty(navigator, "plugins", { get: () => [1, 2, 3, 4, 5] });
+      });
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      // Cloudflare-Challenge kann ein paar Sekunden brauchen
+      await new Promise((r) => setTimeout(r, 3_000));
+      return await page.content();
+    });
+  });
+}
+
 // ── Public API ───────────────────────────────────────────────────────────────
 
 export type WebImportResult = {
   recipe: AiRecipe;
   sourceUrl: string;
-  method: "json-ld" | "ollama";
+  method: "json-ld";
 };
 
 export function parseRecipeFromHtml(html: string, url: string): WebImportResult | null {
@@ -203,11 +246,18 @@ export async function fetchAndParseRecipe(
   const parsed = parseRecipeFromHtml(html, url);
   if (parsed) return parsed;
 
-  // Ollama fallback
-  onProgress?.("Kein Schema gefunden — analysiere mit KI (kann 30–60 s dauern)…");
-  const { structureRecipeFromText } = await import("@/lib/ai/ollama");
-  const $ = cheerio.load(html);
-  const text = extractMainText($);
-  const recipe = await structureRecipeFromText(text);
-  return { recipe, sourceUrl: url, method: "ollama" };
+  // fetch lieferte kein JSON-LD. Das ist bei Cloudflare/JS-gerenderten Sites
+  // (Chefkoch, Rewe, …) der Normalfall — die Wartepage hat kein Schema. Mit
+  // Puppeteer noch einmal versuchen, diesmal mit echtem Browser.
+  if (signal?.aborted) throw new Error("Abgebrochen");
+  onProgress?.("Kein Schema im HTML — rendere Seite mit Browser (Puppeteer)…");
+  const rendered = await fetchHtmlViaPuppeteer(url, signal);
+
+  onProgress?.("Suche im gerenderten HTML nach Rezeptdaten…");
+  const parsedRendered = parseRecipeFromHtml(rendered, url);
+  if (parsedRendered) return parsedRendered;
+
+  // Auch nach JS-Rendering kein JSON-LD: aufgeben. KEIN Ollama-Fallback —
+  // siehe NoStructuredRecipeError-Kommentar und P1.1/P1.2.
+  throw new NoStructuredRecipeError(url);
 }
