@@ -45,6 +45,13 @@ async function ollamaChat(
   externalSignal?.addEventListener("abort", onAbort, { once: true });
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
+    // stream:true ist hier KRITISCH: bei stream:false antwortet Ollama erst,
+    // wenn die ganze Generation fertig ist — ein HTTP-Cancel des Clients schliesst
+    // dann nur die Connection, der Daemon rechnet aber weiter (in v0.1.8 auf dem
+    // Celeron 394 % CPU fuer ~10 min nach Skript-Abbruch). Mit stream:true merkt
+    // Ollama beim naechsten Chunk-Write, dass die Connection weg ist, und stoppt
+    // den Runner. num_predict:512 deckelt zusaetzlich; ein Rezept-JSON ist meist
+    // 200–400 Tokens, 512 sind komfortabel.
     const res = await fetch(`${BASE_URL}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -53,17 +60,38 @@ async function ollamaChat(
         model: OLLAMA_MODEL,
         messages,
         format: "json",
-        stream: false,
-        // num_predict deckelt die Token-Generierung hart. Ohne Limit (-1)
-        // ist phi3 auf CPU bei Cloudflare-Muell-Input in zyklische
-        // Generierung gefallen und hat den Runner bei 377 % CPU haengen
-        // lassen. 2048 reichen fuer ein realistisches Rezept-JSON.
-        options: { temperature: 0.1, num_ctx: 4096, num_predict: 2048 },
+        stream: true,
+        options: { temperature: 0.1, num_ctx: 4096, num_predict: 512 },
       }),
     });
     if (!res.ok) throw new Error(`Ollama HTTP ${res.status}: ${await res.text()}`);
-    const data = (await res.json()) as { message?: { content: string } };
-    return data.message?.content ?? "";
+    if (!res.body) throw new Error("Ollama: kein Response-Body");
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let content = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let nl: number;
+      while ((nl = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, nl).trim();
+        buffer = buffer.slice(nl + 1);
+        if (!line) continue;
+        try {
+          const obj = JSON.parse(line) as {
+            message?: { content?: string };
+            done?: boolean;
+          };
+          if (obj.message?.content) content += obj.message.content;
+        } catch {
+          // ignore malformed line
+        }
+      }
+    }
+    return content;
   } finally {
     clearTimeout(timeout);
     externalSignal?.removeEventListener("abort", onAbort);
