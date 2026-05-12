@@ -1,7 +1,12 @@
+// Legacy-Endpoint aus der Single-Cover-Zeit. Verhalten geaendert: laedt das
+// Bild als zusaetzliches RecipeImage an (order ans Ende). Der UI-Wechsel auf
+// Multi-Image-Editor (v0.2.0) braucht ihn nicht mehr — bleibt fuer eventuelle
+// Drittnutzer oder Skripte erhalten.
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
-import { processAndSaveCoverImage, MAX_UPLOAD_BYTES } from "@/lib/images/upload";
+import { MAX_UPLOAD_BYTES } from "@/lib/images/upload";
+import { addImageFromBuffer } from "@/lib/recipes/images";
 
 export async function POST(
   req: Request,
@@ -27,9 +32,6 @@ export async function POST(
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const { coverPath } = await processAndSaveCoverImage(buffer, id);
-
-  await prisma.recipe.update({ where: { id }, data: { coverImagePath: coverPath } });
-
-  return NextResponse.json({ coverPath });
+  const { path } = await addImageFromBuffer(id, buffer);
+  return NextResponse.json({ path });
 }

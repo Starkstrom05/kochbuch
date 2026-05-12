@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PaperSheet } from "@/components/oma/PaperSheet";
 
 type IngredientDraft = {
@@ -8,6 +8,15 @@ type IngredientDraft = {
   amount: string;
   unit: string;
   note: string;
+};
+
+type ExistingImage = { id: string; path: string };
+
+type NewImage = {
+  /** Stabile Local-ID fuer key/reorder, NICHT die DB-ID. */
+  localId: string;
+  file: File;
+  previewUrl: string;
 };
 
 type Props = {
@@ -28,9 +37,11 @@ type Props = {
     tags: string;
     categoryIds: string[];
     ingredients: IngredientDraft[];
-    /** Optional: Bild-URL aus dem Web-Import. Wird beim Speichern serverseitig
-     *  heruntergeladen und als Cover gespeichert. */
-    imageUrl?: string | null;
+    /** Bestehende Rezeptbilder (Edit-Mode), in DB-Reihenfolge. */
+    images?: ExistingImage[];
+    /** Bild-URLs aus dem Web-Import (Create-Mode). Werden beim Speichern
+     *  serverseitig heruntergeladen. */
+    imageUrls?: string[];
   };
   submitLabel: string;
 };
@@ -44,6 +55,79 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
     initial?.ingredients?.length ? initial.ingredients : [EMPTY_ING],
   );
 
+  // Bilder-Verwaltung:
+  //   - existing: bestehende DB-Bilder, in Reihenfolge bearbeitbar
+  //   - newImages: lokal ausgewaehlte Dateien (mit Object-URL fuer Preview)
+  //   - importedUrls: URLs aus dem Web-Import (Create-Mode), werden beim Save runtergeladen
+  const [existing, setExisting] = useState<ExistingImage[]>(initial?.images ?? []);
+  const [newImages, setNewImages] = useState<NewImage[]>([]);
+  const [importedUrls, setImportedUrls] = useState<string[]>(initial?.imageUrls ?? []);
+  const newIdCounter = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Object-URLs aufraeumen, damit Memory nicht leaked.
+  useEffect(() => {
+    return () => {
+      for (const img of newImages) URL.revokeObjectURL(img.previewUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function addNewFiles(fileList: FileList | null) {
+    if (!fileList) return;
+    const toAdd: NewImage[] = [];
+    for (const file of Array.from(fileList)) {
+      if (!file.type.startsWith("image/")) continue;
+      newIdCounter.current += 1;
+      toAdd.push({
+        localId: `new-${newIdCounter.current}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+      });
+    }
+    if (toAdd.length) setNewImages((prev) => [...prev, ...toAdd]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function removeExisting(id: string) {
+    setExisting((prev) => prev.filter((img) => img.id !== id));
+  }
+
+  function removeNew(localId: string) {
+    setNewImages((prev) => {
+      const target = prev.find((img) => img.localId === localId);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((img) => img.localId !== localId);
+    });
+  }
+
+  function removeImportedUrl(url: string) {
+    setImportedUrls((prev) => prev.filter((u) => u !== url));
+  }
+
+  function moveExisting(id: string, dir: -1 | 1) {
+    setExisting((prev) => {
+      const idx = prev.findIndex((img) => img.id === id);
+      const target = idx + dir;
+      if (idx === -1 || target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return next;
+    });
+  }
+
+  // Server Actions submitten die native FormData. Damit unsere im State
+  // gehaltenen new-Files mitgehen, halten wir einen versteckten <input
+  // type="file" name="newImage" multiple> synchron via DataTransfer.
+  const newFilesInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const input = newFilesInputRef.current;
+    if (!input || typeof DataTransfer === "undefined") return;
+    const dt = new DataTransfer();
+    for (const img of newImages) dt.items.add(img.file);
+    input.files = dt.files;
+  }, [newImages]);
+
   function updateIng(idx: number, patch: Partial<IngredientDraft>) {
     setIngredients((prev) => prev.map((ing, i) => (i === idx ? { ...ing, ...patch } : ing)));
   }
@@ -56,12 +140,154 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
     setIngredients((prev) => [...prev, EMPTY_ING]);
   }
 
+  const totalImages = existing.length + newImages.length + importedUrls.length;
+
   return (
     <form action={action} className="space-y-8">
       <input type="hidden" name="sourceType" value={initial?.sourceType ?? "MANUAL"} />
-      {initial?.imageUrl ? (
-        <input type="hidden" name="imageUrl" value={initial.imageUrl} />
-      ) : null}
+
+      {/* Bestehende Bilder, die behalten werden — in aktueller Reihenfolge. */}
+      {existing.map((img) => (
+        <input key={img.id} type="hidden" name="keepImageId" value={img.id} />
+      ))}
+
+      {/* Neue lokal ausgewaehlte Files. Sync via DataTransfer in useEffect. */}
+      <input
+        ref={newFilesInputRef}
+        type="file"
+        name="newImage"
+        multiple
+        accept="image/*"
+        className="hidden"
+        tabIndex={-1}
+        aria-hidden
+      />
+
+      {/* Bild-URLs aus Web-Import (Create-Mode). */}
+      {importedUrls.map((url) => (
+        <input key={url} type="hidden" name="imageUrl" value={url} />
+      ))}
+
+      <section className="paper-card p-4 sm:p-6">
+        <h2 className="mb-3 font-hand text-2xl text-ink">Bilder</h2>
+        {totalImages === 0 ? (
+          <p className="font-written text-sm text-ink-faded">
+            Keine Bilder. Das erste Bild ist automatisch das Cover.
+          </p>
+        ) : (
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {existing.map((img, i) => (
+              <li
+                key={img.id}
+                className="group relative aspect-[4/3] overflow-hidden rounded-sm ring-1 ring-paper-300"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/api/images${img.path}`}
+                  alt={`Bild ${i + 1}`}
+                  className="h-full w-full object-cover"
+                />
+                {i === 0 ? (
+                  <span className="absolute left-1 top-1 rounded-sm bg-ribbon px-1.5 py-0.5 font-hand text-xs text-paper-50">
+                    Cover
+                  </span>
+                ) : null}
+                <div className="absolute inset-x-1 bottom-1 flex justify-between gap-1 opacity-0 transition group-hover:opacity-100">
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => moveExisting(img.id, -1)}
+                      disabled={i === 0}
+                      className="rounded-sm bg-paper-50/90 px-1.5 py-0.5 font-hand text-sm shadow disabled:opacity-30"
+                      aria-label="Nach links"
+                    >
+                      ←
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveExisting(img.id, 1)}
+                      disabled={i === existing.length - 1}
+                      className="rounded-sm bg-paper-50/90 px-1.5 py-0.5 font-hand text-sm shadow disabled:opacity-30"
+                      aria-label="Nach rechts"
+                    >
+                      →
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeExisting(img.id)}
+                    className="rounded-sm bg-paper-50/90 px-1.5 py-0.5 font-hand text-sm text-ribbon shadow"
+                    aria-label="Bild entfernen"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </li>
+            ))}
+            {newImages.map((img, i) => (
+              <li
+                key={img.localId}
+                className="group relative aspect-[4/3] overflow-hidden rounded-sm ring-1 ring-sepia"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={img.previewUrl}
+                  alt={`Neues Bild ${i + 1}`}
+                  className="h-full w-full object-cover"
+                />
+                <span className="absolute left-1 top-1 rounded-sm bg-sepia px-1.5 py-0.5 font-hand text-xs text-paper-50">
+                  Neu
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeNew(img.localId)}
+                  className="absolute right-1 bottom-1 rounded-sm bg-paper-50/90 px-1.5 py-0.5 font-hand text-sm text-ribbon shadow opacity-0 transition group-hover:opacity-100"
+                  aria-label="Bild entfernen"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+            {importedUrls.map((url) => (
+              <li
+                key={url}
+                className="group relative aspect-[4/3] overflow-hidden rounded-sm ring-1 ring-sepia"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt="Importiertes Bild"
+                  className="h-full w-full object-cover"
+                />
+                <span className="absolute left-1 top-1 rounded-sm bg-sepia px-1.5 py-0.5 font-hand text-xs text-paper-50">
+                  Import
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeImportedUrl(url)}
+                  className="absolute right-1 bottom-1 rounded-sm bg-paper-50/90 px-1.5 py-0.5 font-hand text-sm text-ribbon shadow opacity-0 transition group-hover:opacity-100"
+                  aria-label="Bild entfernen"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="mt-3">
+          <label className="inline-block cursor-pointer rounded-sm bg-paper-200 px-4 py-1.5 font-hand text-base text-ink ring-1 ring-paper-300 hover:bg-paper-300/60">
+            + Bilder hinzufügen
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="sr-only"
+              onChange={(e) => addNewFiles(e.target.files)}
+            />
+          </label>
+        </div>
+      </section>
+
       <PaperSheet seed={initial?.id ?? "new"} className="p-6 sm:p-10">
         <div className="space-y-6">
           <label className="block">

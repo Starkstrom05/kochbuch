@@ -9,7 +9,7 @@ import { IngredientList } from "@/components/recipe/IngredientList";
 import { RatingPicker } from "@/components/recipe/RatingPicker";
 import { ShareToggle } from "@/components/recipe/ShareToggle";
 import Image from "next/image";
-import { CoverUploader } from "@/components/recipe/CoverUploader";
+import { RecipeGallery } from "@/components/recipe/RecipeGallery";
 import { deleteRecipeAction } from "../actions";
 import { addRecipeToListAction } from "../../einkaufsliste/actions";
 
@@ -74,10 +74,12 @@ export default async function RecipeDetailPage({
         ) : null}
       </header>
 
-      <CoverUploader
-        recipeId={recipe.id}
-        currentPath={recipe.coverImagePath ?? null}
-        isOwner={isOwner}
+      <RecipeGallery
+        images={recipe.images.map((img) => ({
+          id: img.id,
+          path: img.path,
+          caption: img.caption,
+        }))}
       />
 
       <PaperSheet seed={recipe.id} className="mt-4 p-8 sm:p-12">

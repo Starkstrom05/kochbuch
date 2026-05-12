@@ -148,6 +148,7 @@ export async function getRecipeBySlug(slug: string) {
       categories: { include: { category: true } },
       ratings: { include: { user: { select: { id: true, name: true } } } },
       createdBy: { select: { id: true, name: true } },
+      images: { orderBy: { order: "asc" } },
     },
   });
 }
@@ -158,6 +159,7 @@ export async function getRecipeByShareToken(token: string) {
     include: {
       ingredients: { include: { ingredient: true }, orderBy: { order: "asc" } },
       categories: { include: { category: true } },
+      images: { orderBy: { order: "asc" } },
     },
   });
 }

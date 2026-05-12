@@ -41,6 +41,7 @@ export default async function BearbeitenPage({
       unit: i.unit ?? "",
       note: i.note ?? "",
     })),
+    images: recipe.images.map((img) => ({ id: img.id, path: img.path })),
   };
 
   const action = updateRecipeAction.bind(null, recipe.id);

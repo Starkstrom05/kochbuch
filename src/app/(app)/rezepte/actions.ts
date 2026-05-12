@@ -8,7 +8,13 @@ import {
   updateRecipe as svUpdate,
   deleteRecipe as svDelete,
 } from "@/lib/recipes/server";
-import { downloadAndAttachCover } from "@/lib/recipes/cover";
+import {
+  addImageFromBuffer,
+  addImageFromUrl,
+  clearAllImages,
+  reconcileImages,
+} from "@/lib/recipes/images";
+import { MAX_UPLOAD_BYTES } from "@/lib/images/upload";
 import { recipeInputSchema } from "@/lib/schemas/recipe";
 
 function parseIngredients(formData: FormData) {
@@ -55,28 +61,73 @@ function buildInput(formData: FormData) {
   });
 }
 
+// Bilder-Handling aus FormData:
+//   - keepImageId[]:  IDs bestehender Bilder in gewuenschter Reihenfolge (Update)
+//   - newImage[]:     neu hochgeladene Dateien (multipart File-Inputs)
+//   - imageUrl[]:     URLs aus Web-Import (werden runtergeladen)
+//   - clearImages=1:  Sentinel: alle Bilder loeschen (nur beim Update relevant)
+// Beim Create gibt es noch keine existierenden Bilder; keepImageId wird ignoriert.
+// Fehler beim Bild-Upload werden geloggt, aber stoppen den Save nicht.
+async function processImagesFromFormData(
+  recipeId: string,
+  formData: FormData,
+  sourceUrl: string | null,
+  isUpdate: boolean,
+) {
+  if (isUpdate) {
+    if (formData.get("clearImages") === "1") {
+      await clearAllImages(recipeId);
+    } else {
+      const keepIds = formData
+        .getAll("keepImageId")
+        .map((v) => String(v))
+        .filter(Boolean);
+      await reconcileImages(recipeId, keepIds);
+    }
+  }
+
+  const newFiles = formData
+    .getAll("newImage")
+    .filter((v): v is File => v instanceof File && v.size > 0);
+  for (const file of newFiles) {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      console.error(`Bild-Upload fuer ${recipeId} abgelehnt: ${file.name} zu groß`);
+      continue;
+    }
+    try {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      await addImageFromBuffer(recipeId, buffer);
+    } catch (err) {
+      console.error(
+        `Bild-Upload fuer ${recipeId} fehlgeschlagen:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
+  const importUrls = formData
+    .getAll("imageUrl")
+    .map((v) => String(v).trim())
+    .filter(Boolean);
+  for (const url of importUrls) {
+    try {
+      await addImageFromUrl(recipeId, url, { baseUrl: sourceUrl ?? undefined });
+    } catch (err) {
+      console.error(
+        `Bild-Download fuer ${recipeId} fehlgeschlagen (${url}):`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+}
+
 export async function createRecipeAction(formData: FormData) {
   const session = await auth();
   if (!session?.user) throw new Error("Nicht angemeldet");
   const input = buildInput(formData);
   const recipe = await svCreate(input, session.user.id);
   if (!recipe) throw new Error("Rezept konnte nicht erstellt werden");
-
-  // Optional: Cover-URL aus dem Web-Import (RecipeEditor reicht sie als hidden
-  // input durch). Best-effort — Fehler beim Bild-Download dürfen den Save nicht
-  // verhindern, der User kann später scripts/backfill-covers.ts laufen lassen.
-  const imageUrl = String(formData.get("imageUrl") ?? "").trim();
-  if (imageUrl) {
-    try {
-      await downloadAndAttachCover(recipe.id, imageUrl, input.sourceUrl ?? undefined);
-    } catch (err) {
-      console.error(
-        `Cover-Download fuer ${recipe.id} fehlgeschlagen:`,
-        err instanceof Error ? err.message : err,
-      );
-    }
-  }
-
+  await processImagesFromFormData(recipe.id, formData, input.sourceUrl ?? null, false);
   revalidatePath("/rezepte");
   redirect(`/rezepte/${recipe.slug}`);
 }
@@ -86,6 +137,8 @@ export async function updateRecipeAction(id: string, formData: FormData) {
   if (!session?.user) throw new Error("Nicht angemeldet");
   const input = buildInput(formData);
   const recipe = await svUpdate(id, input, session.user.id);
+  if (!recipe) throw new Error("Rezept konnte nicht aktualisiert werden");
+  await processImagesFromFormData(recipe.id, formData, input.sourceUrl ?? null, true);
   revalidatePath("/rezepte");
   revalidatePath(`/rezepte/${recipe.slug}`);
   redirect(`/rezepte/${recipe.slug}`);
