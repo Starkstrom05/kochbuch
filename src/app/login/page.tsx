@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirect?: string; error?: string }>;
+  searchParams: Promise<{ redirect?: string; error?: string; passwordChanged?: string }>;
 }) {
   const session = await auth();
   const params = await searchParams;
@@ -26,6 +26,12 @@ export default async function LoginPage({
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6 py-12">
       <h1 className="font-hand text-5xl text-ink ink-text">Willkommen zurück</h1>
       <p className="mt-2 font-written text-ink-faded">Bitte melde dich an</p>
+
+      {params.passwordChanged ? (
+        <p className="mt-4 font-written text-sm text-ink" role="status">
+          Passwort geändert — bitte mit dem neuen Passwort anmelden.
+        </p>
+      ) : null}
 
       <form
         action={loginAction}
