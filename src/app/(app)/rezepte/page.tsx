@@ -7,7 +7,11 @@ import { HandwrittenStars } from "@/components/oma/HandwrittenStars";
 import { EmptyState } from "@/components/oma/EmptyState";
 import { UpdateBanner } from "@/components/layout/UpdateBanner";
 
-type SearchParams = Promise<{ q?: string; categoryId?: string }>;
+type SearchParams = Promise<{
+  q?: string;
+  categoryId?: string;
+  minStars?: string;
+}>;
 
 export default async function RezeptePage({
   searchParams,
@@ -15,15 +19,17 @@ export default async function RezeptePage({
   searchParams: SearchParams;
 }) {
   const session = await auth();
-  const { q, categoryId } = await searchParams;
+  const { q, categoryId, minStars: minStarsRaw } = await searchParams;
+  const minStars = minStarsRaw ? Number(minStarsRaw) : 0;
   const [recipes, categories] = await Promise.all([
-    searchRecipes({ q, categoryId }),
+    searchRecipes({ q, categoryId, minStars: minStars > 0 ? minStars : undefined }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   const bookQuery = new URLSearchParams();
   if (q) bookQuery.set("q", q);
   if (categoryId) bookQuery.set("categoryId", categoryId);
+  if (minStars > 0) bookQuery.set("minStars", String(minStars));
   const bookHref = bookQuery.toString() ? `/rezepte/buch?${bookQuery}` : "/rezepte/buch";
 
   return (
@@ -114,13 +120,28 @@ export default async function RezeptePage({
             ))}
           </select>
         </label>
+        <label>
+          <span className="font-written text-sm text-ink-faded">Bewertung</span>
+          <select
+            name="minStars"
+            defaultValue={minStars > 0 ? String(minStars) : ""}
+            className="mt-1 block border-b border-dotted border-ink-light bg-transparent font-serif text-ink outline-none"
+          >
+            <option value="">— alle —</option>
+            <option value="5">★★★★★ nur 5 Sterne</option>
+            <option value="4">★★★★ ab 4 Sterne</option>
+            <option value="3">★★★ ab 3 Sterne</option>
+            <option value="2">★★ ab 2 Sterne</option>
+            <option value="1">★ mit Bewertung</option>
+          </select>
+        </label>
         <button
           type="submit"
           className="rounded-sm bg-paper-200 px-4 py-2 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
         >
           Suchen
         </button>
-        {(q || categoryId) ? (
+        {(q || categoryId || minStars > 0) ? (
           <Link
             href="/rezepte"
             className="font-written text-sm text-ribbon underline underline-offset-4"
@@ -132,15 +153,19 @@ export default async function RezeptePage({
 
       {recipes.length === 0 ? (
         <EmptyState
-          illustration={q || categoryId ? "search" : "recipes"}
-          title={q || categoryId ? "Nichts gefunden." : "Noch keine Rezepte."}
+          illustration={q || categoryId || minStars > 0 ? "search" : "recipes"}
+          title={
+            q || categoryId || minStars > 0
+              ? "Nichts gefunden."
+              : "Noch keine Rezepte."
+          }
           description={
-            q || categoryId
-              ? "Versuch's mit anderen Suchbegriffen."
+            q || categoryId || minStars > 0
+              ? "Versuch's mit anderen Suchbegriffen oder Filtern."
               : "Lege dein erstes Rezept an — handschriftlich, oder einfach getippt."
           }
           action={
-            !q && !categoryId ? (
+            !q && !categoryId && minStars === 0 ? (
               <Link
                 href="/rezepte/neu"
                 className="inline-block rounded-sm bg-ribbon px-6 py-2 font-hand text-2xl text-paper-50 shadow-card"
