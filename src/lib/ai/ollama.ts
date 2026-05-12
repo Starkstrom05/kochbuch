@@ -54,7 +54,11 @@ async function ollamaChat(
         messages,
         format: "json",
         stream: false,
-        options: { temperature: 0.1, num_ctx: 4096 },
+        // num_predict deckelt die Token-Generierung hart. Ohne Limit (-1)
+        // ist phi3 auf CPU bei Cloudflare-Muell-Input in zyklische
+        // Generierung gefallen und hat den Runner bei 377 % CPU haengen
+        // lassen. 2048 reichen fuer ein realistisches Rezept-JSON.
+        options: { temperature: 0.1, num_ctx: 4096, num_predict: 2048 },
       }),
     });
     if (!res.ok) throw new Error(`Ollama HTTP ${res.status}: ${await res.text()}`);
