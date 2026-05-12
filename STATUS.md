@@ -1,6 +1,19 @@
 # Kochbuch — Session-Status
 
-**Stand:** Mai 2026, nach v0.1.8-Arbeit (in Vorbereitung)
+**Stand:** Mai 2026, v0.1.9 fixt verbleibenden Ollama-Runaway aus v0.1.8
+
+## v0.1.9 Hotfix
+
+v0.1.8 hat den Ollama-Hänger nur teilweise behoben. Live-Test mit
+`scripts/repro-ollama-runaway.ts` auf dem NAS zeigte: nach Client-Abort
+nach 90 s blieb der Ollama-Daemon weiter bei 394 % CPU für ~10 min.
+Ursache: `stream: false` — Ollama antwortet erst nach kompletter
+Generation, HTTP-Close vom Client schließt nur die Connection, der
+Inferenz-Loop läuft aber bis num_predict erreicht ist.
+
+Fix in v0.1.9: `stream: true` (Server merkt Connection-Close beim
+nächsten Chunk-Write und stoppt sofort) + `num_predict: 512` (statt
+2048 — ein Rezept-JSON braucht 200–400 Tokens, 512 sind komfortabel).
 
 ## Was steht
 
