@@ -102,6 +102,45 @@ describe("parseRecipeFromHtml", () => {
     expect(result!.recipe.instructions).toContain("2. Ketchup");
   });
 
+  it("extrahiert image-URL (String)", () => {
+    const html = htmlWithLd({
+      "@type": "Recipe",
+      name: "Mit Bild",
+      recipeIngredient: ["1 Zutat"],
+      recipeInstructions: "Schritt 1 dies und das.",
+      image: "https://example.com/bild.jpg",
+    });
+    expect(parseRecipeFromHtml(html, URL)?.recipe.imageUrl).toBe(
+      "https://example.com/bild.jpg",
+    );
+  });
+
+  it("extrahiert image-URL aus ImageObject", () => {
+    const html = htmlWithLd({
+      "@type": "Recipe",
+      name: "Mit Bild-Objekt",
+      recipeIngredient: ["1 Zutat"],
+      recipeInstructions: "Schritt 1 dies und das.",
+      image: { "@type": "ImageObject", url: "https://example.com/cover.jpg" },
+    });
+    expect(parseRecipeFromHtml(html, URL)?.recipe.imageUrl).toBe(
+      "https://example.com/cover.jpg",
+    );
+  });
+
+  it("extrahiert erste image-URL aus Array", () => {
+    const html = htmlWithLd({
+      "@type": "Recipe",
+      name: "Mit Bild-Array",
+      recipeIngredient: ["1 Zutat"],
+      recipeInstructions: "Schritt 1 dies und das.",
+      image: ["https://example.com/large.jpg", "https://example.com/small.jpg"],
+    });
+    expect(parseRecipeFromHtml(html, URL)?.recipe.imageUrl).toBe(
+      "https://example.com/large.jpg",
+    );
+  });
+
   it("liest mehrere HowToSections nacheinander", () => {
     const html = htmlWithLd({
       "@type": "Recipe",
