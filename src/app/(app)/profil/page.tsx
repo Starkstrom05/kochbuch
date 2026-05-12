@@ -1,11 +1,22 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
+import { prisma } from "@/lib/db/prisma";
 import { ChangePasswordForm } from "./ChangePasswordForm";
+import { CreateUserForm } from "./CreateUserForm";
+import { UserList } from "./UserList";
 
 export default async function ProfilPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
+
+  const isAdmin = session.user.role === "ADMIN";
+  const users = isAdmin
+    ? await prisma.user.findMany({
+        select: { id: true, email: true, name: true, role: true, createdAt: true },
+        orderBy: { createdAt: "asc" },
+      })
+    : [];
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-10">
@@ -20,10 +31,24 @@ export default async function ProfilPage() {
         <p className="font-written text-ink-faded">
           {session.user.name ? `${session.user.name} · ` : ""}
           {session.user.email}
+          {isAdmin ? (
+            <span className="ml-2 rounded-sm bg-ribbon/20 px-2 py-0.5 font-written text-xs text-ribbon">
+              Admin
+            </span>
+          ) : null}
         </p>
       </header>
 
-      <ChangePasswordForm />
+      <div className="space-y-8">
+        <ChangePasswordForm />
+
+        {isAdmin ? (
+          <>
+            <UserList users={users} currentUserId={session.user.id} />
+            <CreateUserForm />
+          </>
+        ) : null}
+      </div>
     </main>
   );
 }

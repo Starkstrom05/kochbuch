@@ -1,4 +1,14 @@
 import { z } from "zod";
+import { ROLES } from "@/lib/db/enums";
+
+export const createUserSchema = z.object({
+  email: z.string().email("Bitte eine gültige E-Mail eingeben").max(200),
+  name: z.string().min(1, "Name fehlt").max(80),
+  password: z.string().min(8, "Passwort braucht mindestens 8 Zeichen").max(200),
+  role: z.enum(ROLES).default("MEMBER"),
+});
+
+export type CreateUserInput = z.infer<typeof createUserSchema>;
 
 export const changePasswordSchema = z
   .object({
