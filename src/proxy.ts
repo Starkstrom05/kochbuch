@@ -18,12 +18,19 @@ export default auth((req) => {
   if (PUBLIC_PATHS.includes(pathname)) return NextResponse.next();
   if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) return NextResponse.next();
 
-  // /_print/* is rendered by Puppeteer; require a secret header so it can't
-  // be hit from the outside even if someone guesses a recipe ID.
-  if (pathname.startsWith("/_print/")) {
+  // Puppeteer rendert /print/* und laedt waehrenddessen auch Bilder via
+  // /api/images/*. Beide Pfade akzeptieren den AUTH_SECRET-Token als
+  // Internal-Bypass — von aussen nicht erratbar.
+  const isInternalPath =
+    pathname.startsWith("/print/") || pathname.startsWith("/api/images/");
+  if (isInternalPath) {
     const token = req.headers.get("x-internal-token");
     if (token && token === process.env.AUTH_SECRET) return NextResponse.next();
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // Fuer /api/images/* fallen wir zurueck auf die Standard-Auth-Pruefung
+    // (Session-User darf eigene Bilder sehen), fuer /print/* nicht.
+    if (pathname.startsWith("/print/")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
   }
 
   if (!req.auth) {
