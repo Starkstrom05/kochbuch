@@ -26,6 +26,7 @@ export default async function RezepteBuchPage({
     include: {
       ingredients: { include: { ingredient: true }, orderBy: { order: "asc" } },
       ratings: { select: { stars: true } },
+      images: { orderBy: { order: "asc" }, select: { path: true } },
     },
   });
   const byId = new Map(detailed.map((r) => [r.id, r]));
@@ -42,7 +43,7 @@ export default async function RezepteBuchPage({
       prepMinutes: r.prepMinutes,
       cookMinutes: r.cookMinutes,
       instructions: r.instructions,
-      coverImagePath: r.coverImagePath,
+      imagePaths: r.images.map((img) => img.path),
       tags: r.tags,
       ingredients: r.ingredients.map((ri) => ({
         amount: ri.amount,
