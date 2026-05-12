@@ -63,23 +63,34 @@ function parseIngredientString(raw: string): AiRecipe["ingredients"][number] {
 
 type LdRecipe = Record<string, unknown>;
 
+// recipeInstructions kann sein:
+//   - String ("Schritt 1. Tu dies. Schritt 2. Tu das.")
+//   - Array<string>
+//   - Array<HowToStep> mit {text|name}
+//   - Array<HowToSection> mit {itemListElement: Array<HowToStep>}  ← Chefkoch
+// flattenInstructions normalisiert das alles zu einem Array von Strings.
+function flattenInstructions(value: unknown): string[] {
+  if (typeof value === "string") return value.trim() ? [value] : [];
+  if (Array.isArray(value)) return value.flatMap(flattenInstructions);
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    if (obj["@type"] === "HowToSection") {
+      return flattenInstructions(obj.itemListElement);
+    }
+    if (typeof obj.text === "string" && obj.text.trim()) return [obj.text];
+    if (typeof obj.name === "string" && obj.name.trim()) return [obj.name];
+  }
+  return [];
+}
+
 function mapJsonLdToAiRecipe(ld: LdRecipe): AiRecipe {
   // Instructions
-  const rawInstructions = ld.recipeInstructions;
-  let instructions = "";
-  if (Array.isArray(rawInstructions)) {
-    instructions = rawInstructions
-      .map((step, i) => {
-        const text =
-          typeof step === "string"
-            ? step
-            : (step as Record<string, string>)?.text ?? String(step);
-        return `${i + 1}. ${text.trim()}`;
-      })
-      .join("\n");
-  } else if (typeof rawInstructions === "string") {
-    instructions = rawInstructions;
-  }
+  const steps = flattenInstructions(ld.recipeInstructions);
+  const instructions = steps.length
+    ? steps.map((step, i) => `${i + 1}. ${step.trim()}`).join("\n")
+    : typeof ld.recipeInstructions === "string"
+      ? ld.recipeInstructions
+      : "";
 
   // Ingredients
   const rawIngredients = Array.isArray(ld.recipeIngredient)

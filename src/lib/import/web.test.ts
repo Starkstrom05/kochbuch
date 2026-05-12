@@ -72,4 +72,60 @@ describe("parseRecipeFromHtml", () => {
     const html = htmlWithLd({ "@type": "Article", headline: "kein Rezept" });
     expect(parseRecipeFromHtml(html, URL)).toBeNull();
   });
+
+  it("liest Chefkoch-Style HowToSection mit verschachteltem itemListElement", () => {
+    const html = htmlWithLd({
+      "@type": "Recipe",
+      name: "American Burger Sauce",
+      recipeIngredient: ["1 Eigelb", "1 EL Essig", "125 ml Sonnenblumenöl"],
+      recipeInstructions: [
+        {
+          "@type": "HowToSection",
+          name: "Zubereitung",
+          itemListElement: [
+            {
+              "@type": "HowToStep",
+              text: "Eigelb, Essig, Senf und Zucker ein paar Sekunden verquirlen.",
+            },
+            {
+              "@type": "HowToStep",
+              text: "Ketchup mit der Metzgerzwiebel und Gurke pürieren.",
+            },
+          ],
+        },
+      ],
+    });
+    const result = parseRecipeFromHtml(html, URL);
+    expect(result).not.toBeNull();
+    expect(result!.recipe.title).toBe("American Burger Sauce");
+    expect(result!.recipe.instructions).toContain("1. Eigelb, Essig");
+    expect(result!.recipe.instructions).toContain("2. Ketchup");
+  });
+
+  it("liest mehrere HowToSections nacheinander", () => {
+    const html = htmlWithLd({
+      "@type": "Recipe",
+      name: "Mehrgang-Menü",
+      recipeIngredient: ["Zutat A"],
+      recipeInstructions: [
+        {
+          "@type": "HowToSection",
+          name: "Vorspeise",
+          itemListElement: [
+            { "@type": "HowToStep", text: "Schnippeln." },
+          ],
+        },
+        {
+          "@type": "HowToSection",
+          name: "Hauptgang",
+          itemListElement: [
+            { "@type": "HowToStep", text: "Braten ganz lange auf hoher Hitze." },
+          ],
+        },
+      ],
+    });
+    const result = parseRecipeFromHtml(html, URL);
+    expect(result?.recipe.instructions).toContain("1. Schnippeln");
+    expect(result?.recipe.instructions).toContain("2. Braten");
+  });
 });
