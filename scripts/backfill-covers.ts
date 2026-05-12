@@ -1,12 +1,12 @@
 /**
- * Backfill cover images for recipes that were imported via the Rewe-Massen-Skript
- * (v0.1.7) and have a sourceUrl but no coverImagePath.
+ * Backfill recipe images for recipes that were imported via the Rewe-Massen-Skript
+ * (v0.1.7) and have a sourceUrl but no images.
  *
  * Strategie:
  *   1. Recipe.sourceUrl mit Puppeteer öffnen (Cloudflare-fähig)
  *   2. JSON-LD-Blöcke nach image-URL durchsuchen
  *   3. Bild herunterladen, via sharp resizen (cover + thumb), in UPLOAD_DIR
- *   4. coverImagePath in DB setzen
+ *   4. RecipeImage-Eintrag anlegen (order 0)
  *
  * Nutzung:
  *   UPLOAD_DIR=./uploads npx tsx scripts/backfill-covers.ts [maxCount]
@@ -18,7 +18,7 @@
 
 import * as cheerio from "cheerio";
 import { prisma } from "@/lib/db/prisma";
-import { downloadAndAttachCover } from "@/lib/recipes/cover";
+import { addImageFromUrl } from "@/lib/recipes/images";
 import { withBrowser } from "@/lib/puppeteer/browser";
 import { runOnPuppeteer } from "@/lib/puppeteer/queue";
 
@@ -90,7 +90,7 @@ async function main() {
 
   const todo = await prisma.recipe.findMany({
     where: {
-      coverImagePath: null,
+      images: { none: {} },
       sourceUrl: { not: null },
     },
     select: { id: true, title: true, sourceUrl: true },
@@ -98,12 +98,12 @@ async function main() {
   });
 
   if (todo.length === 0) {
-    console.log("Nichts zu tun — alle Rezepte haben bereits Cover oder keine sourceUrl.");
+    console.log("Nichts zu tun — alle Rezepte haben bereits Bilder oder keine sourceUrl.");
     await prisma.$disconnect();
     return;
   }
 
-  console.log(`${todo.length} Rezept(e) ohne Cover.\n`);
+  console.log(`${todo.length} Rezept(e) ohne Bilder.\n`);
 
   let ok = 0;
   let failed = 0;
@@ -119,7 +119,7 @@ async function main() {
         failed++;
         continue;
       }
-      await downloadAndAttachCover(r.id, imageUrl, r.sourceUrl);
+      await addImageFromUrl(r.id, imageUrl, { baseUrl: r.sourceUrl });
       console.log(`✓`);
       ok++;
     } catch (err) {

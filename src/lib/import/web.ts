@@ -84,20 +84,30 @@ function flattenInstructions(value: unknown): string[] {
 }
 
 // image kann String, Array<String>, ImageObject {url} oder Array davon sein.
-function extractImageUrl(value: unknown): string | null {
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) {
-    for (const v of value) {
-      const found = extractImageUrl(v);
-      if (found) return found;
+// Wir sammeln ALLE gefundenen URLs (mit Deduplizierung), nicht nur die erste.
+function extractImageUrls(value: unknown): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const visit = (v: unknown) => {
+    if (typeof v === "string") {
+      const trimmed = v.trim();
+      if (trimmed && !seen.has(trimmed)) {
+        seen.add(trimmed);
+        out.push(trimmed);
+      }
+      return;
     }
-    return null;
-  }
-  if (value && typeof value === "object") {
-    const url = (value as Record<string, unknown>).url;
-    if (typeof url === "string") return url;
-  }
-  return null;
+    if (Array.isArray(v)) {
+      for (const item of v) visit(item);
+      return;
+    }
+    if (v && typeof v === "object") {
+      const url = (v as Record<string, unknown>).url;
+      if (typeof url === "string") visit(url);
+    }
+  };
+  visit(value);
+  return out;
 }
 
 function mapJsonLdToAiRecipe(ld: LdRecipe): AiRecipe {
@@ -137,7 +147,7 @@ function mapJsonLdToAiRecipe(ld: LdRecipe): AiRecipe {
     ingredients,
     instructions,
     tags,
-    imageUrl: extractImageUrl(ld.image),
+    imageUrls: extractImageUrls(ld.image),
   };
 }
 
