@@ -1,0 +1,51 @@
+# Puppeteer-Sidecar-Overlay
+#
+# Verschiebt Chromium aus dem App-Image in einen eigenen Browserless-Container.
+# Vorteile:
+#   - App-Image ohne Chromium ist ~600–700 MB statt ~1.2 GB
+#   - Browserless verwaltet Browser-Pool sauberer (kein OOM auf Celeron)
+#   - PDF-/Import-Hänger crashen nur Browserless, nicht die App
+#
+# Nutzung:
+#   1. .env-Datei ergänzen: BROWSERLESS_TOKEN=<openssl rand -hex 16>
+#   2. starten:
+#        docker compose -f docker-compose.yml -f docker-compose.sidecar.yml up -d
+#      oder auf TrueNAS docker-compose.truenas-sidecar.yml als Custom-App nehmen.
+#
+# Achtung: Wenn PUPPETEER_WS_URL gesetzt ist, ruft die App `puppeteer.connect()`.
+# Die App muss dafür NICHT Chromium installiert haben — ist der WS-URL falsch
+# oder Browserless down, schlagen PDF/Import sauber fehl (kein silent-Fallback
+# auf lokales Launch).
+
+services:
+  app:
+    environment:
+      # Achtung: ${BROWSERLESS_TOKEN} MUSS in .env oder als Shell-env gesetzt sein.
+      PUPPETEER_WS_URL: "ws://browserless:3000?token=${BROWSERLESS_TOKEN}"
+      # Browserless laeuft in eigenem Container, dort ist `localhost` nicht
+      # die App. PDF-Render braucht den Container-Hostnamen.
+      APP_URL: "http://app:3000"
+    depends_on:
+      browserless:
+        condition: service_healthy
+
+  browserless:
+    image: ghcr.io/browserless/chromium:latest
+    container_name: kochbuch-browserless
+    restart: unless-stopped
+    environment:
+      TOKEN: "${BROWSERLESS_TOKEN}"
+      # Auf dem Celeron N5095 lieber einer nach dem anderen — die App
+      # serialisiert ohnehin via Mutex, hier doppelt absichern.
+      CONCURRENT: "1"
+      QUEUED: "5"
+      TIMEOUT: "60000"
+      # Browser-Args werden via DEFAULT_LAUNCH_ARGS injiziert
+      DEFAULT_LAUNCH_ARGS: '["--no-sandbox","--disable-dev-shm-usage","--disable-gpu"]'
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/?token=$${TOKEN} || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s

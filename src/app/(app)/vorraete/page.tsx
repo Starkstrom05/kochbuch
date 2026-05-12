@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { EmptyState } from "@/components/oma/EmptyState";
 
 type Step = "idle" | "loading" | "done";
 
@@ -159,14 +160,20 @@ export default function VorraetePage() {
       )}
 
       {step === "done" && suggestions.length === 0 && (
-        <div className="mt-8 text-center">
-          <p className="font-hand text-2xl text-ink-faded">Keine Vorschläge gefunden.</p>
-          <button
-            onClick={() => setStep("idle")}
-            className="mt-4 font-written text-sm text-ribbon underline underline-offset-4"
-          >
-            Nochmal versuchen
-          </button>
+        <div className="mt-8">
+          <EmptyState
+            illustration="pantry"
+            title="Keine Vorschläge gefunden."
+            description="Versuch's mit anderen oder mehr Zutaten — Oma braucht ein paar mehr Anhaltspunkte."
+            action={
+              <button
+                onClick={() => setStep("idle")}
+                className="rounded-sm bg-ribbon px-6 py-2 font-hand text-2xl text-paper-50 shadow-card hover:rotate-[-0.5deg]"
+              >
+                Nochmal versuchen
+              </button>
+            }
+          />
         </div>
       )}
     </main>
