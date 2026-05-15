@@ -30,9 +30,33 @@ npm run dev
 
 Dann <http://localhost:3000> oeffnen.
 
-## Deployment auf TrueNAS
+## Deployment auf TrueNAS Scale
 
-Siehe `docs/deployment.md` (folgt nach Phase 6).
+Zwei Wege, je nachdem ob du KI-Features brauchst:
+
+### Wizard-Modus — Single-Container, schnell, ohne KI
+
+```bash
+bash scripts/wizard-fields.sh
+```
+
+Gibt alle Werte aus, die du in **Apps → Custom App → Wizard** einträgst.
+Kein YAML, nur Formularfelder. Web-Import funktioniert für strukturierte
+Sites; KI-Fallback und Rezept-Vorschläge fallen weg.
+
+Anleitung: [`docs/INSTALL-TRUENAS-WIZARD.md`](docs/INSTALL-TRUENAS-WIZARD.md).
+
+### YAML-Modus — Multi-Container mit Ollama, voller Funktionsumfang
+
+```bash
+bash scripts/install-truenas.sh -o kochbuch-truenas.yml
+```
+
+Erzeugt fertige Compose-YAML, die du unter **Apps → Custom App → Install
+via YAML** einfügst. Init-Containers übernehmen Migration, Seed und
+Ollama-Modell-Pull automatisch.
+
+Anleitung: [`docs/INSTALL-TRUENAS.md`](docs/INSTALL-TRUENAS.md).
 
 ## Status
 

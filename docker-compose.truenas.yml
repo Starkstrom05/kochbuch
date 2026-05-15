@@ -1,54 +1,97 @@
-# Kochbuch — TrueNAS Scale Custom App (Electric Eel +)
+# =============================================================================
+# Kochbuch — TrueNAS Scale Custom App  (Electric Eel +)
+# =============================================================================
 #
-# Image wird aus GitHub Container Registry gepullt — kein lokales Bauen nötig.
-# Fertig zum Einfügen in: Apps → Discover → Custom App
+# Fertig zum Einfügen in:  Apps → Discover → Custom App → "Install via YAML"
 #
-# VORBEREITUNG (einmalig):
-#   1. ZFS-Datasets anlegen (TrueNAS UI):
-#        /mnt/<pool>/apps/kochbuch/db
-#        /mnt/<pool>/apps/kochbuch/images
-#        /mnt/<pool>/apps/kochbuch/ollama
+# Du musst drei Platzhalter ersetzen (Suchen & Ersetzen über die ganze Datei):
 #
-#   2. AUTH_SECRET generieren (auf deinem Laptop):
-#        openssl rand -base64 32
-#      Den Wert unten in services.app.environment.AUTH_SECRET einsetzen.
+#   <POOL>         → dein TrueNAS-Pool-Name (z.B. nvmedata, tank)
+#   <NAS-IP>       → LAN-IP deines NAS    (z.B. 192.168.178.42)
+#   <AUTH_SECRET>  → per `openssl rand -base64 32` erzeugen
 #
-#   3. Drei Anpassungen unten:
-#      - Pfad "/mnt/tank/apps/kochbuch" → dein Pool-Pfad
-#      - "<nas-ip>" → die LAN-IP deines NAS
-#      - "REPLACE_WITH_..." → das generierte AUTH_SECRET
+# Tipp: Lass `scripts/install-truenas.sh` lokal laufen — das Skript fragt die
+# Werte ab, generiert AUTH_SECRET und gibt eine fertige Datei zurück.
 #
-# NACH DEM ERSTEN START (TrueNAS App → Shell):
-#   docker exec -it kochbuch-app npx tsx prisma/seed.ts
-#   docker exec -it kochbuch-ollama ollama pull phi3:3.8b-mini-4k-instruct-q4_K_M
+# -----------------------------------------------------------------------------
+# Vorbereitung in der TrueNAS-UI (einmalig):
 #
-# UPDATE auf neue Version:
-#   TrueNAS App → Edit → Image-Tag auf neuere Version (z.B. :v0.2.0) → Save
-#   Migrationen + DB-Backup laufen automatisch.
+#   ZFS-Datasets anlegen unter  /mnt/<POOL>/apps/kochbuch/:
+#     • db
+#     • images
+#     • ollama
+#
+# -----------------------------------------------------------------------------
+# Automatisch bei erstem Start (musst du NICHT mehr manuell machen):
+#
+#   • DB-Migrationen + Seed laufen im `app-init`-Init-Container
+#     (Admin-User, Kategorien, Standard-Zutaten — alles idempotent)
+#   • Ollama-Modell wird vom `ollama-pull`-Init-Container gezogen (~2.3 GB)
+#   • Erst danach startet die eigentliche App
+#
+# -----------------------------------------------------------------------------
+# Default-Login nach erstem Start:
+#
+#   E-Mail:   admin@kochbuch.local
+#   Passwort: kochbuch        ← BITTE unter /profil ändern!
+#
+# -----------------------------------------------------------------------------
+# Update auf neue Version:
+#
+#   TrueNAS App → Edit → Image-Tag ändern (z.B. :v0.2.1) → Save.
+#   Migrationen + DB-Backup laufen automatisch im Entrypoint.
+#
+# =============================================================================
 
 services:
+  # Migration + Seed laufen einmal vor dem App-Start im selben Image.
+  # Dadurch funktioniert das Setup mit jeder veröffentlichten Image-Version, auch
+  # solchen ohne Auto-Seed im Entrypoint — alle DB-Operationen sind idempotent.
+  app-init:
+    image: ghcr.io/starkstrom05/kochbuch:latest
+    container_name: kochbuch-app-init
+    restart: "no"
+    environment:
+      DATABASE_URL: "file:/data/db/kochbuch.db"
+    volumes:
+      - /mnt/<POOL>/apps/kochbuch/db:/data/db
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        echo "Migrate…" &&
+        node /app/node_modules/prisma/build/index.js migrate deploy &&
+        echo "Seed (Admin-User, Kategorien, Standard-Zutaten)…" &&
+        node /app/node_modules/tsx/dist/cli.mjs /app/prisma/seed.ts &&
+        echo "Init fertig."
+
   app:
-    image: ghcr.io/starkstrom05/kochbuch:v0.1.7
+    image: ghcr.io/starkstrom05/kochbuch:latest
     container_name: kochbuch-app
     restart: unless-stopped
     environment:
       DATABASE_URL: "file:/data/db/kochbuch.db"
-      AUTH_SECRET: "REPLACE_WITH_OPENSSL_RAND_BASE64_32"
-      AUTH_URL: "http://<nas-ip>:3000"
+      AUTH_SECRET: "<AUTH_SECRET>"
+      AUTH_URL: "http://<NAS-IP>:3000"
       AUTH_TRUST_HOST: "true"
       OLLAMA_BASE_URL: "http://ollama:11434"
       OLLAMA_MODEL: "phi3:3.8b-mini-4k-instruct-q4_K_M"
       UPLOAD_DIR: "/data/images"
-      KOCHBUCH_VERSION: "0.1.7"
+      # Seed läuft bereits im app-init-Container — Wiederholung im Entrypoint
+      # wäre idempotent, aber wir sparen die Sekunde.
+      KOCHBUCH_SKIP_SEED: "1"
       TZ: "Europe/Berlin"
     volumes:
-      - /mnt/tank/apps/kochbuch/db:/data/db
-      - /mnt/tank/apps/kochbuch/images:/data/images
+      - /mnt/<POOL>/apps/kochbuch/db:/data/db
+      - /mnt/<POOL>/apps/kochbuch/images:/data/images
     ports:
       - "3000:3000"
     depends_on:
+      app-init:
+        condition: service_completed_successfully
       ollama:
         condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
     mem_limit: 2g
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
@@ -65,7 +108,7 @@ services:
       OLLAMA_KEEP_ALIVE: "30m"
       OLLAMA_NUM_PARALLEL: "1"
     volumes:
-      - /mnt/tank/apps/kochbuch/ollama:/root/.ollama
+      - /mnt/<POOL>/apps/kochbuch/ollama:/root/.ollama
     healthcheck:
       test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
       interval: 30s
@@ -73,3 +116,22 @@ services:
       retries: 5
       start_period: 60s
     mem_limit: 7g
+
+  # Pullt das Ollama-Modell beim ersten Start und beendet sich danach.
+  # Bei jedem Restart prüft Ollama selbst, ob das Modell schon vorhanden ist —
+  # ein zweiter Pull ist quasi instant (No-Op).
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: kochbuch-ollama-pull
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: "http://ollama:11434"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        echo "Pulling phi3:3.8b-mini-4k-instruct-q4_K_M (~2.3 GB, erster Start kann 5–15 min dauern)…" &&
+        ollama pull phi3:3.8b-mini-4k-instruct-q4_K_M &&
+        echo "Modell bereit."
