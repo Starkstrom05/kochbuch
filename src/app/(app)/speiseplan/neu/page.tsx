@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createMealPlanAction } from "@/app/(app)/speiseplan/actions";
 
 const DAY_NAMES = [
@@ -69,12 +70,12 @@ export default function NeuenSpeiseplanPage() {
         </label>
 
         <div className="flex items-center justify-between pt-2">
-          <a
+          <Link
             href="/speiseplan"
             className="font-written text-sm text-ink-faded underline underline-offset-4"
           >
             Abbrechen
-          </a>
+          </Link>
           <button
             type="submit"
             className="rounded-sm bg-ribbon px-6 py-2 font-hand text-xl text-paper-50 shadow-card"

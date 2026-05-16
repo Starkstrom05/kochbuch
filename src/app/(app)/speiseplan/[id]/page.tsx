@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
@@ -69,12 +70,12 @@ export default async function SpeiseplanDetailPage({ params }: Props) {
             })}
           </p>
         </div>
-        <a
+        <Link
           href="/speiseplan"
           className="font-written text-sm text-ink-faded underline underline-offset-4"
         >
           ← alle Pläne
-        </a>
+        </Link>
       </header>
 
       <WeekView
