@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { formatAmount } from "@/lib/units/fraction";
+import { getAppName } from "@/lib/config/app-config";
 
 export const dynamic = "force-dynamic";
 
@@ -355,7 +356,7 @@ export default async function PrintRecipePage({
 
       <div className="footer">
         <span>
-          <span className="brand">Omas Kochbuch</span> · {recipe.createdBy.name}
+          <span className="brand">{await getAppName()}</span> · {recipe.createdBy.name}
         </span>
         <span className="footer-mid">Gedruckt am {printedAt}</span>
         <span>

@@ -1,9 +1,11 @@
 import type { MetadataRoute } from "next";
+import { getAppName } from "@/lib/config/app-config";
 
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const name = await getAppName();
   return {
-    name: "Omas Kochbuch",
-    short_name: "Kochbuch",
+    name,
+    short_name: name.split(" ")[0],
     description: "Familien-Rezepte im Oma-Design",
     start_url: "/rezepte",
     display: "standalone",

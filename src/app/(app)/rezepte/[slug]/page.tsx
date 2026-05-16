@@ -13,6 +13,8 @@ import { RecipeGallery } from "@/components/recipe/RecipeGallery";
 import { deactivateRecipeAction } from "../actions";
 import packageJson from "../../../../../package.json";
 import { addRecipeToListAction } from "../../einkaufsliste/actions";
+import { AddToMealPlanButton } from "@/components/speiseplan/AddToMealPlanButton";
+import { prisma } from "@/lib/db/prisma";
 
 export default async function RecipeDetailPage({
   params,
@@ -25,6 +27,32 @@ export default async function RecipeDetailPage({
 
   const session = await auth();
   const isOwner = session?.user?.id === recipe.createdById;
+
+  const DAY_NAMES_LONG = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
+  const mealPlans = session?.user
+    ? await prisma.mealPlan.findMany({
+        where: { ownerId: session.user.id },
+        select: { id: true, name: true, weekStart: true },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
+
+  const planOptions = mealPlans.map((plan) => {
+    const weekStart = new Date(plan.weekStart);
+    return {
+      id: plan.id,
+      name: plan.name,
+      days: Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(weekStart);
+        d.setDate(weekStart.getDate() + i);
+        const dow = d.getDay() === 0 ? 6 : d.getDay() - 1;
+        return {
+          index: i,
+          label: `${DAY_NAMES_LONG[dow]}, ${d.toLocaleDateString("de-DE", { day: "numeric", month: "numeric" })}`,
+        };
+      }),
+    };
+  });
   const avg =
     recipe.ratings.length > 0
       ? recipe.ratings.reduce((a, b) => a + b.stars, 0) / recipe.ratings.length
@@ -129,6 +157,11 @@ export default async function RecipeDetailPage({
                 🛒 Zur Einkaufsliste
               </button>
             </form>
+            <AddToMealPlanButton
+              recipeId={recipe.id}
+              defaultServings={recipe.servings}
+              plans={planOptions}
+            />
           </div>
         ) : null}
 

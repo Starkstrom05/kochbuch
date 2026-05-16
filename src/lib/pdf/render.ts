@@ -17,9 +17,11 @@ type RenderOptions = {
   path: string;
   /** Whether the page requires the internal-only auth header */
   internal: boolean;
+  /** Landscape orientation (default: portrait) */
+  landscape?: boolean;
 };
 
-async function renderOne({ path, internal }: RenderOptions): Promise<Buffer> {
+async function renderOne({ path, internal, landscape = false }: RenderOptions): Promise<Buffer> {
   const secret = process.env.AUTH_SECRET;
   if (internal && !secret) {
     throw new Error("AUTH_SECRET nicht gesetzt — interner Print-Aufruf unmöglich");
@@ -30,7 +32,10 @@ async function renderOne({ path, internal }: RenderOptions): Promise<Buffer> {
     if (internal && secret) {
       await page.setExtraHTTPHeaders({ "x-internal-token": secret });
     }
-    await page.setViewport({ width: 794, height: 1123 }); // A4 @ 96 dpi
+    // A4 @ 96 dpi: portrait 794×1123, landscape 1123×794
+    await page.setViewport(
+      landscape ? { width: 1123, height: 794 } : { width: 794, height: 1123 },
+    );
 
     const url = `${getInternalUrl()}${path}`;
     await page.goto(url, { waitUntil: "networkidle0", timeout: 60_000 });
@@ -38,6 +43,7 @@ async function renderOne({ path, internal }: RenderOptions): Promise<Buffer> {
 
     const pdf = await page.pdf({
       format: "A4",
+      landscape,
       printBackground: true,
       margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
     });

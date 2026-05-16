@@ -4,6 +4,7 @@ import { searchRecipes } from "@/lib/recipes/search";
 import RecipeBook from "@/components/book/RecipeBookLoader";
 import type { BookRecipe } from "@/components/book/RecipeBook";
 import { InkFilters } from "@/components/oma/InkFilters";
+import { getAppName } from "@/lib/config/app-config";
 
 type SearchParams = Promise<{ q?: string; categoryId?: string }>;
 
@@ -66,7 +67,7 @@ export default async function RezepteBuchPage({
   return (
     <main className="fixed inset-0 flex flex-col" style={{ background: "linear-gradient(160deg, #2a1d12 0%, #1a120a 100%)" }}>
       <InkFilters />
-      <RecipeBook recipes={recipes} title="Familien-Kochbuch" subtitle={subtitle} />
+      <RecipeBook recipes={recipes} title={await getAppName()} subtitle={subtitle} />
     </main>
   );
 }

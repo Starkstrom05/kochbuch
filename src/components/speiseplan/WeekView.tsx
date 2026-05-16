@@ -201,28 +201,29 @@ export function WeekView({ planId, planName, dayLabels, entries, allRecipes }: P
                   ))}
                 </ul>
 
-                {/* Picker or add button */}
-                {pickerDay === dayIndex ? (
-                  <RecipePicker
-                    allRecipes={allRecipes}
-                    onAdd={(recipeId, mealType, servings) =>
-                      handleAdd(dayIndex, recipeId, mealType, servings)
-                    }
-                    onCancel={() => setPickerDay(null)}
-                  />
-                ) : (
-                  <button
-                    onClick={() => setPickerDay(dayIndex)}
-                    className="mt-auto rounded-sm border border-dashed border-paper-400 py-1.5 font-written text-xs text-ink-faded hover:border-ribbon hover:text-ribbon"
-                  >
-                    + Hinzufügen
-                  </button>
-                )}
+                <button
+                  onClick={() => setPickerDay(dayIndex)}
+                  className="mt-auto rounded-sm border border-dashed border-paper-400 py-1.5 font-written text-xs text-ink-faded hover:border-ribbon hover:text-ribbon"
+                >
+                  + Hinzufügen
+                </button>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* RecipePicker Modal — außerhalb des Grids, damit kein Scrollfeld in der Spalte entsteht */}
+      {pickerDay !== null && (
+        <RecipePicker
+          dayLabel={`${dayLabels[pickerDay].long}, ${dayLabels[pickerDay].date}`}
+          allRecipes={allRecipes}
+          onAdd={(recipeId, mealType, servings) =>
+            handleAdd(pickerDay, recipeId, mealType, servings)
+          }
+          onCancel={() => setPickerDay(null)}
+        />
+      )}
     </div>
   );
 }

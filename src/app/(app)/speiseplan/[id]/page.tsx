@@ -70,12 +70,21 @@ export default async function SpeiseplanDetailPage({ params }: Props) {
             })}
           </p>
         </div>
-        <Link
-          href="/speiseplan"
-          className="font-written text-sm text-ink-faded underline underline-offset-4"
-        >
-          ← alle Pläne
-        </Link>
+        <div className="flex items-center gap-4">
+          <a
+            href={`/api/speiseplan/${plan.id}/pdf`}
+            download
+            className="rounded-sm bg-paper-200 px-3 py-1.5 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
+          >
+            📄 PDF
+          </a>
+          <Link
+            href="/speiseplan"
+            className="font-written text-sm text-ink-faded underline underline-offset-4"
+          >
+            ← alle Pläne
+          </Link>
+        </div>
       </header>
 
       <WeekView

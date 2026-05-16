@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getRecipeByShareToken } from "@/lib/recipes/server";
+import { getAppName } from "@/lib/config/app-config";
 import { PaperSheet } from "@/components/oma/PaperSheet";
 import { Divider } from "@/components/oma/Divider";
 import { IngredientList } from "@/components/recipe/IngredientList";
@@ -72,7 +73,7 @@ export default async function SharePage({
         ) : null}
 
         <footer className="mt-10 flex items-center justify-between font-written text-xs text-ink-light">
-          <span>aus Omas Kochbuch · geteilt mit Liebe</span>
+          <span>aus {await getAppName()} · geteilt mit Liebe</span>
           <a
             href={`/api/share/${token}/pdf`}
             download

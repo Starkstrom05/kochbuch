@@ -5,18 +5,24 @@ import { prisma } from "@/lib/db/prisma";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 import { CreateUserForm } from "./CreateUserForm";
 import { UserList } from "./UserList";
+import { AppNameForm } from "./AppNameForm";
+import { getAppName } from "@/lib/config/app-config";
 
 export default async function ProfilPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
   const isAdmin = session.user.role === "ADMIN";
-  const users = isAdmin
-    ? await prisma.user.findMany({
-        select: { id: true, email: true, name: true, role: true, createdAt: true },
-        orderBy: { createdAt: "asc" },
-      })
-    : [];
+
+  const [currentAppName, users] = await Promise.all([
+    getAppName(),
+    isAdmin
+      ? prisma.user.findMany({
+          select: { id: true, email: true, name: true, role: true, createdAt: true },
+          orderBy: { createdAt: "asc" },
+        })
+      : Promise.resolve([]),
+  ]);
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-10">
@@ -44,6 +50,7 @@ export default async function ProfilPage() {
 
         {isAdmin ? (
           <>
+            <AppNameForm currentName={currentAppName} />
             <UserList users={users} currentUserId={session.user.id} />
             <CreateUserForm />
           </>

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Caveat, Kalam, Lora } from "next/font/google";
 import { InkFilters } from "@/components/oma/InkFilters";
 import { ServiceWorkerRegistrar } from "@/components/pwa/ServiceWorkerRegistrar";
+import { getAppName } from "@/lib/config/app-config";
 import "./globals.css";
 
 const caveat = Caveat({
@@ -25,19 +26,22 @@ const lora = Lora({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "Omas Kochbuch",
-  description: "Familien-Rezepte, liebevoll handgeschrieben",
-  manifest: "/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Kochbuch",
-  },
-  icons: {
-    apple: "/apple-touch-icon.png",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await getAppName();
+  return {
+    title: name,
+    description: "Familien-Rezepte, liebevoll handgeschrieben",
+    manifest: "/manifest.webmanifest",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: name,
+    },
+    icons: {
+      apple: "/apple-touch-icon.png",
+    },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#FBF6E9",

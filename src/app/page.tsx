@@ -1,10 +1,13 @@
 import Link from "next/link";
 import packageJson from "../../package.json";
+import { getAppName } from "@/lib/config/app-config";
 
-export default function Home() {
+export default async function Home() {
+  const appName = await getAppName();
+
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center px-6 py-12 text-center">
-      <h1 className="font-hand text-7xl text-ink ink-text">Omas Kochbuch</h1>
+      <h1 className="font-hand text-7xl text-ink ink-text">{appName}</h1>
       <p className="mt-4 font-written text-xl text-ink-faded">
         Familien-Rezepte, liebevoll handgeschrieben
       </p>

@@ -111,6 +111,23 @@ export async function createUserAction(
   };
 }
 
+export async function updateAppNameAction(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Nicht angemeldet");
+  if (session.user.role !== "ADMIN") throw new Error("Keine Berechtigung");
+
+  const name = String(formData.get("appName") ?? "").trim();
+  if (!name) throw new Error("Name darf nicht leer sein");
+
+  await prisma.appMeta.upsert({
+    where: { key: "appName" },
+    update: { value: name },
+    create: { key: "appName", value: name },
+  });
+
+  revalidatePath("/", "layout");
+}
+
 export async function deleteUserAction(targetId: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Nicht angemeldet");
