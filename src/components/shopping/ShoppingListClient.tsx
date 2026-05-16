@@ -14,9 +14,10 @@ import { EmptyState } from "@/components/oma/EmptyState";
 type Props = {
   listId: string;
   items: RawItem[];
+  listName?: string;
 };
 
-export function ShoppingListClient({ listId, items: initialItems }: Props) {
+export function ShoppingListClient({ listId, items: initialItems, listName }: Props) {
   const [items, setItems] = useState<RawItem[]>(initialItems);
   const [isPending, startTransition] = useTransition();
   const [showManual, setShowManual] = useState(false);
@@ -93,6 +94,7 @@ export function ShoppingListClient({ listId, items: initialItems }: Props) {
               Erledigte entfernen
             </button>
           )}
+          <ShareButton groups={groups} listName={listName} />
           <button
             onClick={() => setShowManual((v) => !v)}
             className="rounded-sm bg-paper-200 px-3 py-1.5 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
@@ -220,6 +222,50 @@ function GroupRow({
         </div>
       </div>
     </li>
+  );
+}
+
+// ── Share button ──────────────────────────────────────────────────────────────
+
+function buildShareText(groups: ConsolidatedGroup[], listName?: string): string {
+  const title = listName ?? "Einkaufsliste";
+  const unchecked = groups.filter((g) => !g.allChecked);
+  if (unchecked.length === 0) return `${title}\n\n(Alles erledigt ✓)`;
+  const lines = unchecked.map((g) => {
+    const amount = g.totalLabel ? ` — ${g.totalLabel}` : "";
+    return `${g.name}${amount}`;
+  });
+  return `${title}\n\n${lines.join("\n")}`;
+}
+
+function ShareButton({ groups, listName }: { groups: ConsolidatedGroup[]; listName?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleShare() {
+    const text = buildShareText(groups, listName);
+    const title = listName ?? "Einkaufsliste";
+
+    if (typeof navigator !== "undefined" && "share" in navigator) {
+      try {
+        await navigator.share({ title, text });
+        return;
+      } catch {
+        // Abgebrochen oder nicht unterstützt → Clipboard-Fallback
+      }
+    }
+
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <button
+      onClick={handleShare}
+      className="rounded-sm bg-paper-200 px-3 py-1.5 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
+    >
+      {copied ? "✓ Kopiert!" : "📤 Teilen"}
+    </button>
   );
 }
 
