@@ -133,16 +133,42 @@ export async function updateRecipe(id: string, input: RecipeInput, userId: strin
   }
 }
 
-export async function deleteRecipe(id: string, userId: string) {
+export async function deactivateRecipe(id: string, userId: string) {
   const existing = await prisma.recipe.findUnique({ where: { id } });
   if (!existing) throw new Error("Rezept nicht gefunden");
   if (existing.createdById !== userId) throw new Error("Keine Berechtigung");
+  return prisma.recipe.update({ where: { id }, data: { isActive: false } });
+}
+
+export async function restoreRecipe(id: string, userId: string) {
+  const existing = await prisma.recipe.findUnique({ where: { id } });
+  if (!existing) throw new Error("Rezept nicht gefunden");
+  if (existing.createdById !== userId) throw new Error("Keine Berechtigung");
+  return prisma.recipe.update({ where: { id }, data: { isActive: true } });
+}
+
+export async function permanentlyDeleteRecipe(id: string, userId: string) {
+  const existing = await prisma.recipe.findUnique({ where: { id } });
+  if (!existing) throw new Error("Rezept nicht gefunden");
+  if (existing.createdById !== userId) throw new Error("Keine Berechtigung");
+  if (existing.isActive) throw new Error("Rezept muss zuerst deaktiviert werden");
   return prisma.recipe.delete({ where: { id } });
 }
 
+export async function getArchivedRecipes(userId: string) {
+  return prisma.recipe.findMany({
+    where: { isActive: false, createdById: userId },
+    orderBy: { updatedAt: "desc" },
+    include: {
+      categories: { include: { category: true } },
+      images: { orderBy: { order: "asc" }, take: 1, select: { path: true } },
+    },
+  });
+}
+
 export async function getRecipeBySlug(slug: string) {
-  return prisma.recipe.findUnique({
-    where: { slug },
+  return prisma.recipe.findFirst({
+    where: { slug, isActive: true },
     include: {
       ingredients: { include: { ingredient: true }, orderBy: { order: "asc" } },
       categories: { include: { category: true } },

@@ -10,7 +10,7 @@ import { RatingPicker } from "@/components/recipe/RatingPicker";
 import { ShareToggle } from "@/components/recipe/ShareToggle";
 import Image from "next/image";
 import { RecipeGallery } from "@/components/recipe/RecipeGallery";
-import { deleteRecipeAction } from "../actions";
+import { deactivateRecipeAction } from "../actions";
 import { addRecipeToListAction } from "../../einkaufsliste/actions";
 
 export default async function RecipeDetailPage({
@@ -63,11 +63,11 @@ export default async function RecipeDetailPage({
             <form
               action={async () => {
                 "use server";
-                await deleteRecipeAction(recipe.id);
+                await deactivateRecipeAction(recipe.id);
               }}
             >
               <button type="submit" className="text-ink-faded hover:text-ribbon">
-                löschen
+                deaktivieren
               </button>
             </form>
           </div>

@@ -73,6 +73,12 @@ export default async function RezeptePage({
             </Link>
           ) : null}
           <Link
+            href="/rezepte/archiv"
+            className="rounded-sm bg-paper-200 px-4 py-2 font-hand text-xl text-ink ring-1 ring-paper-300 hover:rotate-[-0.5deg]"
+          >
+            🗂 Archiv
+          </Link>
+          <Link
             href="/rezepte/neu"
             className="rounded-sm bg-ribbon px-4 py-2 font-hand text-xl text-paper-50 shadow-card hover:rotate-[-0.5deg]"
           >

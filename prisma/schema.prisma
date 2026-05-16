@@ -71,6 +71,7 @@ model Recipe {
   notes           String?
   handwrittenPath String?
   isPublic        Boolean            @default(false)
+  isActive        Boolean            @default(true)
   shareToken      String?            @unique
   tags            String?
   createdById     String
@@ -86,6 +87,7 @@ model Recipe {
   @@index([title])
   @@index([sourceUrl])
   @@index([updatedAt])
+  @@index([isActive])
 }
 
 model RecipeImage {

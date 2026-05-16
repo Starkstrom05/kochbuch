@@ -15,7 +15,7 @@ export async function searchRecipes({
   minStars,
   take = 200,
 }: RecipeSearch) {
-  const where: Prisma.RecipeWhereInput = {};
+  const where: Prisma.RecipeWhereInput = { isActive: true };
 
   if (q && q.trim()) {
     const term = q.trim();

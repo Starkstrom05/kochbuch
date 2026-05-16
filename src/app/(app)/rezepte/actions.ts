@@ -6,7 +6,9 @@ import { auth } from "@/lib/auth/auth";
 import {
   createRecipe as svCreate,
   updateRecipe as svUpdate,
-  deleteRecipe as svDelete,
+  deactivateRecipe as svDeactivate,
+  restoreRecipe as svRestore,
+  permanentlyDeleteRecipe as svPermanentlyDelete,
 } from "@/lib/recipes/server";
 import {
   addImageFromBuffer,
@@ -144,10 +146,26 @@ export async function updateRecipeAction(id: string, formData: FormData) {
   redirect(`/rezepte/${recipe.slug}`);
 }
 
-export async function deleteRecipeAction(id: string) {
+export async function deactivateRecipeAction(id: string) {
   const session = await auth();
   if (!session?.user) throw new Error("Nicht angemeldet");
-  await svDelete(id, session.user.id);
+  await svDeactivate(id, session.user.id);
   revalidatePath("/rezepte");
+  revalidatePath("/rezepte/archiv");
   redirect("/rezepte");
+}
+
+export async function restoreRecipeAction(id: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Nicht angemeldet");
+  await svRestore(id, session.user.id);
+  revalidatePath("/rezepte");
+  revalidatePath("/rezepte/archiv");
+}
+
+export async function permanentlyDeleteRecipeAction(id: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Nicht angemeldet");
+  await svPermanentlyDelete(id, session.user.id);
+  revalidatePath("/rezepte/archiv");
 }
