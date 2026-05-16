@@ -84,6 +84,32 @@ TrueNAS Scale. Multi-User (Familie) + oeffentlich teilbare Rezept-Links.
 - App liest `package.json`-Version → speichert in `AppMeta` → Update-Banner via
   GitHub-Releases-API-Vergleich.
 
+## Release-Checkliste (vor jedem Push mit neuem Tag)
+
+Diese Schritte **immer** in dieser Reihenfolge durchfuehren:
+
+1. **Version in `package.json` erhoehen** (SemVer — MAJOR/MINOR/PATCH, s.o.)
+2. **Typecheck + Tests grueen** bestaetigen:
+   ```bash
+   npm run typecheck && npm run test:run
+   ```
+3. **Feature-Commit(s)** anlegen (Conventional Commits, Migration im selben Commit)
+4. **Release-Commit** anlegen:
+   ```bash
+   git commit --allow-empty -m "chore(release): vX.Y.Z"
+   ```
+5. **Tag setzen und pushen:**
+   ```bash
+   git tag vX.Y.Z
+   git push origin main && git push origin vX.Y.Z
+   ```
+
+**Verboten vor dem Push:** hartcodierte Versionsstrings im Source. Die App liest
+die Version ausschliesslich aus `package.json` (importiert per
+`import packageJson from "...package.json"` — kein `KOCHBUCH_VERSION`
+und kein manuelles String-Literal). Wenn du eine Versionsanzeige ergaenzt,
+muss sie `packageJson.version` verwenden.
+
 ## Verbotene Dinge
 
 - `dangerouslySetInnerHTML` ohne DOMPurify

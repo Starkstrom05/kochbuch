@@ -11,6 +11,7 @@ import { ShareToggle } from "@/components/recipe/ShareToggle";
 import Image from "next/image";
 import { RecipeGallery } from "@/components/recipe/RecipeGallery";
 import { deactivateRecipeAction } from "../actions";
+import packageJson from "../../../../../package.json";
 import { addRecipeToListAction } from "../../einkaufsliste/actions";
 
 export default async function RecipeDetailPage({
@@ -200,7 +201,7 @@ export default async function RecipeDetailPage({
               </>
             ) : null}
           </span>
-          <span>Version 0.1</span>
+          <span>v{packageJson.version}</span>
         </footer>
       </PaperSheet>
     </main>

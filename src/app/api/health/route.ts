@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import packageJson from "../../../../package.json";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,7 @@ export async function GET() {
     await prisma.$queryRaw`SELECT 1`;
     return NextResponse.json({
       status: "ok",
-      version: process.env.KOCHBUCH_VERSION ?? "0.1.0",
+      version: process.env.KOCHBUCH_VERSION ?? packageJson.version,
       time: new Date().toISOString(),
     });
   } catch (e) {

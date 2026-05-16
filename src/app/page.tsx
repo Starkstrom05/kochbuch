@@ -1,4 +1,5 @@
 import Link from "next/link";
+import packageJson from "../../package.json";
 
 export default function Home() {
   return (
@@ -24,7 +25,7 @@ export default function Home() {
       </div>
 
       <footer className="mt-16 font-written text-sm text-ink-light">
-        Version 0.1.0 &middot; selbstgehostet mit Liebe
+        v{packageJson.version} &middot; selbstgehostet mit Liebe
       </footer>
     </main>
   );
