@@ -18,6 +18,7 @@ model User {
   recipes       Recipe[]
   ratings       Rating[]
   shoppingLists ShoppingList[]
+  mealPlans     MealPlan[]
   sessions      Session[]
   accounts      Account[]
 }
@@ -80,6 +81,7 @@ model Recipe {
   categories      CategoryOnRecipe[]
   ratings         Rating[]
   images          RecipeImage[]
+  mealPlanEntries MealPlanEntry[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
@@ -178,6 +180,35 @@ model ShoppingItem {
   list      ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
 
   @@index([listId])
+}
+
+model MealPlan {
+  id        String          @id @default(cuid())
+  name      String
+  ownerId   String
+  firstDay  Int             @default(1)
+  weekStart DateTime
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  owner     User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  entries   MealPlanEntry[]
+
+  @@index([ownerId])
+}
+
+model MealPlanEntry {
+  id       String   @id @default(cuid())
+  planId   String
+  recipeId String
+  dayIndex Int
+  mealType String
+  servings Int
+  order    Int      @default(0)
+  plan     MealPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  recipe   Recipe   @relation(fields: [recipeId], references: [id], onDelete: Restrict)
+
+  @@index([planId])
+  @@index([recipeId])
 }
 
 model AppMeta {

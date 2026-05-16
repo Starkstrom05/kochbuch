@@ -65,6 +65,7 @@ export async function toggleItemAction(itemId: string) {
     data: { checked: !item.checked },
   });
   revalidatePath("/einkaufsliste");
+  revalidatePath(`/einkaufsliste/${item.list.id}`);
 }
 
 export async function checkAllInGroupAction(listId: string, itemIds: string[]) {
@@ -77,6 +78,7 @@ export async function checkAllInGroupAction(listId: string, itemIds: string[]) {
     data: { checked: true },
   });
   revalidatePath("/einkaufsliste");
+  revalidatePath(`/einkaufsliste/${listId}`);
 }
 
 export async function clearCheckedAction(listId: string) {
@@ -86,6 +88,7 @@ export async function clearCheckedAction(listId: string) {
 
   await prisma.shoppingItem.deleteMany({ where: { listId, checked: true } });
   revalidatePath("/einkaufsliste");
+  revalidatePath(`/einkaufsliste/${listId}`);
 }
 
 export async function clearListAction(listId: string) {
@@ -95,6 +98,7 @@ export async function clearListAction(listId: string) {
 
   await prisma.shoppingItem.deleteMany({ where: { listId } });
   revalidatePath("/einkaufsliste");
+  revalidatePath(`/einkaufsliste/${listId}`);
 }
 
 export async function addManualItemAction(listId: string, formData: FormData) {
@@ -112,4 +116,5 @@ export async function addManualItemAction(listId: string, formData: FormData) {
     data: { listId, name, amount: Number.isFinite(amount!) ? amount : null, unit },
   });
   revalidatePath("/einkaufsliste");
+  revalidatePath(`/einkaufsliste/${listId}`);
 }
