@@ -26,7 +26,7 @@ export default function NeuenSpeiseplanPage() {
   const defaultDate = nextWeekdayDate(1);
 
   return (
-    <main className="mx-auto max-w-lg px-4 py-10 sm:px-6">
+    <main className="mx-auto max-w-lg px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">
       <header className="mb-8">
         <h1 className="font-hand text-5xl text-ink ink-text">Neuer Speiseplan</h1>
       </header>

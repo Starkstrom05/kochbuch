@@ -63,13 +63,13 @@ export default async function RecipeDetailPage({
       : 0;
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-      <header className="mb-6 flex items-baseline justify-between">
+    <main className="mx-auto max-w-4xl px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">
+      <header className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
         <Link href="/rezepte" className="font-written text-sm text-ribbon underline underline-offset-4">
           ← zur Übersicht
         </Link>
         {isOwner ? (
-          <div className="flex items-center gap-4 font-written text-sm">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-written text-sm">
             <Link
               href={`/rezepte/${recipe.slug}/bearbeiten`}
               className="text-ribbon underline underline-offset-4"

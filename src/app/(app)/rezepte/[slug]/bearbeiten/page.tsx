@@ -47,8 +47,8 @@ export default async function BearbeitenPage({
   const action = updateRecipeAction.bind(null, recipe.id);
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-      <header className="mb-8 flex items-baseline justify-between">
+    <main className="mx-auto max-w-4xl px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">
+      <header className="mb-8 flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="font-hand text-5xl text-ink ink-text">Rezept bearbeiten</h1>
         <Link
           href={`/rezepte/${recipe.slug}`}

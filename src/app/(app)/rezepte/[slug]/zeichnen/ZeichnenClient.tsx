@@ -41,7 +41,7 @@ export function ZeichnenClient({ recipeId, slug, hasExisting }: Props) {
   }
 
   return (
-    <div className="flex h-dvh flex-col bg-paper-50">
+    <div className="flex h-dvh flex-col bg-paper-50 pt-safe pb-safe px-safe">
       <header className="flex items-center justify-between bg-paper-100 px-4 py-2 shadow-sm">
         <button
           onClick={() => router.push(`/rezepte/${slug}`)}

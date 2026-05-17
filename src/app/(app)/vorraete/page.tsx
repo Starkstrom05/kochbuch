@@ -79,8 +79,8 @@ export default function VorraetePage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
-      <header className="mb-8 flex items-baseline justify-between">
+    <main className="mx-auto max-w-2xl px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">
+      <header className="mb-8 flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="font-hand text-5xl text-ink ink-text">Was kann ich kochen?</h1>
         <Link href="/rezepte" className="font-written text-sm text-ribbon underline underline-offset-4">
           ← Rezepte

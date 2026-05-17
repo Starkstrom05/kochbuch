@@ -15,7 +15,7 @@ export default async function SpeiseplanPage() {
   });
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+    <main className="mx-auto max-w-4xl px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">
       <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-hand text-5xl text-ink ink-text">Speiseplan</h1>
@@ -30,7 +30,7 @@ export default async function SpeiseplanPage() {
           </Link>
           <Link
             href="/speiseplan/neu"
-            className="rounded-sm bg-ribbon px-4 py-2 font-hand text-xl text-paper-50 shadow-card hover:rotate-[-0.5deg]"
+            className="inline-flex min-h-[44px] items-center rounded-sm bg-ribbon px-4 font-hand text-xl text-paper-50 shadow-card hover:rotate-[-0.5deg]"
           >
             + Neuer Plan
           </Link>

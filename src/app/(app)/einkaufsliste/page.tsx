@@ -18,7 +18,7 @@ export default async function EinkaufslistePage() {
   const items = list?.items ?? [];
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+    <main className="mx-auto max-w-2xl px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">
       <header className="mb-8 flex flex-wrap items-baseline justify-between gap-4">
         <div>
           <h1 className="font-hand text-5xl text-ink ink-text">Einkaufsliste</h1>

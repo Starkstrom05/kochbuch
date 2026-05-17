@@ -65,7 +65,7 @@ export default async function RezepteBuchPage({
           : `Alle Rezepte`;
 
   return (
-    <main className="fixed inset-0 flex flex-col" style={{ background: "linear-gradient(160deg, #2a1d12 0%, #1a120a 100%)" }}>
+    <main className="fixed inset-0 flex flex-col pt-safe pb-safe px-safe" style={{ background: "linear-gradient(160deg, #2a1d12 0%, #1a120a 100%)" }}>
       <InkFilters />
       <RecipeBook recipes={recipes} title={await getAppName()} subtitle={subtitle} />
     </main>
