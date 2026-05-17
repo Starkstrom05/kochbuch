@@ -32,12 +32,14 @@ export default async function PrintSpeiseplanPage({
 
   if (!plan) notFound();
 
+  // Date-Komponenten in UTC, sonst kann der Tag im Container je nach TZ
+  // verschieben (weekStart kommt als UTC-Mitternacht aus der DB).
   const weekStart = new Date(plan.weekStart);
 
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
-    d.setDate(weekStart.getDate() + i);
-    const dow = d.getDay() === 0 ? 6 : d.getDay() - 1;
+    d.setUTCDate(weekStart.getUTCDate() + i);
+    const dow = d.getUTCDay() === 0 ? 6 : d.getUTCDay() - 1;
     const entries = plan.entries
       .filter((e) => e.dayIndex === i)
       .sort(
@@ -46,16 +48,17 @@ export default async function PrintSpeiseplanPage({
       );
     return {
       name: DAY_NAMES[dow],
-      date: d.toLocaleDateString("de-DE", { day: "numeric", month: "numeric" }),
+      date: d.toLocaleDateString("de-DE", { day: "numeric", month: "numeric", timeZone: "UTC" }),
       entries,
     };
   });
 
-  const dateFrom = weekStart.toLocaleDateString("de-DE", { day: "numeric", month: "numeric" });
+  const dateFrom = weekStart.toLocaleDateString("de-DE", { day: "numeric", month: "numeric", timeZone: "UTC" });
   const dateTo = new Date(weekStart.getTime() + 6 * 86400000).toLocaleDateString("de-DE", {
     day: "numeric",
     month: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
   const printedAt = new Date().toLocaleDateString("de-DE", {
     day: "2-digit",

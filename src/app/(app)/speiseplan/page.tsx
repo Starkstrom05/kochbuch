@@ -60,6 +60,7 @@ export default async function SpeiseplanPage() {
               day: "numeric",
               month: "long",
               year: "numeric",
+              timeZone: "UTC",
             });
             return (
               <li key={plan.id} className={`paper-card ${tilt} p-5`}>

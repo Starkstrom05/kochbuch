@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 export type RecipeSearch = {
   q?: string;
@@ -32,6 +32,19 @@ export async function searchRecipes({
     where.categories = { some: { categoryId } };
   }
 
+  // Stern-Filter über GROUP BY + HAVING auf der Rating-Tabelle: liefert
+  // recipeId für alle Rezepte mit AVG(stars) >= minStars. Ohne Treffer →
+  // leere Liste, sonst per id-IN-Filter in die Hauptquery einschneiden.
+  if (minStars && minStars > 0) {
+    const rated = await prisma.$queryRaw<{ recipeId: string }[]>(Prisma.sql`
+      SELECT "recipeId" FROM "Rating"
+      GROUP BY "recipeId"
+      HAVING AVG(CAST("stars" AS REAL)) >= ${minStars}
+    `);
+    if (rated.length === 0) return [];
+    where.id = { in: rated.map((r) => r.recipeId) };
+  }
+
   const recipes = await prisma.recipe.findMany({
     where,
     take,
@@ -47,15 +60,5 @@ export async function searchRecipes({
     },
   });
 
-  // Stern-Filter wird im Code angewendet: SQLite hat keinen einfachen Weg,
-  // im WHERE über AVG einer Relation zu filtern.
-  if (minStars && minStars > 0) {
-    return recipes.filter((r) => {
-      if (r.ratings.length === 0) return false;
-      const avg =
-        r.ratings.reduce((s, x) => s + x.stars, 0) / r.ratings.length;
-      return avg >= minStars;
-    });
-  }
   return recipes;
 }

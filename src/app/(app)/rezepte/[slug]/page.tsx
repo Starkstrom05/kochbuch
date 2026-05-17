@@ -44,11 +44,11 @@ export default async function RecipeDetailPage({
       name: plan.name,
       days: Array.from({ length: 7 }, (_, i) => {
         const d = new Date(weekStart);
-        d.setDate(weekStart.getDate() + i);
-        const dow = d.getDay() === 0 ? 6 : d.getDay() - 1;
+        d.setUTCDate(weekStart.getUTCDate() + i);
+        const dow = d.getUTCDay() === 0 ? 6 : d.getUTCDay() - 1;
         return {
           index: i,
-          label: `${DAY_NAMES_LONG[dow]}, ${d.toLocaleDateString("de-DE", { day: "numeric", month: "numeric" })}`,
+          label: `${DAY_NAMES_LONG[dow]}, ${d.toLocaleDateString("de-DE", { day: "numeric", month: "numeric", timeZone: "UTC" })}`,
         };
       }),
     };

@@ -45,15 +45,22 @@ export default async function SpeiseplanDetailPage({ params }: Props) {
   if (!plan) notFound();
   if (plan.ownerId !== session.user.id) redirect("/speiseplan");
 
+  // Dates aus der DB sind UTC. Lokale getDate/getDay würde je nach
+  // Container-TZ den Wochentag um 1 verschieben — UTC-Komponenten und
+  // toLocaleDateString({ timeZone: "UTC" }) halten das konsistent.
   const weekStart = new Date(plan.weekStart);
   const dayLabels = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
-    d.setDate(weekStart.getDate() + i);
-    const dow = d.getDay() === 0 ? 6 : d.getDay() - 1; // 0=Mo … 6=So
+    d.setUTCDate(weekStart.getUTCDate() + i);
+    const dow = d.getUTCDay() === 0 ? 6 : d.getUTCDay() - 1; // 0=Mo … 6=So
     return {
       short: DAY_NAMES_SHORT[dow],
       long: DAY_NAMES_LONG[dow],
-      date: d.toLocaleDateString("de-DE", { day: "numeric", month: "numeric" }),
+      date: d.toLocaleDateString("de-DE", {
+        day: "numeric",
+        month: "numeric",
+        timeZone: "UTC",
+      }),
     };
   });
 
@@ -67,6 +74,7 @@ export default async function SpeiseplanDetailPage({ params }: Props) {
               day: "numeric",
               month: "long",
               year: "numeric",
+              timeZone: "UTC",
             })}
           </p>
         </div>
