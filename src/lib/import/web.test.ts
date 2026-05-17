@@ -148,6 +148,90 @@ describe("parseRecipeFromHtml", () => {
     ]);
   });
 
+  it("findet Recipe verschachtelt in mainEntity (REWE-Pattern)", () => {
+    // REWE liefert: {@type:"Webpage", mainEntity:{@type:"Recipe", …}}
+    const html = htmlWithLd({
+      "@context": "https://schema.org",
+      "@type": "Webpage",
+      name: "irgendeine Seite",
+      mainEntity: {
+        "@type": "Recipe",
+        name: "Kräuter-Camembert vom Grill",
+        recipeIngredient: ["4 Pck Camembert", "1 Zehe Knoblauch", "2 EL Olivenöl"],
+        recipeInstructions: [
+          { "@type": "HowToStep", text: "Camembert kreuzweise einritzen." },
+          { "@type": "HowToStep", text: "Knoblauch hacken und mit Öl verrühren." },
+        ],
+      },
+    });
+    const result = parseRecipeFromHtml(html, URL);
+    expect(result).not.toBeNull();
+    expect(result!.recipe.title).toBe("Kräuter-Camembert vom Grill");
+    expect(result!.recipe.ingredients).toHaveLength(3);
+    expect(result!.recipe.instructions).toContain("1. Camembert");
+  });
+
+  it("nutzt DOM-Step-Fallback, wenn JSON-LD-HowToSteps text:null haben (Koro)", () => {
+    // korodrogerie.de liefert valides Recipe-JSON-LD mit Zutaten, aber die
+    // HowToStep-Objekte enthalten text:null. Die echten Schritte stehen in
+    // <div class="product-detail-description-step">Schritt N/M …</div>.
+    const ld = {
+      "@type": "Recipe",
+      name: "Koro-artige Bites",
+      recipeIngredient: ["100 g Mehl", "1 Stk Ei"],
+      recipeInstructions: [
+        { "@type": "HowToStep", text: null },
+        { "@type": "HowToStep", text: null },
+      ],
+    };
+    const html = `<!doctype html><html><head>
+      <script type="application/ld+json">${JSON.stringify(ld)}</script>
+      </head><body>
+      <div class="product-detail-description-step">Schritt 1/2 Zutaten in eine Schüssel geben und gut vermengen.</div>
+      <div class="product-detail-description-step">Schritt 2/2 Im Airfryer bei 200 °C goldbraun backen.</div>
+      </body></html>`;
+    const result = parseRecipeFromHtml(html, URL);
+    expect(result).not.toBeNull();
+    expect(result!.recipe.title).toBe("Koro-artige Bites");
+    expect(result!.recipe.ingredients).toHaveLength(2);
+    expect(result!.recipe.instructions).toContain(
+      "1. Zutaten in eine Schüssel geben",
+    );
+    expect(result!.recipe.instructions).toContain("2. Im Airfryer");
+    // "Schritt N/M"-Präfix entfernt
+    expect(result!.recipe.instructions).not.toMatch(/Schritt\s+\d+\/\d+/);
+  });
+
+  it("greift nicht auf DOM-Fallback zu, wenn JSON-LD bereits Schritte liefert", () => {
+    const ld = {
+      "@type": "Recipe",
+      name: "Hat schon Schritte",
+      recipeIngredient: ["1 Zutat"],
+      recipeInstructions: "Den Teig zubereiten und backen lange genug.",
+    };
+    const html = `<!doctype html><html><head>
+      <script type="application/ld+json">${JSON.stringify(ld)}</script>
+      </head><body>
+      <div class="product-detail-description-step">FALSCHER Schritt aus dem DOM.</div>
+      </body></html>`;
+    const result = parseRecipeFromHtml(html, URL);
+    expect(result?.recipe.instructions).toContain("Den Teig");
+    expect(result?.recipe.instructions).not.toContain("FALSCHER");
+  });
+
+  it("liefert null, wenn weder JSON-LD-Schritte noch DOM-Selectoren etwas finden", () => {
+    const ld = {
+      "@type": "Recipe",
+      name: "Leer",
+      recipeIngredient: ["1 Zutat"],
+      recipeInstructions: [{ "@type": "HowToStep", text: null }],
+    };
+    const html = `<!doctype html><html><head>
+      <script type="application/ld+json">${JSON.stringify(ld)}</script>
+      </head><body></body></html>`;
+    expect(parseRecipeFromHtml(html, URL)).toBeNull();
+  });
+
   it("liest mehrere HowToSections nacheinander", () => {
     const html = htmlWithLd({
       "@type": "Recipe",

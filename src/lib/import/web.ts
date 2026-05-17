@@ -163,6 +163,19 @@ export class NoStructuredRecipeError extends Error {
   }
 }
 
+// Sentinel: fetch hat geantwortet, aber die Site liefert eine Bot-/JS-Schutz-
+// Seite (Cloudflare 403, Akamai 503 …) statt echtem HTML. Caller soll auf
+// Puppeteer ausweichen statt den Import komplett abzubrechen.
+class UpstreamNeedsBrowserError extends Error {
+  constructor(
+    public readonly url: string,
+    public readonly status: number,
+  ) {
+    super(`HTTP ${status} von ${url} — Puppeteer-Fallback nötig`);
+    this.name = "UpstreamNeedsBrowserError";
+  }
+}
+
 // ── HTML fetcher ─────────────────────────────────────────────────────────────
 
 async function fetchHtml(url: string, externalSignal?: AbortSignal): Promise<string> {
@@ -190,6 +203,12 @@ async function fetchHtml(url: string, externalSignal?: AbortSignal): Promise<str
       const next = new URL(loc, url).toString();
       // Re-check target (SSRF protection across redirects); cap at 5 hops via depth.
       return fetchHtml(next, externalSignal);
+    }
+    // Cloudflare/Akamai antworten bei Bot-Erkennung mit 403/503 — das ist genau
+    // der Fall, für den der Puppeteer-Fallback existiert. Sentinel hochwerfen
+    // statt hart abzubrechen.
+    if (res.status === 403 || res.status === 429 || res.status === 503) {
+      throw new UpstreamNeedsBrowserError(url, res.status);
     }
     if (!res.ok) throw new Error(`HTTP ${res.status} beim Abrufen von ${url}`);
     return await res.text();
@@ -243,26 +262,80 @@ export type WebImportResult = {
   method: "json-ld";
 };
 
+// Recipe-Objekte können tief im JSON-LD verschachtelt sein:
+//   - top-level Array
+//   - top-level Object mit @graph (Yoast/RankMath)
+//   - top-level Object mit mainEntity (REWE: @type "Webpage" → mainEntity Recipe)
+//   - direkt top-level Recipe
+// Rekursiv durchsuchen ist robuster als einzelne Cases zu enumerieren.
+function findRecipesInLd(value: unknown): LdRecipe[] {
+  if (Array.isArray(value)) return value.flatMap(findRecipesInLd);
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const t = obj["@type"];
+    const isRecipe = t === "Recipe" || (Array.isArray(t) && t.includes("Recipe"));
+    if (isRecipe) return [obj];
+    return Object.values(obj).flatMap(findRecipesInLd);
+  }
+  return [];
+}
+
+// Manche Sites (z.B. korodrogerie.de) liefern valides JSON-LD-Recipe mit
+// Zutaten, lassen die HowToStep-Texte aber null und legen die echten Schritte
+// nur ins DOM. Wir fallen auf bekannte Step-Selectoren zurück.
+const DOM_STEP_SELECTORS = [
+  ".product-detail-description-step", // korodrogerie.de
+  ".wprm-recipe-instruction-text", // WP Recipe Maker
+  ".tasty-recipes-instructions li", // Tasty Recipes
+  ".mv-recipe-instructions li", // Mediavine Create
+  "[class*='recipe-step'] [class*='text']",
+];
+
+function extractStepsFromDom($: cheerio.CheerioAPI): string[] {
+  for (const sel of DOM_STEP_SELECTORS) {
+    const nodes = $(sel).toArray();
+    if (nodes.length === 0) continue;
+    const texts = nodes
+      .map((el) => $(el).text().replace(/\s+/g, " ").trim())
+      // "Schritt 1/5 …" → entfernt das Präfix, der Index wird beim Render neu vergeben
+      .map((t) => t.replace(/^Schritt\s+\d+\s*\/\s*\d+\s*/i, ""))
+      .filter((t) => t.length > 10);
+    if (texts.length > 0) return texts;
+  }
+  return [];
+}
+
 export function parseRecipeFromHtml(html: string, url: string): WebImportResult | null {
   const $ = cheerio.load(html);
   const ldScripts = $('script[type="application/ld+json"]').toArray();
 
+  // Wenn ein Recipe-Eintrag in JSON-LD existiert, aber Instructions leer sind,
+  // versuchen wir DOM-Selectoren — lazy, damit wir nicht für jedes Recipe parsen.
+  let domSteps: string[] | null = null;
+  const getDomSteps = (): string[] => {
+    if (domSteps === null) domSteps = extractStepsFromDom($);
+    return domSteps;
+  };
+
   for (const el of ldScripts) {
     try {
       const json: unknown = JSON.parse($(el).html() ?? "");
-      const candidates: LdRecipe[] = Array.isArray(json)
-        ? (json as LdRecipe[])
-        : (json as Record<string, unknown>)["@graph"]
-          ? ((json as Record<string, unknown[]>)["@graph"] as LdRecipe[])
-          : [json as LdRecipe];
+      const candidates = findRecipesInLd(json);
 
       for (const item of candidates) {
-        const type = item["@type"];
-        const isRecipe =
-          type === "Recipe" || (Array.isArray(type) && type.includes("Recipe"));
-        if (!isRecipe) continue;
         const recipe = mapJsonLdToAiRecipe(item);
-        if (recipe.ingredients.length > 0 && recipe.instructions.length > 20) {
+        if (recipe.ingredients.length === 0) continue;
+
+        if (recipe.instructions.length <= 20) {
+          const fromDom = getDomSteps();
+          if (fromDom.length > 0) {
+            recipe.instructions = fromDom
+              .map((s, i) => `${i + 1}. ${s}`)
+              .join("\n");
+          }
+        }
+
+        if (recipe.instructions.length > 20) {
           return { recipe, sourceUrl: url, method: "json-ld" };
         }
       }
@@ -279,17 +352,26 @@ export async function fetchAndParseRecipe(
   signal?: AbortSignal,
 ): Promise<WebImportResult> {
   onProgress?.("Lade Seite…");
-  const html = await fetchHtml(url, signal);
+  let html: string | null = null;
+  try {
+    html = await fetchHtml(url, signal);
+  } catch (err) {
+    // Bot-Schutz (Cloudflare 403, Akamai 503 …) → direkt auf Puppeteer-Pfad.
+    if (!(err instanceof UpstreamNeedsBrowserError)) throw err;
+    onProgress?.(`HTTP ${err.status} — Bot-Schutz erkannt, wechsle zu Browser…`);
+  }
 
-  onProgress?.("Suche nach strukturierten Rezeptdaten…");
-  const parsed = parseRecipeFromHtml(html, url);
-  if (parsed) return parsed;
+  if (html) {
+    onProgress?.("Suche nach strukturierten Rezeptdaten…");
+    const parsed = parseRecipeFromHtml(html, url);
+    if (parsed) return parsed;
+    onProgress?.("Kein Schema im HTML — rendere Seite mit Browser (Puppeteer)…");
+  }
 
-  // fetch lieferte kein JSON-LD. Das ist bei Cloudflare/JS-gerenderten Sites
-  // (Chefkoch, Rewe, …) der Normalfall — die Wartepage hat kein Schema. Mit
-  // Puppeteer noch einmal versuchen, diesmal mit echtem Browser.
+  // Kein JSON-LD im direkten HTML — oder fetch wurde von Bot-Schutz blockiert.
+  // Puppeteer rendert die Seite mit echtem Browser, sodass JS-rendered Schemata
+  // (Chefkoch, Rewe, …) verfügbar werden.
   if (signal?.aborted) throw new Error("Abgebrochen");
-  onProgress?.("Kein Schema im HTML — rendere Seite mit Browser (Puppeteer)…");
   const rendered = await fetchHtmlViaPuppeteer(url, signal);
 
   onProgress?.("Suche im gerenderten HTML nach Rezeptdaten…");

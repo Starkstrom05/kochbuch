@@ -111,12 +111,20 @@ async function processImagesFromFormData(
     .getAll("imageUrl")
     .map((v) => String(v).trim())
     .filter(Boolean);
+  if (importUrls.length > 0) {
+    console.log(
+      `[image-import] ${recipeId}: ${importUrls.length} URL(s), sourceUrl=${sourceUrl ?? "(none)"}`,
+    );
+  }
   for (const url of importUrls) {
     try {
-      await addImageFromUrl(recipeId, url, { baseUrl: sourceUrl ?? undefined });
+      const res = await addImageFromUrl(recipeId, url, {
+        baseUrl: sourceUrl ?? undefined,
+      });
+      console.log(`[image-import] ${recipeId}: OK ${url} → ${res.path}`);
     } catch (err) {
       console.error(
-        `Bild-Download fuer ${recipeId} fehlgeschlagen (${url}):`,
+        `[image-import] ${recipeId}: FAIL ${url}:`,
         err instanceof Error ? err.message : err,
       );
     }

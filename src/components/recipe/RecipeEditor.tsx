@@ -253,11 +253,15 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                 key={url}
                 className="group relative aspect-[4/3] overflow-hidden rounded-sm ring-1 ring-sepia"
               >
+                {/* Externe CDN-URLs (z.B. Akamai) blocken Browser-Embeds
+                    teilweise — Vorschau über unseren Server-Proxy, das hidden
+                    imageUrl-Input bleibt die Original-URL. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={url}
+                  src={`/api/image-proxy?url=${encodeURIComponent(url)}`}
                   alt="Importiertes Bild"
                   className="h-full w-full object-cover"
+                  referrerPolicy="no-referrer"
                 />
                 <span className="absolute left-1 top-1 rounded-sm bg-sepia px-1.5 py-0.5 font-hand text-xs text-paper-50">
                   Import
