@@ -1,6 +1,6 @@
 {
   "name": "kochbuch",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "private": true,
   "description": "Familien-Kochbuch im Oma-Design (Next.js + Prisma + Ollama)",
   "scripts": {
