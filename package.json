@@ -1,6 +1,6 @@
 {
   "name": "kochbuch",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "private": true,
   "description": "Familien-Kochbuch im Mery-Design (Next.js + Prisma + Ollama)",
   "scripts": {
