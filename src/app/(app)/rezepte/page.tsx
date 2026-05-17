@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { auth, signOut } from "@/lib/auth/auth";
+import { auth } from "@/lib/auth/auth";
+import { signOutAction } from "@/lib/auth/actions";
 import { prisma } from "@/lib/db/prisma";
 import { searchRecipes } from "@/lib/recipes/search";
 import { HandwrittenStars } from "@/components/oma/HandwrittenStars";
 import { EmptyState } from "@/components/oma/EmptyState";
 import { UpdateBanner } from "@/components/layout/UpdateBanner";
+import { MobileMenu } from "@/components/layout/MobileMenu";
 
 type View = "cards" | "photos" | "list";
 
@@ -52,7 +54,7 @@ export default async function RezeptePage({
     <Suspense fallback={null}>
       <UpdateBanner />
     </Suspense>
-    <main className="mx-auto max-w-6xl px-6 py-10">
+    <main className="mx-auto max-w-6xl px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">
       <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-hand text-6xl text-ink ink-text">Rezeptbuch</h1>
@@ -66,7 +68,8 @@ export default async function RezeptePage({
             </Link>
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        {/* Desktop-Toolbar — ab sm sichtbar. */}
+        <div className="hidden items-center gap-4 sm:flex">
           <Link
             href="/einkaufsliste"
             className="rounded-sm bg-paper-200 px-4 py-2 font-hand text-xl text-ink ring-1 ring-paper-300 hover:rotate-[-0.5deg]"
@@ -105,12 +108,7 @@ export default async function RezeptePage({
           >
             + Neues Rezept
           </Link>
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/" });
-            }}
-          >
+          <form action={signOutAction}>
             <button
               type="submit"
               className="font-written text-sm text-ribbon underline underline-offset-4"
@@ -118,6 +116,20 @@ export default async function RezeptePage({
               Abmelden
             </button>
           </form>
+        </div>
+
+        {/* Mobile-Toolbar — nur sichtbar < sm. Primary + Burger. */}
+        <div className="flex items-center gap-2 sm:hidden">
+          <Link
+            href="/rezepte/neu"
+            className="inline-flex min-h-[44px] items-center rounded-sm bg-ribbon px-4 font-hand text-lg text-paper-50 shadow-card"
+          >
+            + Neu
+          </Link>
+          <MobileMenu
+            bookHref={recipes.length > 0 ? bookHref : null}
+            signOutAction={signOutAction}
+          />
         </div>
       </header>
 
@@ -164,7 +176,7 @@ export default async function RezeptePage({
         </label>
         <button
           type="submit"
-          className="rounded-sm bg-paper-200 px-4 py-2 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
+          className="inline-flex min-h-[44px] items-center rounded-sm bg-paper-200 px-4 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
         >
           Suchen
         </button>
@@ -188,21 +200,23 @@ export default async function RezeptePage({
         </span>
         <div className="inline-flex items-center rounded-sm bg-paper-200 p-1 ring-1 ring-paper-300">
           {([
-            { v: "cards" as const, label: "🗂 Karten" },
-            { v: "photos" as const, label: "🖼 Fotos" },
-            { v: "list" as const, label: "☰ Liste" },
+            { v: "cards" as const, icon: "🗂", label: "Karten" },
+            { v: "photos" as const, icon: "🖼", label: "Fotos" },
+            { v: "list" as const, icon: "≡", label: "Liste" },
           ]).map((opt) => (
             <Link
               key={opt.v}
               href={viewHref(opt.v)}
+              aria-label={opt.label}
               aria-current={view === opt.v ? "page" : undefined}
-              className={`rounded-sm px-3 py-1 font-hand text-lg transition ${
+              className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-sm px-3 py-1 font-hand text-lg transition ${
                 view === opt.v
                   ? "bg-paper-50 text-ink shadow-card"
                   : "text-ink-faded hover:text-ink"
               }`}
             >
-              {opt.label}
+              <span aria-hidden>{opt.icon}</span>
+              <span className="ml-1 hidden sm:inline">{opt.label}</span>
             </Link>
           ))}
         </div>

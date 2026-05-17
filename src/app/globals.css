@@ -34,6 +34,15 @@ body {
   .hand-tilt-1 { transform: rotate(-0.4deg); }
   .hand-tilt-2 { transform: rotate(0.3deg); }
   .hand-tilt-3 { transform: rotate(-0.2deg); }
+
+  /* iOS Safe-Area: Notch / Dynamic Island oben, Home-Indicator unten.
+     Liefert auf Geräten ohne Insets schlicht 0. */
+  .pt-safe { padding-top: max(env(safe-area-inset-top), 0px); }
+  .pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
+  .px-safe {
+    padding-left: max(env(safe-area-inset-left), 0px);
+    padding-right: max(env(safe-area-inset-right), 0px);
+  }
 }
 
 @media print {

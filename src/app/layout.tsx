@@ -47,6 +47,9 @@ export const viewport: Viewport = {
   themeColor: "#FBF6E9",
   width: "device-width",
   initialScale: 1,
+  // viewport-fit=cover ist Pflicht, damit env(safe-area-inset-*) auf iPhone
+  // mit Notch/Dynamic Island echte Werte liefert.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
