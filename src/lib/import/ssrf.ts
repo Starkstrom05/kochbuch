@@ -16,7 +16,14 @@ const BLOCKED_V4 = [
   /^0\./,
 ];
 
-const BLOCKED_V6_PREFIXES = ["::1", "fc", "fd", "fe80", "fe9", "fea", "feb"];
+// IPv6: Loopback ::1, Unique-Local fc00::/7, Link-Local fe80::/10.
+// Die alte Prefix-Heuristik mit ":" als Separator hat fc00::1 durchgelassen,
+// weil die Adresse mit "fc00:" startet, nicht mit "fc:".
+const BLOCKED_V6_PATTERNS: RegExp[] = [
+  /^::1$/,
+  /^f[cd][0-9a-f]{2}(:|$)/,
+  /^fe[89ab][0-9a-f](:|$)/,
+];
 
 function isPrivateIp(ip: string): boolean {
   if (isIP(ip) === 4) {
@@ -24,7 +31,7 @@ function isPrivateIp(ip: string): boolean {
   }
   if (isIP(ip) === 6) {
     const lower = ip.toLowerCase();
-    return BLOCKED_V6_PREFIXES.some((p) => lower === p || lower.startsWith(`${p}:`));
+    return BLOCKED_V6_PATTERNS.some((r) => r.test(lower));
   }
   return false;
 }

@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
+import { assertPublicUrl } from "@/lib/import/ssrf";
 import {
   MAX_UPLOAD_BYTES,
   deleteRecipeImageFiles,
@@ -45,6 +46,13 @@ export async function addImageFromUrl(
   opts: { order?: number; baseUrl?: string; caption?: string } = {},
 ): Promise<{ id: string; path: string }> {
   const absolute = opts.baseUrl ? new URL(imageUrl, opts.baseUrl).toString() : imageUrl;
+
+  // SSRF: imageUrl kommt aus der Form (Web-Import) und ist damit user-controlled.
+  // Ohne Check kann ein angemeldeter User interne Endpoints (Router, Ollama,
+  // Cloud-Metadata) proben. Gleicher Check wie beim Image-Proxy und Web-Import.
+  const check = await assertPublicUrl(absolute);
+  if (!check.ok) throw new Error(`URL abgelehnt: ${check.reason}`);
+
   const res = await fetch(absolute, {
     headers: {
       "User-Agent": FETCH_UA,
@@ -53,6 +61,12 @@ export async function addImageFromUrl(
     signal: AbortSignal.timeout(20_000),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} beim Laden des Bilds`);
+
+  const ct = res.headers.get("content-type") ?? "";
+  if (!ct.startsWith("image/")) {
+    throw new Error(`Antwort kein Bild (Content-Type: ${ct || "leer"})`);
+  }
+
   const buf = Buffer.from(await res.arrayBuffer());
   return addImageFromBuffer(recipeId, buf, opts);
 }
