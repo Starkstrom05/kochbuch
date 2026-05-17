@@ -301,7 +301,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
               required
               defaultValue={initial?.title ?? ""}
               className="mt-1 w-full bg-transparent font-hand text-4xl text-ink outline-none placeholder:text-ink-light/60"
-              placeholder="z.B. Omas Kartoffelsalat"
+              placeholder="z.B. Merys Kartoffelsalat"
             />
           </label>
 
@@ -451,7 +451,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
           defaultValue={initial?.notes ?? ""}
           rows={3}
           className="mt-2 w-full bg-transparent font-written italic text-ink-faded outline-none"
-          placeholder="Omas Geheimtipp..."
+          placeholder="Merys Geheimtipp..."
         />
 
         <label className="mt-6 block">

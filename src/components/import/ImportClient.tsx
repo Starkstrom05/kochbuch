@@ -205,7 +205,7 @@ export function ImportClient({ categories, createAction }: Props) {
   if (step === "importing") {
     return (
       <div className="py-20 text-center">
-        <p className="font-hand text-4xl text-ink animate-pulse">Oma denkt nach…</p>
+        <p className="font-hand text-4xl text-ink animate-pulse">Mery denkt nach…</p>
         <ul className="mt-8 space-y-1 font-written text-sm text-ink-faded">
           {progress.map((msg, i) => (
             <li key={i}>

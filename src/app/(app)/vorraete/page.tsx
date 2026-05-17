@@ -117,7 +117,7 @@ export default function VorraetePage() {
       {/* Loading */}
       {step === "loading" && (
         <div className="py-16 text-center">
-          <p className="font-hand text-4xl text-ink animate-pulse">Oma denkt nach…</p>
+          <p className="font-hand text-4xl text-ink animate-pulse">Mery denkt nach…</p>
           {progress && (
             <p className="mt-4 font-written text-sm text-ink-faded">{progress}</p>
           )}
@@ -164,7 +164,7 @@ export default function VorraetePage() {
           <EmptyState
             illustration="pantry"
             title="Keine Vorschläge gefunden."
-            description="Versuch's mit anderen oder mehr Zutaten — Oma braucht ein paar mehr Anhaltspunkte."
+            description="Versuch's mit anderen oder mehr Zutaten — Mery braucht ein paar mehr Anhaltspunkte."
             action={
               <button
                 onClick={() => setStep("idle")}

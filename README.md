@@ -1,6 +1,6 @@
-# Omas Kochbuch
+# Merys Kochbuch
 
-Selbstgehostetes Familien-Kochbuch im nostalgischen "Oma-Rezeptbuch"-Design.
+Selbstgehostetes Familien-Kochbuch im nostalgischen "Mery-Rezeptbuch"-Design.
 
 - **Stack:** Next.js 16 + TypeScript + Prisma/SQLite + Tailwind + Ollama + Tesseract.js + Puppeteer
 - **Deployment:** Docker auf TrueNAS Scale (TerraMaster NAS), x86
@@ -15,7 +15,7 @@ Selbstgehostetes Familien-Kochbuch im nostalgischen "Oma-Rezeptbuch"-Design.
 - Foto-OCR + Handschrift-Eingabe via Apple Pencil
 - Einkaufsliste aus mehreren Rezepten konsolidieren
 - "Was kann ich aus diesen Zutaten kochen?" — lokales LLM-Vorschlag
-- PDF-Export im Oma-Design (A5)
+- PDF-Export im Mery-Design (A5)
 - Multi-User (Familie) + oeffentliche Share-Links
 
 ## Lokale Entwicklung

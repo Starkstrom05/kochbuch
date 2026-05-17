@@ -6,7 +6,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
   return {
     name,
     short_name: name.split(" ")[0],
-    description: "Familien-Rezepte im Oma-Design",
+    description: "Familien-Rezepte im Mery-Design",
     start_url: "/rezepte",
     display: "standalone",
     background_color: "#FBF6E9",
