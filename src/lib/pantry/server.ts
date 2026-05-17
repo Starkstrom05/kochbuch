@@ -72,6 +72,42 @@ export type RecipeMatch = {
 };
 
 /**
+ * Match-Strategie: ID-Identität ODER case-insensitive Substring-Match in
+ * beide Richtungen (Pantry-Name in Rezeptzutaten-Namen oder umgekehrt).
+ * Damit triff "Ketchup" auch "Tomatenketchup" und "Bauchspeck" deckt
+ * "Speck" mit ab. Min-Länge 3 verhindert dass "Ei" → "Eis" matched.
+ */
+export type PantryMatcher = {
+  ids: Set<string>;
+  names: string[];
+};
+
+const FUZZY_MIN_LEN = 3;
+
+export function buildMatcher(
+  pantry: { ingredientId: string; ingredient: { name: string } }[],
+): PantryMatcher {
+  return {
+    ids: new Set(pantry.map((p) => p.ingredientId)),
+    names: pantry.map((p) => p.ingredient.name.toLowerCase().trim()),
+  };
+}
+
+export function matchesPantry(
+  m: PantryMatcher,
+  ri: { ingredientId: string; ingredient: { name: string } },
+): boolean {
+  if (m.ids.has(ri.ingredientId)) return true;
+  const target = ri.ingredient.name.toLowerCase().trim();
+  for (const p of m.names) {
+    if (p === target) return true;
+    if (p.length >= FUZZY_MIN_LEN && target.includes(p)) return true;
+    if (target.length >= FUZZY_MIN_LEN && p.includes(target)) return true;
+  }
+  return false;
+}
+
+/**
  * Match aller aktiven Rezepte gegen die Pantry des Nutzers. Sortiert
  * primär nach absolutem Treffer (matched DESC), sekundär nach Lücke
  * (missing ASC). Liefert nur Rezepte mit mindestens einem Treffer.
@@ -82,7 +118,7 @@ export async function matchRecipesForUser(
 ): Promise<RecipeMatch[]> {
   const pantry = await getPantryForUser(userId);
   if (pantry.length === 0) return [];
-  const pantryIds = new Set(pantry.map((p) => p.ingredientId));
+  const matcher = buildMatcher(pantry);
 
   const recipes = await prisma.recipe.findMany({
     where: { isActive: true },
@@ -92,7 +128,7 @@ export async function matchRecipesForUser(
     },
   });
 
-  return rankMatches(pantryIds, recipes).slice(0, limit);
+  return rankMatches(matcher, recipes).slice(0, limit);
 }
 
 type RawRecipe = {
@@ -110,7 +146,7 @@ type RawRecipe = {
 };
 
 export function rankMatches(
-  pantryIds: Set<string>,
+  matcher: PantryMatcher,
   recipes: RawRecipe[],
 ): RecipeMatch[] {
   const out: RecipeMatch[] = [];
@@ -119,7 +155,7 @@ export function rankMatches(
     const matched: RecipeMatch["matched"] = [];
     const missing: RecipeMatch["missing"] = [];
     for (const ri of r.ingredients) {
-      if (pantryIds.has(ri.ingredientId)) {
+      if (matchesPantry(matcher, ri)) {
         matched.push({ id: ri.ingredientId, name: ri.ingredient.name });
       } else {
         missing.push({

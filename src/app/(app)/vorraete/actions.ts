@@ -6,7 +6,9 @@ import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import {
   addPantryItem,
+  buildMatcher,
   clearPantry,
+  matchesPantry,
   removePantryItem,
 } from "@/lib/pantry/server";
 
@@ -73,11 +75,10 @@ export async function addMissingToListAction(recipeId: string) {
 
   const pantry = await prisma.pantryItem.findMany({
     where: { ownerId: user.id },
-    select: { ingredientId: true },
+    select: { ingredientId: true, ingredient: { select: { name: true } } },
   });
-  const pantryIds = new Set(pantry.map((p) => p.ingredientId));
-
-  const missing = recipe.ingredients.filter((ri) => !pantryIds.has(ri.ingredientId));
+  const matcher = buildMatcher(pantry);
+  const missing = recipe.ingredients.filter((ri) => !matchesPantry(matcher, ri));
   if (missing.length === 0) {
     revalidatePath("/vorraete");
     redirect("/einkaufsliste");
