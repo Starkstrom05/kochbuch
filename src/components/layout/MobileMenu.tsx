@@ -68,6 +68,9 @@ export function MobileMenu({ bookHref, signOutAction }: Props) {
             <MenuLink href="/einkaufsliste" onClick={() => setOpen(false)}>
               🛒 Einkaufsliste
             </MenuLink>
+            <MenuLink href="/vorraete" onClick={() => setOpen(false)}>
+              🥦 Vorrat — was kann ich kochen?
+            </MenuLink>
             <MenuLink href="/rezepte/importieren" onClick={() => setOpen(false)}>
               ↓ Importieren
             </MenuLink>
