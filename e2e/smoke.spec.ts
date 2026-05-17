@@ -17,7 +17,7 @@ test.describe.serial("Happy path — Rezept anlegen und ansehen", () => {
     await page.goto("/rezepte/neu");
     await expect(page.getByRole("heading", { name: "Neues Rezept" })).toBeVisible();
 
-    await page.getByPlaceholder(/Omas Kartoffelsalat/i).fill(RECIPE_TITLE);
+    await page.getByPlaceholder(/Merys Kartoffelsalat/i).fill(RECIPE_TITLE);
 
     await page.locator('input[name="ing-amount"]').first().fill("200");
     await page.locator('input[name="ing-unit"]').first().fill("g");

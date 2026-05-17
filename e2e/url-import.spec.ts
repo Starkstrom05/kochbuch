@@ -43,7 +43,7 @@ test.describe("URL-Import", () => {
 
     // Wait for the editor to appear
     await expect(
-      page.getByPlaceholder(/Omas Kartoffelsalat/i),
+      page.getByPlaceholder(/Merys Kartoffelsalat/i),
     ).toHaveValue("Testrezept vom Import", { timeout: 10_000 });
     await expect(page.getByText("Importiert via Schema.org")).toBeVisible();
   });
