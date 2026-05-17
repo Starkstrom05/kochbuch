@@ -7,11 +7,18 @@ import { HandwrittenStars } from "@/components/oma/HandwrittenStars";
 import { EmptyState } from "@/components/oma/EmptyState";
 import { UpdateBanner } from "@/components/layout/UpdateBanner";
 
+type View = "cards" | "photos" | "list";
+
 type SearchParams = Promise<{
   q?: string;
   categoryId?: string;
   minStars?: string;
+  view?: string;
 }>;
+
+function parseView(raw: string | undefined): View {
+  return raw === "photos" || raw === "list" ? raw : "cards";
+}
 
 export default async function RezeptePage({
   searchParams,
@@ -19,18 +26,26 @@ export default async function RezeptePage({
   searchParams: SearchParams;
 }) {
   const session = await auth();
-  const { q, categoryId, minStars: minStarsRaw } = await searchParams;
+  const { q, categoryId, minStars: minStarsRaw, view: viewRaw } = await searchParams;
   const minStars = minStarsRaw ? Number(minStarsRaw) : 0;
+  const view = parseView(viewRaw);
   const [recipes, categories] = await Promise.all([
     searchRecipes({ q, categoryId, minStars: minStars > 0 ? minStars : undefined }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
   ]);
 
-  const bookQuery = new URLSearchParams();
-  if (q) bookQuery.set("q", q);
-  if (categoryId) bookQuery.set("categoryId", categoryId);
-  if (minStars > 0) bookQuery.set("minStars", String(minStars));
-  const bookHref = bookQuery.toString() ? `/rezepte/buch?${bookQuery}` : "/rezepte/buch";
+  const baseParams = new URLSearchParams();
+  if (q) baseParams.set("q", q);
+  if (categoryId) baseParams.set("categoryId", categoryId);
+  if (minStars > 0) baseParams.set("minStars", String(minStars));
+  const bookHref = baseParams.toString()
+    ? `/rezepte/buch?${baseParams}`
+    : "/rezepte/buch";
+  const viewHref = (v: View) => {
+    const sp = new URLSearchParams(baseParams);
+    if (v !== "cards") sp.set("view", v);
+    return sp.toString() ? `/rezepte?${sp}` : "/rezepte";
+  };
 
   return (
     <>
@@ -106,7 +121,7 @@ export default async function RezeptePage({
         </div>
       </header>
 
-      <form method="get" className="paper-card mb-8 flex flex-wrap items-end gap-4 p-4">
+      <form method="get" className="paper-card mb-4 flex flex-wrap items-end gap-4 p-4">
         <label className="flex-1 min-w-[200px]">
           <span className="font-written text-sm text-ink-faded">Suche</span>
           <input
@@ -155,13 +170,43 @@ export default async function RezeptePage({
         </button>
         {(q || categoryId || minStars > 0) ? (
           <Link
-            href="/rezepte"
+            href={view === "cards" ? "/rezepte" : `/rezepte?view=${view}`}
             className="font-written text-sm text-ribbon underline underline-offset-4"
           >
             zurücksetzen
           </Link>
         ) : null}
       </form>
+
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <span className="font-written text-sm text-ink-faded">
+          {recipes.length === 1
+            ? "1 Rezept"
+            : recipes.length > 0
+              ? `${recipes.length} Rezepte`
+              : ""}
+        </span>
+        <div className="inline-flex items-center rounded-sm bg-paper-200 p-1 ring-1 ring-paper-300">
+          {([
+            { v: "cards" as const, label: "🗂 Karten" },
+            { v: "photos" as const, label: "🖼 Fotos" },
+            { v: "list" as const, label: "☰ Liste" },
+          ]).map((opt) => (
+            <Link
+              key={opt.v}
+              href={viewHref(opt.v)}
+              aria-current={view === opt.v ? "page" : undefined}
+              className={`rounded-sm px-3 py-1 font-hand text-lg transition ${
+                view === opt.v
+                  ? "bg-paper-50 text-ink shadow-card"
+                  : "text-ink-faded hover:text-ink"
+              }`}
+            >
+              {opt.label}
+            </Link>
+          ))}
+        </div>
+      </div>
 
       {recipes.length === 0 ? (
         <EmptyState
@@ -187,7 +232,7 @@ export default async function RezeptePage({
             ) : null
           }
         />
-      ) : (
+      ) : view === "cards" ? (
         <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {recipes.map((r, i) => {
             const avg =
@@ -215,6 +260,106 @@ export default async function RezeptePage({
                     ))}
                     {avg > 0 ? <HandwrittenStars value={avg} size={16} seed={r.id} /> : null}
                   </div>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      ) : view === "photos" ? (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {recipes.map((r) => {
+            const avg =
+              r.ratings.length > 0
+                ? r.ratings.reduce((a, b) => a + b.stars, 0) / r.ratings.length
+                : 0;
+            const cover = r.images[0]?.path;
+            return (
+              <li
+                key={r.id}
+                className="paper-card overflow-hidden p-0 transition hover:rotate-[-0.5deg]"
+              >
+                <Link href={`/rezepte/${r.slug}`} className="block">
+                  <div className="aspect-square w-full bg-paper-200">
+                    {cover ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`/api/images${cover}`}
+                        alt=""
+                        className="h-full w-full object-cover sepia-[0.1]"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center font-hand text-5xl text-ink-light/40">
+                        🍴
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <h2 className="line-clamp-2 font-hand text-xl text-ink">
+                      {r.title}
+                    </h2>
+                    {avg > 0 ? (
+                      <div className="mt-1">
+                        <HandwrittenStars value={avg} size={12} seed={r.id} />
+                      </div>
+                    ) : null}
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <ul className="paper-card divide-y divide-paper-300 p-0">
+          {recipes.map((r) => {
+            const avg =
+              r.ratings.length > 0
+                ? r.ratings.reduce((a, b) => a + b.stars, 0) / r.ratings.length
+                : 0;
+            const cover = r.images[0]?.path;
+            const totalMin = (r.prepMinutes ?? 0) + (r.cookMinutes ?? 0);
+            return (
+              <li key={r.id}>
+                <Link
+                  href={`/rezepte/${r.slug}`}
+                  className="flex items-center gap-4 p-3 hover:bg-paper-200/50"
+                >
+                  <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-sm bg-paper-200">
+                    {cover ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`/api/images${cover}`}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center font-hand text-2xl text-ink-light/40">
+                        🍴
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="truncate font-hand text-2xl text-ink">
+                      {r.title}
+                    </h2>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      {r.categories.slice(0, 3).map((c) => (
+                        <span
+                          key={c.categoryId}
+                          className="rounded-sm bg-paper-200 px-2 py-0.5 font-written text-xs text-ink-faded"
+                        >
+                          {c.category.icon} {c.category.name}
+                        </span>
+                      ))}
+                      {avg > 0 ? (
+                        <HandwrittenStars value={avg} size={14} seed={r.id} />
+                      ) : null}
+                    </div>
+                  </div>
+                  {totalMin > 0 ? (
+                    <span className="flex-shrink-0 font-written text-sm text-ink-faded">
+                      ⏱ {totalMin} min
+                    </span>
+                  ) : null}
                 </Link>
               </li>
             );
