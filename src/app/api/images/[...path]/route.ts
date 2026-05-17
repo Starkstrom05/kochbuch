@@ -23,28 +23,31 @@ function forbidden() {
 }
 
 // Erlaubte Pfad-Pattern: /recipes/<recipeId>/<file>. Alles andere wird abgewiesen.
-// Owner-Check: das Recipe muss dem eingeloggten User gehören ODER public sein
-// (geteilte Rezepte sehen ihre Bilder im PDF). Puppeteer-Renderer schickt
-// den x-internal-token (s. proxy.ts) und überspringt diesen Pfad bereits in
-// der Middleware — hier kommen also nur "echte" Browser-Requests an.
+//
+// Read-Modell ist "Familien-read-all": jeder eingeloggte Familien-Member
+// sieht alle Rezepte (siehe /rezepte-Liste + /rezepte/[slug]-Detail, beide
+// filtern nicht nach createdById). Bilder müssen also auch allen sichtbar
+// sein — sonst hängen sie als kaputte Img-Tags in fremden Rezepten.
+//
+// Für unauth-Aufrufe (Share-Page, Share-PDF) bleibt der isPublic-Check als
+// einzige Hürde. Puppeteer-Renderer schickt zusätzlich x-internal-token
+// und überspringt diesen Pfad schon in der Middleware.
 async function authorizeRecipeImage(
   segments: string[],
 ): Promise<{ ok: true } | { ok: false; status: 403 | 404 }> {
   if (segments[0] !== "recipes" || !segments[1]) {
     return { ok: false, status: 404 };
   }
+
+  const session = await auth();
+  if (session?.user) return { ok: true };
+
   const recipeId = segments[1];
   const recipe = await prisma.recipe.findUnique({
     where: { id: recipeId },
-    select: { createdById: true, isPublic: true },
+    select: { isPublic: true },
   });
-  if (!recipe) return { ok: false, status: 404 };
-
-  if (recipe.isPublic) return { ok: true };
-
-  const session = await auth();
-  if (!session?.user) return { ok: false, status: 403 };
-  if (session.user.id !== recipe.createdById) return { ok: false, status: 403 };
+  if (!recipe?.isPublic) return { ok: false, status: 403 };
   return { ok: true };
 }
 
