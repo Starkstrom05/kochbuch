@@ -40,22 +40,12 @@ export default async function ArchivPage() {
                   ) : null}
                 </div>
                 <div className="flex shrink-0 items-center gap-4 font-written text-sm">
-                  <form
-                    action={async () => {
-                      "use server";
-                      await restoreRecipeAction(recipe.id);
-                    }}
-                  >
+                  <form action={restoreRecipeAction.bind(null, recipe.id)}>
                     <button type="submit" className="text-ribbon underline underline-offset-4">
                       wiederherstellen
                     </button>
                   </form>
-                  <form
-                    action={async () => {
-                      "use server";
-                      await permanentlyDeleteRecipeAction(recipe.id);
-                    }}
-                  >
+                  <form action={permanentlyDeleteRecipeAction.bind(null, recipe.id)}>
                     <button
                       type="submit"
                       className="text-ink-faded hover:text-red-700"

@@ -111,6 +111,12 @@ export function matchesPantry(
  * Match aller aktiven Rezepte gegen die Pantry des Nutzers. Sortiert
  * primär nach absolutem Treffer (matched DESC), sekundär nach Lücke
  * (missing ASC). Liefert nur Rezepte mit mindestens einem Treffer.
+ *
+ * Performance: Statt ALLE Recipes mit allen Ingredients zu laden, finden
+ * wir erst per DB-Query die Ingredient-IDs, die per Substring zu einem
+ * Pantry-Eintrag matchen — und holen dann nur Rezepte, die mindestens
+ * einen dieser Ingredients nutzen. Das reduziert das Datenvolumen bei
+ * vielen Rezepten drastisch (≥1 Treffer ist ja Voraussetzung).
  */
 export async function matchRecipesForUser(
   userId: string,
@@ -120,8 +126,14 @@ export async function matchRecipesForUser(
   if (pantry.length === 0) return [];
   const matcher = buildMatcher(pantry);
 
+  const candidateIds = await collectCandidateIngredientIds(matcher);
+  if (candidateIds.size === 0) return [];
+
   const recipes = await prisma.recipe.findMany({
-    where: { isActive: true },
+    where: {
+      isActive: true,
+      ingredients: { some: { ingredientId: { in: Array.from(candidateIds) } } },
+    },
     include: {
       ingredients: { include: { ingredient: true } },
       images: { orderBy: { order: "asc" }, take: 1, select: { path: true } },
@@ -129,6 +141,49 @@ export async function matchRecipesForUser(
   });
 
   return rankMatches(matcher, recipes).slice(0, limit);
+}
+
+/**
+ * Sammelt aus der Ingredient-Tabelle die IDs aller Einträge, die per ID
+ * direkt oder per Substring-Match (≥3 Zeichen, in beide Richtungen) zum
+ * Pantry-Matcher passen — entspricht der Logik in matchesPantry. Wird
+ * als Vorfilter für die Recipe-Query genutzt.
+ */
+async function collectCandidateIngredientIds(
+  matcher: PantryMatcher,
+): Promise<Set<string>> {
+  const out = new Set<string>(matcher.ids);
+
+  // Fuzzy-Kandidaten: SQL-LIKE mit den Pantry-Namen (≥3 Zeichen).
+  // Pantry-Name als Substring im Ingredient-Name (a-includes-b).
+  const aLikePatterns = matcher.names
+    .filter((n) => n.length >= FUZZY_MIN_LEN)
+    .map((n) => `%${n}%`);
+
+  if (aLikePatterns.length > 0) {
+    const hits = await prisma.ingredient.findMany({
+      where: { OR: aLikePatterns.map((p) => ({ name: { contains: p.slice(1, -1) } })) },
+      select: { id: true, name: true },
+    });
+    for (const h of hits) out.add(h.id);
+  }
+
+  // Umgekehrte Richtung: Ingredient-Name als Substring eines Pantry-Namens
+  // — die DB hat dafür keinen Index. Wir holen alle Ingredients, deren Name
+  // ≥3 Zeichen ist, und prüfen in-process. Bei riesigen Ingredient-Tabellen
+  // wäre das auch teuer, aber Ingredients sind normalisiert und die Menge
+  // bleibt überschaubar.
+  const allIngredients = await prisma.ingredient.findMany({
+    select: { id: true, name: true },
+  });
+  for (const ing of allIngredients) {
+    const lower = ing.name.toLowerCase().trim();
+    if (lower.length < FUZZY_MIN_LEN) continue;
+    if (matcher.names.some((p) => p.includes(lower))) {
+      out.add(ing.id);
+    }
+  }
+  return out;
 }
 
 type RawRecipe = {

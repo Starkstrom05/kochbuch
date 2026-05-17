@@ -89,12 +89,7 @@ export default async function RecipeDetailPage({
             >
               📄 PDF
             </a>
-            <form
-              action={async () => {
-                "use server";
-                await deactivateRecipeAction(recipe.id);
-              }}
-            >
+            <form action={deactivateRecipeAction.bind(null, recipe.id)}>
               <button type="submit" className="text-ink-faded hover:text-ribbon">
                 deaktivieren
               </button>

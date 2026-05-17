@@ -232,6 +232,9 @@ async function fetchHtmlViaPuppeteer(
   const check = await assertPublicUrl(url);
   if (!check.ok) throw new Error(`URL abgelehnt: ${check.reason}`);
 
+  // Signal-Check vor dem Mutex: wenn der Client schon abgebrochen hat
+  // bevor wir an die Reihe kommen, gar nicht erst in die Queue stellen.
+  if (externalSignal?.aborted) throw new Error("Abgebrochen");
   return runOnPuppeteer(async () => {
     if (externalSignal?.aborted) throw new Error("Abgebrochen");
     return withBrowser(async (browser) => {
