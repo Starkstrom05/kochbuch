@@ -26,7 +26,7 @@ export async function GET(
       },
     });
   } catch (err) {
-    console.error("Share PDF failed");
+    console.error("Share PDF failed:", err);
     return NextResponse.json({ error: "PDF-Generierung fehlgeschlagen" }, { status: 500 });
   }
 }

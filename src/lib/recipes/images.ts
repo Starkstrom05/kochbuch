@@ -34,9 +34,17 @@ export async function addImageFromBuffer(
   const id = makeImageId();
   const { path } = await processAndSaveRecipeImage(buffer, recipeId, id);
   const order = opts.order ?? (await nextOrder(recipeId));
-  await prisma.recipeImage.create({
-    data: { id, recipeId, path, order, caption: opts.caption ?? null },
-  });
+  try {
+    await prisma.recipeImage.create({
+      data: { id, recipeId, path, order, caption: opts.caption ?? null },
+    });
+  } catch (err) {
+    // DB-Insert fehlgeschlagen — sonst bleiben die geschriebenen Dateien als
+    // Waisen im UPLOAD_DIR liegen. Bei der recipeImage-id ist quasi keine
+    // Kollision möglich (12 random bytes), trotzdem absichern.
+    await deleteRecipeImageFiles(path).catch(() => undefined);
+    throw err;
+  }
   return { id, path };
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type GalleryImage = { id: string; path: string; caption?: string | null };
 
@@ -20,15 +20,25 @@ export function RecipeGallery({ images }: Props) {
   );
   const prev = useCallback(() => setActiveIdx((i) => Math.max(i - 1, 0)), []);
 
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+
   useEffect(() => {
     if (!fullscreen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    // Initialer Focus auf den Close-Button, damit Tastatur-Nutzer im Dialog
+    // landen statt unter dem Overlay weiter zu tabben.
+    closeBtnRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
       else if (e.key === "ArrowLeft") prev();
       else if (e.key === "ArrowRight") next();
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
   }, [fullscreen, close, prev, next]);
 
   if (images.length === 0) return null;
@@ -84,6 +94,7 @@ export function RecipeGallery({ images }: Props) {
           onClick={close}
           role="dialog"
           aria-modal="true"
+          aria-label="Bild-Vollbildansicht"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -93,13 +104,14 @@ export function RecipeGallery({ images }: Props) {
             onClick={(e) => e.stopPropagation()}
           />
           <button
+            ref={closeBtnRef}
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               close();
             }}
             aria-label="Schließen"
-            className="absolute right-4 top-4 rounded-sm bg-paper-50/10 px-3 py-1 font-hand text-2xl text-paper-50 hover:bg-paper-50/20"
+            className="absolute right-4 top-4 inline-flex h-11 w-11 items-center justify-center rounded-sm bg-paper-50/10 font-hand text-2xl text-paper-50 hover:bg-paper-50/20"
           >
             ×
           </button>

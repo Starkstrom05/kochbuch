@@ -216,7 +216,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                   <button
                     type="button"
                     onClick={() => removeExisting(img.id)}
-                    className="rounded-sm bg-paper-50/90 px-1.5 py-0.5 font-hand text-sm text-ribbon shadow"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-sm bg-paper-50/90 font-hand text-base text-ribbon shadow"
                     aria-label="Bild entfernen"
                   >
                     ✕
@@ -241,7 +241,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                 <button
                   type="button"
                   onClick={() => removeNew(img.localId)}
-                  className="absolute right-1 bottom-1 rounded-sm bg-paper-50/90 px-1.5 py-0.5 font-hand text-sm text-ribbon shadow opacity-0 transition group-hover:opacity-100"
+                  className="absolute right-1 bottom-1 inline-flex h-11 w-11 items-center justify-center rounded-sm bg-paper-50/90 font-hand text-base text-ribbon shadow opacity-0 transition group-hover:opacity-100"
                   aria-label="Bild entfernen"
                 >
                   ✕
@@ -269,7 +269,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                 <button
                   type="button"
                   onClick={() => removeImportedUrl(url)}
-                  className="absolute right-1 bottom-1 rounded-sm bg-paper-50/90 px-1.5 py-0.5 font-hand text-sm text-ribbon shadow opacity-0 transition group-hover:opacity-100"
+                  className="absolute right-1 bottom-1 inline-flex h-11 w-11 items-center justify-center rounded-sm bg-paper-50/90 font-hand text-base text-ribbon shadow opacity-0 transition group-hover:opacity-100"
                   aria-label="Bild entfernen"
                 >
                   ✕
@@ -339,7 +339,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
               {categories.map((c) => (
                 <label
                   key={c.id}
-                  className="cursor-pointer rounded-sm bg-paper-100 px-2 py-1 font-written text-sm ring-1 ring-paper-300 has-[:checked]:bg-ribbon has-[:checked]:text-paper-50"
+                  className="inline-flex min-h-[44px] cursor-pointer items-center rounded-sm bg-paper-100 px-3 py-1 font-written text-sm ring-1 ring-paper-300 has-[:checked]:bg-ribbon has-[:checked]:text-paper-50 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ribbon has-[:focus-visible]:ring-offset-2"
                 >
                   <input
                     type="checkbox"
@@ -410,7 +410,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                 type="button"
                 onClick={() => removeIng(i)}
                 aria-label="Zeile entfernen"
-                className="col-span-1 text-right font-hand text-xl text-ribbon hover:scale-110"
+                className="col-span-1 inline-flex min-h-[44px] items-center justify-end font-hand text-xl text-ribbon hover:scale-110"
               >
                 ×
               </button>

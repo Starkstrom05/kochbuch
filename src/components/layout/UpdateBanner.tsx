@@ -4,7 +4,7 @@ import packageJson from "../../../package.json";
 type VersionData = { current: string; latest: string; hasUpdate: boolean };
 
 async function getVersionData(): Promise<VersionData> {
-  const current = process.env.KOCHBUCH_VERSION ?? packageJson.version;
+  const current = packageJson.version;
 
   const cached = await prisma.appMeta.findUnique({ where: { key: "latestVersion" } }).catch(() => null);
   const checkedAt = await prisma.appMeta.findUnique({ where: { key: "latestVersionCheckedAt" } }).catch(() => null);

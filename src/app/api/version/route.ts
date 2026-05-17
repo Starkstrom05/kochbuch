@@ -6,7 +6,7 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 h
 const GITHUB_REPO = "Starkstrom05/kochbuch";
 
 export async function GET() {
-  const current = process.env.KOCHBUCH_VERSION ?? packageJson.version;
+  const current = packageJson.version;
 
   try {
     const latest = await fetchLatestVersion();

@@ -361,6 +361,7 @@ function Lightbox({
       onClick={onClose}
       role="dialog"
       aria-modal="true"
+      aria-label="Bild-Vollbildansicht"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -376,7 +377,7 @@ function Lightbox({
           onClose();
         }}
         aria-label="Schließen"
-        className="absolute right-4 top-4 rounded-sm bg-paper-50/10 px-3 py-1 font-hand text-2xl text-paper-50 hover:bg-paper-50/20"
+        className="absolute right-4 top-4 inline-flex h-11 w-11 items-center justify-center rounded-sm bg-paper-50/10 font-hand text-2xl text-paper-50 hover:bg-paper-50/20"
       >
         ×
       </button>

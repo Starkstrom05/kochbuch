@@ -9,7 +9,7 @@ export async function GET() {
     await prisma.$queryRaw`SELECT 1`;
     return NextResponse.json({
       status: "ok",
-      version: process.env.KOCHBUCH_VERSION ?? packageJson.version,
+      version: packageJson.version,
       time: new Date().toISOString(),
     });
   } catch (e) {
