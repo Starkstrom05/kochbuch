@@ -115,7 +115,7 @@ muss sie `packageJson.version` verwenden.
 - `dangerouslySetInnerHTML` ohne DOMPurify
 - `eval`-artige Patterns auf KI-Output (z.B. `Function(...)` mit Modell-String)
 - Secrets im Repo (`.env` ist gitignored — `.env.example` als Vorlage)
-- Ungeprueftes Annehmen von Uploads >5 MB (Server-side sharp-Resize + Validierung)
+- Ungeprueftes Annehmen von Uploads >10 MB (`MAX_UPLOAD_BYTES`; Server-side sharp-Resize + Validierung)
 - Cloud-API-Calls zur Laufzeit (KI laeuft lokal via Ollama)
 - Bilder in `public/` (gehoeren ins `UPLOAD_DIR`-Volume)
 
