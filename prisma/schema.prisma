@@ -19,6 +19,7 @@ model User {
   ratings       Rating[]
   shoppingLists ShoppingList[]
   mealPlans     MealPlan[]
+  pantry        PantryItem[]
   sessions      Session[]
   accounts      Account[]
 }
@@ -111,6 +112,21 @@ model Ingredient {
   category  String?
   density   Float?
   uses      RecipeIngredient[]
+  pantry    PantryItem[]
+}
+
+model PantryItem {
+  id           String     @id @default(cuid())
+  ownerId      String
+  owner        User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  amount       Float?
+  unit         String?
+  addedAt      DateTime   @default(now())
+
+  @@unique([ownerId, ingredientId])
+  @@index([ownerId])
 }
 
 model RecipeIngredient {

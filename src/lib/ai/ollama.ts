@@ -163,33 +163,6 @@ export async function structureRecipeFromText(
   throw lastError ?? new Error("Ollama konnte das Rezept nicht strukturieren");
 }
 
-export async function suggestFromPantry(
-  ingredients: string[],
-  onChunk?: (text: string) => void,
-  signal?: AbortSignal,
-): Promise<string[]> {
-  if (!(await checkOllamaHealth())) throw new OllamaUnreachableError();
-
-  const userPrompt = `Ich habe folgende Zutaten vorrätig: ${ingredients.join(", ")}.
-Schlage 3–5 Rezepte vor, die ich damit kochen könnte.
-Antworte als JSON: {"suggestions": ["Rezept 1", "Rezept 2"]}`;
-
-  try {
-    const raw = await ollamaChat(
-      [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
-      ],
-      signal,
-    );
-    onChunk?.(raw);
-    const parsed = JSON.parse(extractJson(raw)) as { suggestions?: string[] };
-    return Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
-  } catch {
-    return [];
-  }
-}
-
 export async function checkOllamaHealth(): Promise<boolean> {
   try {
     const res = await fetch(`${BASE_URL}/api/tags`, { signal: AbortSignal.timeout(3000) });

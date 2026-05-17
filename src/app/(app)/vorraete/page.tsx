@@ -1,181 +1,219 @@
-"use client";
-
-import { useState } from "react";
 import Link from "next/link";
+import { auth } from "@/lib/auth/auth";
+import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/oma/EmptyState";
+import { getPantryForUser, matchRecipesForUser } from "@/lib/pantry/server";
+import {
+  addPantryItemAction,
+  clearPantryAction,
+  removePantryItemAction,
+  addMissingToListAction,
+} from "./actions";
 
-type Step = "idle" | "loading" | "done";
+export default async function VorraetePage() {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
 
-async function readSse(
-  response: Response,
-  onProgress: (msg: string) => void,
-  onResult: (suggestions: string[]) => void,
-  onError: (msg: string) => void,
-) {
-  const reader = response.body?.getReader();
-  if (!reader) { onError("Kein Stream"); return; }
-
-  const dec = new TextDecoder();
-  let buf = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const blocks = buf.split("\n\n");
-    buf = blocks.pop() ?? "";
-    for (const block of blocks) {
-      let event = "message", dataLine = "";
-      for (const line of block.split("\n")) {
-        if (line.startsWith("event: ")) event = line.slice(7).trim();
-        if (line.startsWith("data: ")) dataLine = line.slice(6).trim();
-      }
-      if (!dataLine) continue;
-      try {
-        const parsed: unknown = JSON.parse(dataLine);
-        if (event === "progress") onProgress((parsed as { message: string }).message);
-        if (event === "result") onResult((parsed as { suggestions: string[] }).suggestions);
-        if (event === "error") onError((parsed as { message: string }).message);
-      } catch { /* skip */ }
-    }
-  }
-}
-
-export default function VorraetePage() {
-  const [step, setStep] = useState<Step>("idle");
-  const [progress, setProgress] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const ingredients = String(fd.get("ingredients") ?? "").trim();
-    if (!ingredients) return;
-
-    setStep("loading");
-    setError(null);
-    setSuggestions([]);
-    setProgress(null);
-
-    const res = await fetch("/api/suggest-pantry", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ingredients }),
-    });
-
-    if (!res.ok) {
-      setStep("idle");
-      setError(`Fehler ${res.status}`);
-      return;
-    }
-
-    await readSse(
-      res,
-      (msg) => setProgress(msg),
-      (s) => { setSuggestions(s); setStep("done"); },
-      (msg) => { setError(msg); setStep("idle"); },
-    );
-  }
+  const [pantry, matches] = await Promise.all([
+    getPantryForUser(session.user.id),
+    matchRecipesForUser(session.user.id, 15),
+  ]);
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">
+    <main className="mx-auto max-w-3xl px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">
       <header className="mb-8 flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="font-hand text-5xl text-ink ink-text">Was kann ich kochen?</h1>
-        <Link href="/rezepte" className="font-written text-sm text-ribbon underline underline-offset-4">
+        <div>
+          <h1 className="font-hand text-5xl text-ink ink-text">Vorrat</h1>
+          <p className="font-written text-ink-faded">
+            Trag ein, was du da hast — finde Rezepte mit den meisten Treffern.
+          </p>
+        </div>
+        <Link
+          href="/rezepte"
+          className="font-written text-sm text-ribbon underline underline-offset-4"
+        >
           ← Rezepte
         </Link>
       </header>
 
-      {/* Input */}
-      {step !== "loading" && (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <label className="block">
-            <span className="font-written text-sm text-ink-faded">
-              Was liegt im Kühlschrank / in der Speisekammer?
-            </span>
-            <textarea
-              name="ingredients"
-              rows={5}
+      {/* ── Pantry-Eingabe + Liste ───────────────────────────────────────── */}
+      <section className="paper-card mb-8 p-5 sm:p-6">
+        <h2 className="mb-3 font-hand text-3xl text-ink">Was hast du da?</h2>
+
+        <form
+          action={addPantryItemAction}
+          className="mb-4 flex flex-wrap items-end gap-3"
+        >
+          <label className="flex-1 min-w-[160px]">
+            <span className="font-written text-sm text-ink-faded">Zutat</span>
+            <input
+              name="name"
               required
-              className="mt-2 w-full rounded-sm border border-paper-300 bg-paper-50 p-3 font-written text-lg text-ink outline-none focus:border-sepia"
-              placeholder={"Mehl, Eier, Butter\nMilch\nÄpfel\nZimt"}
+              placeholder="z.B. Tomaten"
+              className="mt-1 w-full border-b border-dotted border-ink-light bg-transparent font-serif text-ink outline-none"
             />
           </label>
-          <p className="font-written text-xs text-ink-faded">
-            Komma- oder zeilengetrennt. Je mehr Zutaten, desto besser die Vorschläge.
-          </p>
+          <label className="w-24">
+            <span className="font-written text-sm text-ink-faded">Menge</span>
+            <input
+              name="amount"
+              inputMode="decimal"
+              placeholder=""
+              className="mt-1 w-full border-b border-dotted border-ink-light bg-transparent font-serif text-ink outline-none"
+            />
+          </label>
+          <label className="w-24">
+            <span className="font-written text-sm text-ink-faded">Einheit</span>
+            <input
+              name="unit"
+              placeholder="g, Stk…"
+              className="mt-1 w-full border-b border-dotted border-ink-light bg-transparent font-serif text-ink outline-none"
+            />
+          </label>
           <button
             type="submit"
-            className="rounded-sm bg-ribbon px-6 py-2 font-hand text-2xl text-paper-50 shadow-sm hover:rotate-[-0.5deg]"
+            className="inline-flex min-h-[44px] items-center rounded-sm bg-ribbon px-4 font-hand text-lg text-paper-50 shadow-card"
           >
-            Rezepte vorschlagen
+            + Hinzufügen
           </button>
         </form>
-      )}
 
-      {/* Loading */}
-      {step === "loading" && (
-        <div className="py-16 text-center">
-          <p className="font-hand text-4xl text-ink animate-pulse">Mery denkt nach…</p>
-          {progress && (
-            <p className="mt-4 font-written text-sm text-ink-faded">{progress}</p>
-          )}
-        </div>
-      )}
+        {pantry.length === 0 ? (
+          <p className="font-written text-sm text-ink-faded">
+            Noch kein Vorrat. Tipp deine erste Zutat ein.
+          </p>
+        ) : (
+          <>
+            <ul className="flex flex-wrap gap-2">
+              {pantry.map((item) => {
+                const removeBound = removePantryItemAction.bind(null, item.id);
+                const label = [
+                  item.amount != null ? String(item.amount) : null,
+                  item.unit ?? null,
+                  item.ingredient.name,
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+                return (
+                  <li key={item.id}>
+                    <form
+                      action={removeBound}
+                      className="inline-flex items-center gap-1 rounded-sm bg-paper-200 px-3 py-1 ring-1 ring-paper-300"
+                    >
+                      <span className="font-written text-sm text-ink">{label}</span>
+                      <button
+                        type="submit"
+                        aria-label={`${item.ingredient.name} entfernen`}
+                        className="ml-1 font-hand text-base text-ink-faded hover:text-ribbon"
+                      >
+                        ✕
+                      </button>
+                    </form>
+                  </li>
+                );
+              })}
+            </ul>
+            <form action={clearPantryAction} className="mt-4">
+              <button
+                type="submit"
+                className="font-written text-sm text-ink-faded underline underline-offset-4 hover:text-ribbon"
+              >
+                Vorrat komplett leeren
+              </button>
+            </form>
+          </>
+        )}
+      </section>
 
-      {/* Error */}
-      {error && (
-        <p className="mt-4 rounded-sm bg-red-50 px-4 py-3 font-written text-sm text-red-700 ring-1 ring-red-200">
-          {error}
-        </p>
-      )}
+      {/* ── Match-Ergebnisse ─────────────────────────────────────────────── */}
+      <section>
+        <h2 className="mb-4 font-hand text-3xl text-ink">
+          Was du damit kochen kannst
+        </h2>
 
-      {/* Results */}
-      {step === "done" && suggestions.length > 0 && (
-        <div className="mt-8">
-          <h2 className="font-hand text-3xl text-ink ink-text">
-            {suggestions.length} Vorschläge
-          </h2>
-          <ul className="mt-4 divide-y divide-paper-200">
-            {suggestions.map((title, i) => (
-              <li key={i} className="flex items-center justify-between gap-4 py-4">
-                <span className="font-written text-lg text-ink">{title}</span>
-                <Link
-                  href={`/rezepte/neu?title=${encodeURIComponent(title)}`}
-                  className="flex-shrink-0 rounded-sm bg-ribbon px-3 py-1 font-hand text-base text-paper-50 hover:rotate-[-0.5deg]"
-                >
-                  Rezept anlegen
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <button
-            onClick={() => setStep("idle")}
-            className="mt-6 font-written text-sm text-ribbon underline underline-offset-4"
-          >
-            ← neue Anfrage
-          </button>
-        </div>
-      )}
-
-      {step === "done" && suggestions.length === 0 && (
-        <div className="mt-8">
+        {pantry.length === 0 ? (
+          <p className="font-written text-ink-faded">
+            Füge oben deine Vorratszutaten hinzu — passende Rezepte erscheinen
+            dann hier.
+          </p>
+        ) : matches.length === 0 ? (
           <EmptyState
             illustration="pantry"
-            title="Keine Vorschläge gefunden."
-            description="Versuch's mit anderen oder mehr Zutaten — Mery braucht ein paar mehr Anhaltspunkte."
-            action={
-              <button
-                onClick={() => setStep("idle")}
-                className="rounded-sm bg-ribbon px-6 py-2 font-hand text-2xl text-paper-50 shadow-card hover:rotate-[-0.5deg]"
-              >
-                Nochmal versuchen
-              </button>
-            }
+            title="Noch keine passenden Rezepte."
+            description="Versuch's mit ein paar mehr Zutaten — oder leg ein neues Rezept an, das die nutzt."
           />
-        </div>
-      )}
+        ) : (
+          <ul className="space-y-4">
+            {matches.map((m) => {
+              const addMissing = addMissingToListAction.bind(null, m.recipeId);
+              const percent = Math.round(m.ratio * 100);
+              return (
+                <li key={m.recipeId} className="paper-card p-4 sm:p-5">
+                  <div className="flex flex-wrap items-start gap-4">
+                    {m.coverPath ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`/api/images${m.coverPath}`}
+                        alt=""
+                        className="h-20 w-20 flex-shrink-0 rounded-sm object-cover sepia-[0.1]"
+                      />
+                    ) : (
+                      <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-sm bg-paper-200 font-hand text-3xl text-ink-light/50">
+                        🍴
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={`/rezepte/${m.slug}`}
+                        className="font-hand text-2xl text-ink hover:text-ribbon"
+                      >
+                        {m.title}
+                      </Link>
+                      <p className="mt-1 font-written text-sm text-ink-faded">
+                        {m.matched.length} von {m.total} Zutaten vorhanden ({percent}%)
+                      </p>
+                      {m.missing.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap items-center gap-1">
+                          <span className="font-written text-xs text-ink-faded">
+                            fehlt:
+                          </span>
+                          {m.missing.slice(0, 8).map((mi) => (
+                            <span
+                              key={mi.id}
+                              className="rounded-sm bg-ribbon/10 px-2 py-0.5 font-written text-xs text-ribbon"
+                            >
+                              {mi.name}
+                            </span>
+                          ))}
+                          {m.missing.length > 8 ? (
+                            <span className="font-written text-xs text-ink-faded">
+                              + {m.missing.length - 8} weitere
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <p className="mt-2 font-written text-sm text-emerald-700">
+                          ✓ Alle Zutaten vorhanden
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {m.missing.length > 0 ? (
+                    <form action={addMissing} className="mt-3">
+                      <button
+                        type="submit"
+                        className="inline-flex min-h-[44px] items-center rounded-sm bg-paper-200 px-4 font-hand text-base text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
+                      >
+                        🛒 Fehlende auf Einkaufsliste
+                      </button>
+                    </form>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
     </main>
   );
 }
