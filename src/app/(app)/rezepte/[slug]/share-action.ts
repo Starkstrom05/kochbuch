@@ -5,7 +5,9 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 
-export async function toggleShareAction(recipeId: string) {
+export async function toggleShareAction(
+  recipeId: string,
+): Promise<{ isPublic: boolean; token: string | null }> {
   const session = await auth();
   if (!session?.user) throw new Error("Nicht angemeldet");
 
@@ -13,18 +15,22 @@ export async function toggleShareAction(recipeId: string) {
   if (!recipe) throw new Error("Rezept nicht gefunden");
   if (recipe.createdById !== session.user.id) throw new Error("Keine Berechtigung");
 
+  let newState: { isPublic: boolean; token: string | null };
   if (recipe.isPublic && recipe.shareToken) {
     await prisma.recipe.update({
       where: { id: recipeId },
       data: { isPublic: false, shareToken: null },
     });
+    newState = { isPublic: false, token: null };
   } else {
     const token = randomBytes(18).toString("base64url");
     await prisma.recipe.update({
       where: { id: recipeId },
       data: { isPublic: true, shareToken: token },
     });
+    newState = { isPublic: true, token };
   }
 
   revalidatePath(`/rezepte/${recipe.slug}`);
+  return newState;
 }
