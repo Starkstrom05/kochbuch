@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { searchRecipes } from "@/lib/recipes/search";
 import RecipeBook from "@/components/book/RecipeBookLoader";
@@ -13,8 +14,9 @@ export default async function RezepteBuchPage({
 }: {
   searchParams: SearchParams;
 }) {
+  const session = await auth();
   const { q, categoryId } = await searchParams;
-  const matches = await searchRecipes({ q, categoryId });
+  const matches = await searchRecipes({ q, categoryId, familyId: session?.user?.familyId });
   if (matches.length === 0) {
     redirect(
       `/rezepte${q || categoryId ? `?${new URLSearchParams({ ...(q ? { q } : {}), ...(categoryId ? { categoryId } : {}) }).toString()}` : ""}`,

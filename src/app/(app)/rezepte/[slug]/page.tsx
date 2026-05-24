@@ -26,7 +26,8 @@ export default async function RecipeDetailPage({
   searchParams: Promise<{ servings?: string | string[] }>;
 }) {
   const { slug } = await params;
-  const recipe = await getRecipeBySlug(slug);
+  const session = await auth();
+  const recipe = await getRecipeBySlug(slug, session?.user?.familyId);
   if (!recipe) notFound();
 
   const sp = await searchParams;
@@ -34,7 +35,6 @@ export default async function RecipeDetailPage({
   const servingsNum = servingsRaw ? Number(servingsRaw) : NaN;
   const initialServings = Number.isFinite(servingsNum) && servingsNum > 0 ? servingsNum : null;
 
-  const session = await auth();
   const isOwner = session?.user?.id === recipe.createdById;
 
   const DAY_NAMES_LONG = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];

@@ -8,6 +8,7 @@ import { UserList } from "./UserList";
 import { AppNameForm } from "./AppNameForm";
 import { BackupSection } from "./BackupSection";
 import { NutritionDataForm } from "./NutritionDataForm";
+import { FamilyManager } from "./FamilyManager";
 import { getAppName } from "@/lib/config/app-config";
 
 export default async function ProfilPage() {
@@ -16,15 +17,28 @@ export default async function ProfilPage() {
 
   const isAdmin = session.user.role === "ADMIN";
 
-  const [currentAppName, users] = await Promise.all([
+  const [currentAppName, users, families] = await Promise.all([
     getAppName(),
     isAdmin
       ? prisma.user.findMany({
-          select: { id: true, email: true, name: true, role: true, createdAt: true },
+          select: { id: true, email: true, name: true, role: true, familyId: true, createdAt: true },
           orderBy: { createdAt: "asc" },
         })
       : Promise.resolve([]),
+    isAdmin
+      ? prisma.family.findMany({
+          select: { id: true, name: true, _count: { select: { members: true } } },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
   ]);
+
+  const familyOptions = families.map((f) => ({ id: f.id, name: f.name }));
+  const familyList = families.map((f) => ({
+    id: f.id,
+    name: f.name,
+    memberCount: f._count.members,
+  }));
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">
@@ -53,10 +67,11 @@ export default async function ProfilPage() {
         {isAdmin ? (
           <>
             <AppNameForm currentName={currentAppName} />
+            <FamilyManager families={familyList} />
             <BackupSection />
             <NutritionDataForm />
-            <UserList users={users} currentUserId={session.user.id} />
-            <CreateUserForm />
+            <UserList users={users} currentUserId={session.user.id} families={familyOptions} />
+            <CreateUserForm families={familyOptions} />
           </>
         ) : null}
       </div>

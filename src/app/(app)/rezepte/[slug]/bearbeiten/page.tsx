@@ -12,11 +12,11 @@ export default async function BearbeitenPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const recipe = await getRecipeBySlug(slug);
-  if (!recipe) notFound();
-
   const session = await auth();
-  if (!session?.user || session.user.id !== recipe.createdById) {
+  if (!session?.user) redirect("/login");
+  const recipe = await getRecipeBySlug(slug, session.user.familyId);
+  if (!recipe) notFound();
+  if (session.user.id !== recipe.createdById) {
     redirect(`/rezepte/${slug}`);
   }
 
@@ -39,6 +39,7 @@ export default async function BearbeitenPage({
     nutritionFatG: recipe.nutritionFatG,
     sourceUrl: recipe.sourceUrl ?? "",
     tags: recipe.tags ?? "",
+    visibility: recipe.visibility,
     categoryIds: recipe.categories.map((c) => c.categoryId),
     ingredients: recipe.ingredients.map((i) => ({
       name: i.ingredient.name,

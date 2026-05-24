@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import type { Ingredient, PantryItem } from "@prisma/client";
+import { visibleToFamily } from "@/lib/recipes/visibility";
 
 // ── Pantry-CRUD ──────────────────────────────────────────────────────────────
 
@@ -120,6 +121,7 @@ export function matchesPantry(
  */
 export async function matchRecipesForUser(
   userId: string,
+  familyId: string | null | undefined,
   limit = 20,
 ): Promise<RecipeMatch[]> {
   const pantry = await getPantryForUser(userId);
@@ -133,6 +135,7 @@ export async function matchRecipesForUser(
     where: {
       isActive: true,
       ingredients: { some: { ingredientId: { in: Array.from(candidateIds) } } },
+      ...visibleToFamily(familyId),
     },
     include: {
       ingredients: { include: { ingredient: true } },

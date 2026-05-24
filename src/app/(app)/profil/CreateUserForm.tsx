@@ -5,7 +5,11 @@ import { createUserAction, type CreateUserState } from "./actions";
 
 const initial: CreateUserState = { status: "idle" };
 
-export function CreateUserForm() {
+export function CreateUserForm({
+  families,
+}: {
+  families: { id: string; name: string }[];
+}) {
   const [state, action, pending] = useActionState(createUserAction, initial);
 
   return (
@@ -60,6 +64,24 @@ export function CreateUserForm() {
           <option value="ADMIN">Admin</option>
         </select>
       </label>
+
+      {families.length > 0 ? (
+        <label className="block">
+          <span className="font-written text-sm text-ink-faded">Familie</span>
+          <select
+            name="familyId"
+            defaultValue=""
+            className="mt-1 block border-b border-dotted border-ink-light bg-transparent font-serif text-ink outline-none"
+          >
+            <option value="">(keine)</option>
+            {families.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
 
       {state.status === "error" ? (
         <p className="font-written text-sm text-ribbon" role="alert">

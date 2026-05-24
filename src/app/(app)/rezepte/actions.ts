@@ -89,6 +89,7 @@ function buildInput(formData: FormData) {
     categoryIds: formData.getAll("categoryIds").map((v) => String(v)),
     ingredients: parseIngredients(formData),
     steps: parseSteps(formData),
+    visibility: formData.get("visibility") === "FAMILY" ? "FAMILY" : "SHARED",
     nutritionKcal: optionalNumber(formData, "nutritionKcal"),
     nutritionProteinG: optionalNumber(formData, "nutritionProteinG"),
     nutritionCarbsG: optionalNumber(formData, "nutritionCarbsG"),

@@ -46,6 +46,7 @@ type Props = {
     sourceUrl: string;
     sourceType?: string;
     tags: string;
+    visibility?: string;
     categoryIds: string[];
     ingredients: IngredientDraft[];
     /** Bestehende Rezeptbilder (Edit-Mode), in DB-Reihenfolge. */
@@ -412,6 +413,32 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
               placeholder="winter, vegetarisch, schnell"
             />
           </label>
+
+          <fieldset className="space-y-1">
+            <legend className="font-written text-sm text-ink-faded">Sichtbarkeit</legend>
+            <div className="flex flex-wrap gap-4 font-written text-sm text-ink">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="visibility"
+                  value="SHARED"
+                  defaultChecked={(initial?.visibility ?? "SHARED") !== "FAMILY"}
+                  className="accent-ribbon"
+                />
+                Gemeinsam (alle Familien)
+              </label>
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="visibility"
+                  value="FAMILY"
+                  defaultChecked={initial?.visibility === "FAMILY"}
+                  className="accent-ribbon"
+                />
+                Nur meine Familie
+              </label>
+            </div>
+          </fieldset>
         </div>
       </PaperSheet>
 

@@ -13,7 +13,7 @@ export default async function KochPage({
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const recipe = await getRecipeBySlug(slug);
+  const recipe = await getRecipeBySlug(slug, session.user.familyId);
   if (!recipe) notFound();
 
   // Strukturierte Schritte bevorzugen; Bestandsrezepte ohne Steps fallen auf

@@ -16,7 +16,7 @@ export default async function VorraetePage() {
 
   const [pantry, matches] = await Promise.all([
     getPantryForUser(session.user.id),
-    matchRecipesForUser(session.user.id, 15),
+    matchRecipesForUser(session.user.id, session.user.familyId, 15),
   ]);
 
   return (

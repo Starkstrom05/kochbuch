@@ -11,6 +11,7 @@ declare module "next-auth" {
     user: {
       id: string;
       role: Role;
+      familyId: string | null;
     } & DefaultSession["user"];
   }
 }
@@ -49,6 +50,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           name: user.name,
           role: user.role as Role,
+          familyId: user.familyId,
         };
       },
     }),
@@ -58,6 +60,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id;
         token.role = (user as { role?: Role }).role ?? "MEMBER";
+        token.familyId = (user as { familyId?: string | null }).familyId ?? null;
       }
       return token;
     },
@@ -65,6 +68,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token && session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as Role;
+        session.user.familyId = (token.familyId as string | null) ?? null;
       }
       return session;
     },

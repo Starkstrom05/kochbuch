@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { Prisma } from "@prisma/client";
+import { visibleToFamily } from "./visibility";
 
 export type RecipeSearch = {
   q?: string;
@@ -7,6 +8,8 @@ export type RecipeSearch = {
   /** Minimaler Durchschnitt der Sternebewertung (1-5). 0 oder undefined = kein Filter. */
   minStars?: number;
   take?: number;
+  /** familyId des Betrachters für den Sichtbarkeits-Filter (SHARED oder eigene). */
+  familyId?: string | null;
 };
 
 export async function searchRecipes({
@@ -14,19 +17,26 @@ export async function searchRecipes({
   categoryId,
   minStars,
   take = 200,
+  familyId,
 }: RecipeSearch) {
-  const where: Prisma.RecipeWhereInput = { isActive: true };
+  // Sichtbarkeit (OR) und Volltextsuche (OR) zusammen über AND kombinieren,
+  // da Prisma pro Ebene nur ein OR erlaubt.
+  const and: Prisma.RecipeWhereInput[] = [visibleToFamily(familyId)];
 
   if (q && q.trim()) {
     const term = q.trim();
-    where.OR = [
-      { title: { contains: term } },
-      { description: { contains: term } },
-      { instructions: { contains: term } },
-      { tags: { contains: term } },
-      { ingredients: { some: { ingredient: { name: { contains: term } } } } },
-    ];
+    and.push({
+      OR: [
+        { title: { contains: term } },
+        { description: { contains: term } },
+        { instructions: { contains: term } },
+        { tags: { contains: term } },
+        { ingredients: { some: { ingredient: { name: { contains: term } } } } },
+      ],
+    });
   }
+
+  const where: Prisma.RecipeWhereInput = { isActive: true, AND: and };
 
   if (categoryId) {
     where.categories = { some: { categoryId } };

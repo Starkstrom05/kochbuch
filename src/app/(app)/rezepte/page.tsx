@@ -32,7 +32,12 @@ export default async function RezeptePage({
   const minStars = minStarsRaw ? Number(minStarsRaw) : 0;
   const view = parseView(viewRaw);
   const [recipes, categories] = await Promise.all([
-    searchRecipes({ q, categoryId, minStars: minStars > 0 ? minStars : undefined }),
+    searchRecipes({
+      q,
+      categoryId,
+      minStars: minStars > 0 ? minStars : undefined,
+      familyId: session?.user?.familyId,
+    }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
   ]);
 

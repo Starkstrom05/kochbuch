@@ -14,6 +14,8 @@ model User {
   name          String
   passwordHash  String
   role          String         @default("MEMBER")
+  familyId      String?
+  family        Family?        @relation(fields: [familyId], references: [id])
   createdAt     DateTime       @default(now())
   recipes       Recipe[]
   ratings       Rating[]
@@ -22,6 +24,21 @@ model User {
   pantry        PantryItem[]
   sessions      Session[]
   accounts      Account[]
+
+  @@index([familyId])
+}
+
+// Mandant: eine Familie/ein Haushalt. Branding-Spalten werden in Phase 8e genutzt.
+model Family {
+  id             String   @id @default(cuid())
+  name           String
+  coverImagePath String?
+  accentColor    String?
+  inkColor       String?
+  paperColor     String?
+  createdAt      DateTime @default(now())
+  members        User[]
+  recipes        Recipe[]
 }
 
 model Account {
@@ -76,6 +93,10 @@ model Recipe {
   isActive        Boolean            @default(true)
   shareToken      String?            @unique
   tags            String?
+  // Mandanten-Sichtbarkeit: SHARED = für alle Familien, FAMILY = nur eigene
+  visibility      String             @default("SHARED")
+  familyId        String?
+  family          Family?            @relation(fields: [familyId], references: [id])
   // Optionale Nährwert-Override pro Portion (überschreibt die Auto-Schätzung)
   nutritionKcal     Float?
   nutritionProteinG Float?
@@ -97,6 +118,7 @@ model Recipe {
   @@index([sourceUrl])
   @@index([updatedAt])
   @@index([isActive])
+  @@index([familyId])
 }
 
 model RecipeImage {

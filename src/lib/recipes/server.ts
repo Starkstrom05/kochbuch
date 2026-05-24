@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { type RecipeInput, slugify } from "@/lib/schemas/recipe";
 import { splitInstructionsToSteps, stepsToInstructions } from "@/lib/recipes/steps";
+import { visibleToFamily } from "@/lib/recipes/visibility";
 
 /**
  * Resolve structured steps + the synced `instructions` text from the input.
@@ -66,6 +67,10 @@ export async function createRecipe(input: RecipeInput, userId: string) {
       const slug = await uniqueSlug(tx, slugify(input.title));
       const ingredientMap = await upsertIngredients(tx, input.ingredients.map((i) => i.name));
       const { steps, instructions } = resolveSteps(input);
+      const creator = await tx.user.findUnique({
+        where: { id: userId },
+        select: { familyId: true },
+      });
 
       return tx.recipe.create({
         data: {
@@ -85,6 +90,8 @@ export async function createRecipe(input: RecipeInput, userId: string) {
           nutritionProteinG: input.nutritionProteinG ?? null,
           nutritionCarbsG: input.nutritionCarbsG ?? null,
           nutritionFatG: input.nutritionFatG ?? null,
+          visibility: input.visibility ?? "SHARED",
+          familyId: creator?.familyId ?? null,
           createdById: userId,
           categories: {
             create: input.categoryIds.map((categoryId) => ({ categoryId })),
@@ -145,6 +152,7 @@ export async function updateRecipe(id: string, input: RecipeInput, userId: strin
           nutritionProteinG: input.nutritionProteinG ?? null,
           nutritionCarbsG: input.nutritionCarbsG ?? null,
           nutritionFatG: input.nutritionFatG ?? null,
+          visibility: input.visibility ?? "SHARED",
           categories: {
             create: input.categoryIds.map((categoryId) => ({ categoryId })),
           },
@@ -200,9 +208,9 @@ export async function getArchivedRecipes(userId: string) {
   });
 }
 
-export async function getRecipeBySlug(slug: string) {
+export async function getRecipeBySlug(slug: string, viewerFamilyId?: string | null) {
   return prisma.recipe.findFirst({
-    where: { slug, isActive: true },
+    where: { slug, isActive: true, ...visibleToFamily(viewerFamilyId) },
     include: {
       ingredients: {
         include: { ingredient: { include: { nutrition: true } } },

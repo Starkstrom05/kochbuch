@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db/prisma";
 import {
   changePasswordSchema,
   createUserSchema,
+  createFamilySchema,
 } from "@/lib/schemas/profile";
 import { seedNutrition } from "@/lib/nutrition/seed";
 
@@ -80,6 +81,7 @@ export async function createUserAction(
     name: String(formData.get("name") ?? "").trim(),
     password: String(formData.get("password") ?? ""),
     role: String(formData.get("role") ?? "MEMBER"),
+    familyId: String(formData.get("familyId") ?? "") || undefined,
   });
   if (!parsed.success) {
     return {
@@ -102,6 +104,7 @@ export async function createUserAction(
       name: parsed.data.name,
       role: parsed.data.role,
       passwordHash,
+      familyId: parsed.data.familyId ?? null,
     },
   });
 
@@ -151,6 +154,32 @@ export async function deleteUserAction(targetId: string) {
     }
   }
   await prisma.user.delete({ where: { id: targetId } });
+  revalidatePath("/profil");
+}
+
+export async function createFamilyAction(formData: FormData) {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") throw new Error("Keine Berechtigung");
+  const parsed = createFamilySchema.safeParse({
+    name: String(formData.get("name") ?? "").trim(),
+  });
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message ?? "Ungültiger Name");
+  }
+  await prisma.family.create({ data: { name: parsed.data.name } });
+  revalidatePath("/profil");
+}
+
+export async function assignUserFamilyAction(userId: string, familyId: string) {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") throw new Error("Keine Berechtigung");
+  const fam = familyId
+    ? await prisma.family.findUnique({ where: { id: familyId }, select: { id: true } })
+    : null;
+  await prisma.user.update({
+    where: { id: userId },
+    data: { familyId: fam?.id ?? null },
+  });
   revalidatePath("/profil");
 }
 

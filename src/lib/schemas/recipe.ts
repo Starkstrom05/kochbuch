@@ -32,6 +32,7 @@ export const recipeInputSchema = z.object({
   categoryIds: z.array(z.string()).default([]),
   ingredients: z.array(ingredientLineSchema).max(120).default([]),
   steps: z.array(recipeStepSchema).max(100).optional(),
+  visibility: z.enum(["SHARED", "FAMILY"]).default("SHARED"),
   // Nährwert-Override pro Portion (optional; überschreibt die Auto-Schätzung)
   nutritionKcal: z.number().min(0).max(100000).nullable().optional(),
   nutritionProteinG: z.number().min(0).max(10000).nullable().optional(),

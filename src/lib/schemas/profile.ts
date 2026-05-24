@@ -6,9 +6,14 @@ export const createUserSchema = z.object({
   name: z.string().min(1, "Name fehlt").max(80),
   password: z.string().min(8, "Passwort braucht mindestens 8 Zeichen").max(200),
   role: z.enum(ROLES).default("MEMBER"),
+  familyId: z.string().min(1).optional(),
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;
+
+export const createFamilySchema = z.object({
+  name: z.string().min(1, "Name fehlt").max(80),
+});
 
 export const changePasswordSchema = z
   .object({

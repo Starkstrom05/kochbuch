@@ -15,11 +15,16 @@ export async function GET(
   const { id } = await params;
   const recipe = await prisma.recipe.findUnique({
     where: { id },
-    select: { id: true, title: true, createdById: true, isPublic: true },
+    select: { id: true, title: true, createdById: true, isPublic: true, visibility: true, familyId: true },
   });
   if (!recipe) return NextResponse.json({ error: "Rezept nicht gefunden" }, { status: 404 });
 
-  if (recipe.createdById !== session.user.id && !recipe.isPublic) {
+  const canView =
+    recipe.isPublic ||
+    recipe.visibility === "SHARED" ||
+    recipe.familyId === session.user.familyId ||
+    recipe.createdById === session.user.id;
+  if (!canView) {
     return NextResponse.json({ error: "Keine Berechtigung" }, { status: 403 });
   }
 
