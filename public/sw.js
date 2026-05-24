@@ -1,14 +1,24 @@
 // Service Worker — Kochbuch PWA
 // Manual caching without Workbox (Turbopack-compatible)
 
-const CACHE_VER = "kochbuch-v2";
+const CACHE_VER = "kochbuch-v3";
 const STATIC_CACHE = `${CACHE_VER}-static`;
 const PAGE_CACHE = `${CACHE_VER}-pages`;
 const IMAGE_CACHE = `${CACHE_VER}-images`;
 
+const OFFLINE_URL = "/offline";
+
 // ── Install ────────────────────────────────────────────────────────────────
 
 self.addEventListener("install", (event) => {
+  // Precache the offline fallback page so failed navigations have something to
+  // show. Best-effort: a failure here must not block activation.
+  event.waitUntil(
+    caches
+      .open(PAGE_CACHE)
+      .then((cache) => cache.add(OFFLINE_URL))
+      .catch(() => {}),
+  );
   // Kick in immediately without waiting for existing clients to close
   self.skipWaiting();
 });
@@ -66,8 +76,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Pages — stale-while-revalidate
-  event.respondWith(staleWhileRevalidate(event.request, PAGE_CACHE));
+  // Pages — stale-while-revalidate with offline fallback for navigations
+  event.respondWith(pageHandler(event.request));
 });
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -87,8 +97,8 @@ async function cacheFirst(request, cacheName) {
   return response;
 }
 
-async function staleWhileRevalidate(request, cacheName) {
-  const cache = await caches.open(cacheName);
+async function pageHandler(request) {
+  const cache = await caches.open(PAGE_CACHE);
   const cached = await cache.match(request);
 
   const fetchPromise = fetch(request)
@@ -96,7 +106,18 @@ async function staleWhileRevalidate(request, cacheName) {
       if (isCacheable(response)) cache.put(request, response.clone());
       return response;
     })
-    .catch(() => cached);
+    .catch(() => null);
 
-  return cached ?? fetchPromise;
+  // Stale-while-revalidate: serve cache instantly, refresh in the background.
+  if (cached) return cached;
+
+  const network = await fetchPromise;
+  if (network) return network;
+
+  // Offline with nothing cached → friendly fallback for full-page navigations.
+  if (request.mode === "navigate") {
+    const offline = await cache.match(OFFLINE_URL);
+    if (offline) return offline;
+  }
+  return Response.error();
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 
-const PUBLIC_PATHS = ["/", "/login", "/register", "/share", "/sw.js", "/manifest.webmanifest"];
+const PUBLIC_PATHS = ["/", "/login", "/register", "/share", "/offline", "/sw.js", "/manifest.webmanifest"];
 const PUBLIC_PREFIXES = [
   "/api/auth",
   "/api/health",
