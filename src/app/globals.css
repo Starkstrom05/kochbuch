@@ -1,6 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* Tailwind v4: weiterhin die bestehende JS-Theme-Config (Oma-Theme) nutzen. */
+@config "../../tailwind.config.ts";
 
 :root {
   color-scheme: light;
