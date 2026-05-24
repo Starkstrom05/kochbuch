@@ -201,6 +201,37 @@ export async function createCategoryAction(formData: FormData) {
   revalidatePath("/rezepte");
 }
 
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+function parseColor(v: FormDataEntryValue | null): string | null {
+  const s = String(v ?? "").trim();
+  return HEX_COLOR.test(s) ? s.toLowerCase() : null;
+}
+
+export async function updateBrandingAction(formData: FormData) {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") throw new Error("Keine Berechtigung");
+  const familyId = session.user.familyId;
+  if (!familyId) throw new Error("Du bist keiner Familie zugeordnet");
+
+  const name = String(formData.get("name") ?? "").trim();
+  const useColors = formData.get("customColors") === "on";
+
+  await prisma.family.update({
+    where: { id: familyId },
+    data: {
+      ...(name ? { name } : {}),
+      accentColor: useColors ? parseColor(formData.get("accentColor")) : null,
+      inkColor: useColors ? parseColor(formData.get("inkColor")) : null,
+      paperColor: useColors ? parseColor(formData.get("paperColor")) : null,
+    },
+  });
+
+  // Theme (layout) + Profil neu rendern.
+  revalidatePath("/", "layout");
+  revalidatePath("/profil");
+}
+
 export async function reloadNutritionAction(): Promise<{ count: number }> {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") throw new Error("Keine Berechtigung");

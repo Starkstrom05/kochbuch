@@ -35,7 +35,7 @@ export function HandwrittenStars({
           >
             <path
               d={STAR_PATH}
-              fill={filled ? "#A23E2E" : "transparent"}
+              fill={filled ? "var(--color-ribbon)" : "transparent"}
               stroke="#5A4A30"
               strokeWidth="1.4"
               strokeLinejoin="round"

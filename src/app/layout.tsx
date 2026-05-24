@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Caveat, Kalam, Lora } from "next/font/google";
 import { InkFilters } from "@/components/oma/InkFilters";
 import { ServiceWorkerRegistrar } from "@/components/pwa/ServiceWorkerRegistrar";
-import { getAppName } from "@/lib/config/app-config";
+import { getAppName, getFamilyBranding } from "@/lib/config/app-config";
 import "./globals.css";
 
 const caveat = Caveat({
@@ -27,7 +27,8 @@ const lora = Lora({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
-  const name = await getAppName();
+  const branding = await getFamilyBranding();
+  const name = branding?.name ?? (await getAppName());
   return {
     title: name,
     description: "Familien-Rezepte, liebevoll handgeschrieben",
@@ -52,13 +53,25 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Per-Familie-Farben als CSS-Variablen am <html> — überschreiben die Defaults
+  // aus globals.css. Werte werden über die CSSOM gesetzt (keine String-Injektion).
+  const branding = await getFamilyBranding();
+  const themeVars: Record<string, string> = {};
+  if (branding?.accentColor) themeVars["--color-ribbon"] = branding.accentColor;
+  if (branding?.inkColor) themeVars["--color-ink"] = branding.inkColor;
+  if (branding?.paperColor) themeVars["--color-paper-50"] = branding.paperColor;
+
   return (
-    <html lang="de" className={`${caveat.variable} ${kalam.variable} ${lora.variable}`}>
+    <html
+      lang="de"
+      className={`${caveat.variable} ${kalam.variable} ${lora.variable}`}
+      style={themeVars as React.CSSProperties}
+    >
       <body className="antialiased">
         <InkFilters />
         <ServiceWorkerRegistrar />

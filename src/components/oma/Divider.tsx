@@ -16,13 +16,13 @@ export function Divider({ variant = "wave", className }: Props) {
         <>
           <path
             d="M2 8 Q 30 3 60 8 T 120 8 T 198 8"
-            stroke="#8B6F47"
+            stroke="var(--color-sepia)"
             strokeWidth="1.2"
             fill="none"
             strokeLinecap="round"
             filter="url(#ink-bleed)"
           />
-          <circle cx="100" cy="8" r="1.8" fill="#A23E2E" />
+          <circle cx="100" cy="8" r="1.8" fill="var(--color-ribbon)" />
         </>
       ) : null}
 
@@ -30,7 +30,7 @@ export function Divider({ variant = "wave", className }: Props) {
         <>
           <path
             d="M10 8 C 30 0 70 16 100 8 C 130 0 170 16 190 8"
-            stroke="#8B6F47"
+            stroke="var(--color-sepia)"
             strokeWidth="1.2"
             fill="none"
             strokeLinecap="round"
@@ -55,9 +55,9 @@ export function Divider({ variant = "wave", className }: Props) {
             fill="none"
             strokeLinecap="round"
           />
-          <circle cx="95" cy="9" r="2.2" fill="#A23E2E" stroke="#5A4A30" strokeWidth="0.6" />
-          <circle cx="100" cy="7" r="2.2" fill="#A23E2E" stroke="#5A4A30" strokeWidth="0.6" />
-          <circle cx="105" cy="9" r="2.2" fill="#A23E2E" stroke="#5A4A30" strokeWidth="0.6" />
+          <circle cx="95" cy="9" r="2.2" fill="var(--color-ribbon)" stroke="#5A4A30" strokeWidth="0.6" />
+          <circle cx="100" cy="7" r="2.2" fill="var(--color-ribbon)" stroke="#5A4A30" strokeWidth="0.6" />
+          <circle cx="105" cy="9" r="2.2" fill="var(--color-ribbon)" stroke="#5A4A30" strokeWidth="0.6" />
           <path d="M98 5 L 100 2 L 103 4" stroke="#5A4A30" strokeWidth="0.8" fill="none" strokeLinecap="round" />
         </>
       ) : null}
@@ -70,7 +70,7 @@ export function Divider({ variant = "wave", className }: Props) {
               cx={cx}
               cy="8"
               r={i === 3 ? 2.4 : 1.4}
-              fill={i === 3 ? "#A23E2E" : "#8B6F47"}
+              fill={i === 3 ? "var(--color-ribbon)" : "var(--color-sepia)"}
               filter="url(#ink-bleed)"
             />
           ))}

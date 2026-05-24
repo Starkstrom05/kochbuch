@@ -25,7 +25,7 @@ export function InkBlots({ seed, count = 2, className }: Props) {
         const size = 18 + ((k >> 5) % 28);
         const rot = ((k >> 7) % 360);
         const opacity = 0.06 + (((k >> 9) % 7) * 0.01);
-        const color = (h >> i) % 5 === 0 ? "#A23E2E" : "#1A1008";
+        const color = (h >> i) % 5 === 0 ? "var(--color-ribbon)" : "#1A1008";
         return (
           <svg
             key={i}

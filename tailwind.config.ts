@@ -10,19 +10,19 @@ const config: Config = {
     extend: {
       colors: {
         paper: {
-          50: "#FBF6E9",
-          100: "#F4E8C8",
-          200: "#E8D6A8",
-          300: "#D4B97C",
-          400: "#B89A5C",
+          50: "var(--color-paper-50)",
+          100: "var(--color-paper-100)",
+          200: "var(--color-paper-200)",
+          300: "var(--color-paper-300)",
+          400: "var(--color-paper-400)",
         },
         ink: {
-          DEFAULT: "#2C2418",
-          faded: "#5A4A30",
-          light: "#7A6849",
+          DEFAULT: "var(--color-ink)",
+          faded: "var(--color-ink-faded)",
+          light: "var(--color-ink-light)",
         },
-        ribbon: "#A23E2E",
-        sepia: "#8B6F47",
+        ribbon: "var(--color-ribbon)",
+        sepia: "var(--color-sepia)",
       },
       fontFamily: {
         hand: ["var(--font-caveat)", "cursive"],

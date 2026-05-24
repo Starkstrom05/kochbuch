@@ -34,19 +34,19 @@ const PATHS: Record<Variant, ReactElement> = {
   ),
   berry: (
     <>
-      <circle cx="8" cy="14" r="3" fill="#A23E2E" stroke="#5A4A30" strokeWidth="0.8" />
-      <circle cx="14" cy="12" r="2.5" fill="#A23E2E" stroke="#5A4A30" strokeWidth="0.8" />
-      <circle cx="12" cy="17" r="2.2" fill="#A23E2E" stroke="#5A4A30" strokeWidth="0.8" />
+      <circle cx="8" cy="14" r="3" fill="var(--color-ribbon)" stroke="#5A4A30" strokeWidth="0.8" />
+      <circle cx="14" cy="12" r="2.5" fill="var(--color-ribbon)" stroke="#5A4A30" strokeWidth="0.8" />
+      <circle cx="12" cy="17" r="2.2" fill="var(--color-ribbon)" stroke="#5A4A30" strokeWidth="0.8" />
       <path d="M10 11 L 12 4 L 16 5" stroke="#5A4A30" strokeWidth="0.8" fill="none" strokeLinecap="round" />
     </>
   ),
   flower: (
     <>
       <circle cx="12" cy="12" r="2.4" fill="#D4A03A" stroke="#5A4A30" strokeWidth="0.8" />
-      <ellipse cx="12" cy="5" rx="2.2" ry="3.4" fill="#A23E2E" stroke="#5A4A30" strokeWidth="0.8" />
-      <ellipse cx="12" cy="19" rx="2.2" ry="3.4" fill="#A23E2E" stroke="#5A4A30" strokeWidth="0.8" />
-      <ellipse cx="5" cy="12" rx="3.4" ry="2.2" fill="#A23E2E" stroke="#5A4A30" strokeWidth="0.8" />
-      <ellipse cx="19" cy="12" rx="3.4" ry="2.2" fill="#A23E2E" stroke="#5A4A30" strokeWidth="0.8" />
+      <ellipse cx="12" cy="5" rx="2.2" ry="3.4" fill="var(--color-ribbon)" stroke="#5A4A30" strokeWidth="0.8" />
+      <ellipse cx="12" cy="19" rx="2.2" ry="3.4" fill="var(--color-ribbon)" stroke="#5A4A30" strokeWidth="0.8" />
+      <ellipse cx="5" cy="12" rx="3.4" ry="2.2" fill="var(--color-ribbon)" stroke="#5A4A30" strokeWidth="0.8" />
+      <ellipse cx="19" cy="12" rx="3.4" ry="2.2" fill="var(--color-ribbon)" stroke="#5A4A30" strokeWidth="0.8" />
     </>
   ),
   arrow: (
@@ -63,7 +63,7 @@ const PATHS: Record<Variant, ReactElement> = {
   heart: (
     <path
       d="M12 21 C 4 15 2 9 6 6 C 9 4 11 6 12 8 C 13 6 15 4 18 6 C 22 9 20 15 12 21 Z"
-      fill="#A23E2E"
+      fill="var(--color-ribbon)"
       stroke="#5A4A30"
       strokeWidth="1.2"
       strokeLinejoin="round"

@@ -5,6 +5,17 @@
 
 :root {
   color-scheme: light;
+  /* Oma-Theme-Farben als Variablen — pro Familie in layout.tsx überschreibbar. */
+  --color-paper-50: #fbf6e9;
+  --color-paper-100: #f4e8c8;
+  --color-paper-200: #e8d6a8;
+  --color-paper-300: #d4b97c;
+  --color-paper-400: #b89a5c;
+  --color-ink: #2c2418;
+  --color-ink-faded: #5a4a30;
+  --color-ink-light: #7a6849;
+  --color-ribbon: #a23e2e;
+  --color-sepia: #8b6f47;
 }
 
 html,
