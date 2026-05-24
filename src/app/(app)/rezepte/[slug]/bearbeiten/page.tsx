@@ -31,6 +31,7 @@ export default async function BearbeitenPage({
     cookMinutes: recipe.cookMinutes,
     difficulty: recipe.difficulty,
     instructions: recipe.instructions,
+    steps: recipe.steps.map((s) => ({ text: s.text, durationSeconds: s.durationSeconds })),
     notes: recipe.notes ?? "",
     sourceUrl: recipe.sourceUrl ?? "",
     tags: recipe.tags ?? "",

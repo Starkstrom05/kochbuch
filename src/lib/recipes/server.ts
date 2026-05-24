@@ -1,6 +1,27 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { type RecipeInput, slugify } from "@/lib/schemas/recipe";
+import { splitInstructionsToSteps, stepsToInstructions } from "@/lib/recipes/steps";
+
+/**
+ * Resolve structured steps + the synced `instructions` text from the input.
+ * Editor sends structured `steps`; importers (Web/OCR) only send free-text
+ * `instructions` — in that case derive steps by splitting. `instructions` stays
+ * the canonical text for detail page, book mode, PDF and search.
+ */
+function resolveSteps(input: RecipeInput): {
+  steps: { position: number; text: string; durationSeconds: number | null }[];
+  instructions: string;
+} {
+  const source = input.steps?.length
+    ? input.steps.map((s) => ({ text: s.text, durationSeconds: s.durationSeconds ?? null }))
+    : splitInstructionsToSteps(input.instructions);
+  const instructions = input.steps?.length ? stepsToInstructions(input.steps) : input.instructions;
+  return {
+    steps: source.map((s, position) => ({ position, text: s.text, durationSeconds: s.durationSeconds })),
+    instructions,
+  };
+}
 
 type Tx = Prisma.TransactionClient;
 
@@ -44,6 +65,7 @@ export async function createRecipe(input: RecipeInput, userId: string) {
     return await prisma.$transaction(async (tx) => {
       const slug = await uniqueSlug(tx, slugify(input.title));
       const ingredientMap = await upsertIngredients(tx, input.ingredients.map((i) => i.name));
+      const { steps, instructions } = resolveSteps(input);
 
       return tx.recipe.create({
         data: {
@@ -54,7 +76,7 @@ export async function createRecipe(input: RecipeInput, userId: string) {
           prepMinutes: input.prepMinutes ?? null,
           cookMinutes: input.cookMinutes ?? null,
           difficulty: input.difficulty ?? null,
-          instructions: input.instructions,
+          instructions,
           notes: input.notes ?? null,
           sourceUrl: input.sourceUrl || null,
           sourceType: input.sourceType,
@@ -73,6 +95,7 @@ export async function createRecipe(input: RecipeInput, userId: string) {
               order,
             })),
           },
+          steps: { create: steps },
         },
       });
     });
@@ -94,9 +117,11 @@ export async function updateRecipe(id: string, input: RecipeInput, userId: strin
           : await uniqueSlug(tx, slugify(input.title), id);
 
       const ingredientMap = await upsertIngredients(tx, input.ingredients.map((i) => i.name));
+      const { steps, instructions } = resolveSteps(input);
 
       await tx.recipeIngredient.deleteMany({ where: { recipeId: id } });
       await tx.categoryOnRecipe.deleteMany({ where: { recipeId: id } });
+      await tx.recipeStep.deleteMany({ where: { recipeId: id } });
       return tx.recipe.update({
         where: { id },
         data: {
@@ -107,7 +132,7 @@ export async function updateRecipe(id: string, input: RecipeInput, userId: strin
           prepMinutes: input.prepMinutes ?? null,
           cookMinutes: input.cookMinutes ?? null,
           difficulty: input.difficulty ?? null,
-          instructions: input.instructions,
+          instructions,
           notes: input.notes ?? null,
           sourceUrl: input.sourceUrl || null,
           sourceType: input.sourceType,
@@ -125,6 +150,7 @@ export async function updateRecipe(id: string, input: RecipeInput, userId: strin
               order,
             })),
           },
+          steps: { create: steps },
         },
       });
     });
@@ -175,6 +201,7 @@ export async function getRecipeBySlug(slug: string) {
       ratings: { include: { user: { select: { id: true, name: true } } } },
       createdBy: { select: { id: true, name: true } },
       images: { orderBy: { order: "asc" } },
+      steps: { orderBy: { position: "asc" } },
     },
   });
 }

@@ -10,6 +10,12 @@ type IngredientDraft = {
   note: string;
 };
 
+/** Schritt-Entwurf; `duration` ist Minuten als String (leer = kein Timer). */
+type StepDraft = {
+  text: string;
+  duration: string;
+};
+
 type ExistingImage = { id: string; path: string };
 
 type NewImage = {
@@ -31,6 +37,7 @@ type Props = {
     cookMinutes: number | null;
     difficulty: number | null;
     instructions: string;
+    steps?: { text: string; durationSeconds: number | null }[];
     notes: string;
     sourceUrl: string;
     sourceType?: string;
@@ -47,13 +54,51 @@ type Props = {
 };
 
 const EMPTY_ING: IngredientDraft = { name: "", amount: "", unit: "", note: "" };
+const EMPTY_STEP: StepDraft = { text: "", duration: "" };
 
 const COMMON_UNITS = ["g", "kg", "ml", "l", "EL", "TL", "Stk", "Prise", ""];
+
+function initialSteps(initial: Props["initial"]): StepDraft[] {
+  if (initial?.steps?.length) {
+    return initial.steps.map((s) => ({
+      text: s.text,
+      duration: s.durationSeconds != null ? String(Math.round(s.durationSeconds / 60)) : "",
+    }));
+  }
+  if (initial?.instructions?.trim()) {
+    return initial.instructions
+      .split(/\n+/)
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .map((text) => ({ text, duration: "" }));
+  }
+  return [EMPTY_STEP];
+}
 
 export function RecipeEditor({ action, categories, initial, submitLabel }: Props) {
   const [ingredients, setIngredients] = useState<IngredientDraft[]>(
     initial?.ingredients?.length ? initial.ingredients : [EMPTY_ING],
   );
+  const [steps, setSteps] = useState<StepDraft[]>(() => initialSteps(initial));
+
+  // Verstecktes instructions-Feld bleibt aus den Schritt-Texten synchron, damit
+  // die bestehende Zod-Pflicht + Detailseite/Buch/PDF weiterhin funktionieren.
+  const instructionsValue = steps
+    .map((s) => s.text.trim())
+    .filter(Boolean)
+    .join("\n");
+
+  function updateStep(idx: number, patch: Partial<StepDraft>) {
+    setSteps((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+  }
+
+  function removeStep(idx: number) {
+    setSteps((prev) => (prev.length === 1 ? [EMPTY_STEP] : prev.filter((_, i) => i !== idx)));
+  }
+
+  function addStep() {
+    setSteps((prev) => [...prev, EMPTY_STEP]);
+  }
 
   // Bilder-Verwaltung:
   //   - existing: bestehende DB-Bilder, in Reihenfolge bearbeitbar
@@ -435,15 +480,61 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
 
       <PaperSheet seed={`${initial?.id ?? "new"}-steps`} className="p-6 sm:p-10">
         <h3 className="font-hand text-3xl text-ink ink-text">Zubereitung</h3>
-        <textarea
-          name="instructions"
-          required
-          defaultValue={initial?.instructions ?? ""}
-          rows={10}
-          className="mt-3 w-full bg-transparent font-written text-lg text-ink outline-none"
-          placeholder="1. Zwiebeln klein hacken...
-2. ..."
-        />
+        <p className="font-written text-sm text-ink-faded">
+          Ein Schritt pro Zeile. Dauer (min) optional — wird im Koch-Modus zum Timer.
+        </p>
+
+        {/* instructions bleibt die kompatible Textquelle, synchron aus den Schritten. */}
+        <input type="hidden" name="instructions" value={instructionsValue} readOnly />
+
+        <ul className="mt-4 space-y-3">
+          {steps.map((step, i) => (
+            <li
+              key={i}
+              className="flex items-start gap-2 border-b border-dotted border-ink-light/40 pb-3"
+            >
+              <span className="mt-2 w-6 flex-shrink-0 text-center font-hand text-xl text-ribbon">
+                {i + 1}.
+              </span>
+              <textarea
+                name="step-text"
+                value={step.text}
+                onChange={(e) => updateStep(i, { text: e.target.value })}
+                rows={2}
+                placeholder="Zwiebeln klein hacken..."
+                className="min-w-0 flex-1 resize-y bg-transparent font-written text-lg text-ink outline-none placeholder:text-ink-light/40"
+              />
+              <label className="flex flex-shrink-0 items-center gap-1">
+                <input
+                  name="step-duration"
+                  value={step.duration}
+                  onChange={(e) => updateStep(i, { duration: e.target.value })}
+                  inputMode="numeric"
+                  placeholder="–"
+                  className="w-12 border-b border-dotted border-ink-light bg-transparent text-center font-serif text-ink outline-none placeholder:text-ink-light/40"
+                  aria-label={`Dauer Schritt ${i + 1} in Minuten`}
+                />
+                <span className="font-written text-xs text-ink-faded">min</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => removeStep(i)}
+                aria-label="Schritt entfernen"
+                className="inline-flex min-h-[44px] items-center font-hand text-xl text-ribbon hover:scale-110"
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        <button
+          type="button"
+          onClick={addStep}
+          className="mt-4 font-hand text-xl text-ribbon underline decoration-wavy underline-offset-4"
+        >
+          + noch ein Schritt
+        </button>
 
         <h3 className="mt-6 font-hand text-2xl text-ink ink-text">Notizen (optional)</h3>
         <textarea

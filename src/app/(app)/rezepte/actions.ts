@@ -39,6 +39,27 @@ function parseIngredients(formData: FormData) {
     .filter((i) => i.name.length > 0);
 }
 
+function parseSteps(formData: FormData) {
+  const texts = formData.getAll("step-text").map((v) => String(v));
+  const durations = formData.getAll("step-duration").map((v) => String(v));
+
+  const steps = texts
+    .map((text, i) => {
+      const minRaw = durations[i]?.replace(",", ".") ?? "";
+      const minutes = minRaw === "" ? null : Number(minRaw);
+      const durationSeconds =
+        minutes != null && Number.isFinite(minutes) && minutes > 0
+          ? Math.round(minutes * 60)
+          : null;
+      return { text: text.trim(), durationSeconds };
+    })
+    .filter((s) => s.text.length > 0);
+
+  // Kein strukturierter Input (z. B. Web-/OCR-Import) → undefined, damit der
+  // Server die Schritte aus `instructions` ableitet.
+  return steps.length > 0 ? steps : undefined;
+}
+
 function buildInput(formData: FormData) {
   return recipeInputSchema.parse({
     title: String(formData.get("title") ?? ""),
@@ -60,6 +81,7 @@ function buildInput(formData: FormData) {
     tags: String(formData.get("tags") ?? "") || null,
     categoryIds: formData.getAll("categoryIds").map((v) => String(v)),
     ingredients: parseIngredients(formData),
+    steps: parseSteps(formData),
   });
 }
 
