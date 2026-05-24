@@ -12,6 +12,11 @@ export const ingredientLineSchema = z.object({
   group: z.string().max(60).nullable().optional(),
 });
 
+export const recipeStepSchema = z.object({
+  text: z.string().min(1, "Schritt-Text fehlt").max(2000),
+  durationSeconds: z.number().int().min(1).max(86400).nullable().optional(),
+});
+
 export const recipeInputSchema = z.object({
   title: z.string().min(1, "Titel fehlt").max(200),
   description: z.string().max(2000).nullable().optional(),
@@ -26,10 +31,12 @@ export const recipeInputSchema = z.object({
   tags: z.string().max(400).nullable().optional(),
   categoryIds: z.array(z.string()).default([]),
   ingredients: z.array(ingredientLineSchema).max(120).default([]),
+  steps: z.array(recipeStepSchema).max(100).optional(),
 });
 
 export type RecipeInput = z.infer<typeof recipeInputSchema>;
 export type IngredientLine = z.infer<typeof ingredientLineSchema>;
+export type RecipeStepInput = z.infer<typeof recipeStepSchema>;
 
 export function slugify(input: string): string {
   return input

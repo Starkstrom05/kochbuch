@@ -82,6 +82,7 @@ model Recipe {
   categories      CategoryOnRecipe[]
   ratings         Rating[]
   images          RecipeImage[]
+  steps           RecipeStep[]
   mealPlanEntries MealPlanEntry[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
@@ -103,6 +104,18 @@ model RecipeImage {
   recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
 
   @@index([recipeId, order])
+}
+
+model RecipeStep {
+  id              String  @id @default(cuid())
+  recipeId        String
+  position        Int
+  text            String
+  durationSeconds Int?
+  recipe          Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, position])
+  @@index([recipeId])
 }
 
 model Ingredient {
