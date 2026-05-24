@@ -76,6 +76,11 @@ model Recipe {
   isActive        Boolean            @default(true)
   shareToken      String?            @unique
   tags            String?
+  // Optionale Nährwert-Override pro Portion (überschreibt die Auto-Schätzung)
+  nutritionKcal     Float?
+  nutritionProteinG Float?
+  nutritionCarbsG   Float?
+  nutritionFatG     Float?
   createdById     String
   createdBy       User               @relation(fields: [createdById], references: [id])
   ingredients     RecipeIngredient[]
@@ -119,13 +124,27 @@ model RecipeStep {
 }
 
 model Ingredient {
-  id        String             @id @default(cuid())
-  name      String             @unique
+  id        String               @id @default(cuid())
+  name      String               @unique
   aliases   String?
   category  String?
   density   Float?
   uses      RecipeIngredient[]
   pantry    PantryItem[]
+  nutrition IngredientNutrition?
+}
+
+// Nährwerte je 100 g (Masse-Basis). Für Volumen-Zutaten wird über
+// Ingredient.density (g/ml) auf Gramm umgerechnet.
+model IngredientNutrition {
+  id           String     @id @default(cuid())
+  ingredientId String     @unique
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  kcal         Float
+  proteinG     Float?
+  carbsG       Float?
+  fatG         Float?
+  fiberG       Float?
 }
 
 model PantryItem {

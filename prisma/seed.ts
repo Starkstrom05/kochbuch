@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { seedNutrition } from "../src/lib/nutrition/seed";
 
 const prisma = new PrismaClient();
 
@@ -63,6 +64,9 @@ async function main() {
     });
   }
   console.log(`${INGREDIENTS.length} Basis-Zutaten angelegt`);
+
+  const { count: nutritionCount } = await seedNutrition(prisma);
+  console.log(`${nutritionCount} Zutaten mit Nährwerten versehen`);
 
   await prisma.appMeta.upsert({
     where: { key: "currentVersion" },

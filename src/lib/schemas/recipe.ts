@@ -32,6 +32,11 @@ export const recipeInputSchema = z.object({
   categoryIds: z.array(z.string()).default([]),
   ingredients: z.array(ingredientLineSchema).max(120).default([]),
   steps: z.array(recipeStepSchema).max(100).optional(),
+  // Nährwert-Override pro Portion (optional; überschreibt die Auto-Schätzung)
+  nutritionKcal: z.number().min(0).max(100000).nullable().optional(),
+  nutritionProteinG: z.number().min(0).max(10000).nullable().optional(),
+  nutritionCarbsG: z.number().min(0).max(10000).nullable().optional(),
+  nutritionFatG: z.number().min(0).max(10000).nullable().optional(),
 });
 
 export type RecipeInput = z.infer<typeof recipeInputSchema>;

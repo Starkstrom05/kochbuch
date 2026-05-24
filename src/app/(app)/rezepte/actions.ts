@@ -60,6 +60,13 @@ function parseSteps(formData: FormData) {
   return steps.length > 0 ? steps : undefined;
 }
 
+function optionalNumber(formData: FormData, key: string): number | null {
+  const raw = formData.get(key);
+  if (raw == null || String(raw).trim() === "") return null;
+  const n = Number(String(raw).replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
 function buildInput(formData: FormData) {
   return recipeInputSchema.parse({
     title: String(formData.get("title") ?? ""),
@@ -82,6 +89,10 @@ function buildInput(formData: FormData) {
     categoryIds: formData.getAll("categoryIds").map((v) => String(v)),
     ingredients: parseIngredients(formData),
     steps: parseSteps(formData),
+    nutritionKcal: optionalNumber(formData, "nutritionKcal"),
+    nutritionProteinG: optionalNumber(formData, "nutritionProteinG"),
+    nutritionCarbsG: optionalNumber(formData, "nutritionCarbsG"),
+    nutritionFatG: optionalNumber(formData, "nutritionFatG"),
   });
 }
 

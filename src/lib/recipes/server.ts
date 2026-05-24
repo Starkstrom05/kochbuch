@@ -81,6 +81,10 @@ export async function createRecipe(input: RecipeInput, userId: string) {
           sourceUrl: input.sourceUrl || null,
           sourceType: input.sourceType,
           tags: input.tags ?? null,
+          nutritionKcal: input.nutritionKcal ?? null,
+          nutritionProteinG: input.nutritionProteinG ?? null,
+          nutritionCarbsG: input.nutritionCarbsG ?? null,
+          nutritionFatG: input.nutritionFatG ?? null,
           createdById: userId,
           categories: {
             create: input.categoryIds.map((categoryId) => ({ categoryId })),
@@ -137,6 +141,10 @@ export async function updateRecipe(id: string, input: RecipeInput, userId: strin
           sourceUrl: input.sourceUrl || null,
           sourceType: input.sourceType,
           tags: input.tags ?? null,
+          nutritionKcal: input.nutritionKcal ?? null,
+          nutritionProteinG: input.nutritionProteinG ?? null,
+          nutritionCarbsG: input.nutritionCarbsG ?? null,
+          nutritionFatG: input.nutritionFatG ?? null,
           categories: {
             create: input.categoryIds.map((categoryId) => ({ categoryId })),
           },
@@ -196,7 +204,10 @@ export async function getRecipeBySlug(slug: string) {
   return prisma.recipe.findFirst({
     where: { slug, isActive: true },
     include: {
-      ingredients: { include: { ingredient: true }, orderBy: { order: "asc" } },
+      ingredients: {
+        include: { ingredient: { include: { nutrition: true } } },
+        orderBy: { order: "asc" },
+      },
       categories: { include: { category: true } },
       ratings: { include: { user: { select: { id: true, name: true } } } },
       createdBy: { select: { id: true, name: true } },

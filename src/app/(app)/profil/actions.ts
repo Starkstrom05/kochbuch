@@ -9,6 +9,7 @@ import {
   changePasswordSchema,
   createUserSchema,
 } from "@/lib/schemas/profile";
+import { seedNutrition } from "@/lib/nutrition/seed";
 
 export type ChangePasswordState =
   | { status: "idle" }
@@ -151,4 +152,12 @@ export async function deleteUserAction(targetId: string) {
   }
   await prisma.user.delete({ where: { id: targetId } });
   revalidatePath("/profil");
+}
+
+export async function reloadNutritionAction(): Promise<{ count: number }> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") throw new Error("Keine Berechtigung");
+  // Spielt die gebündelte Nährwert-Tabelle (idempotent) ein — für Bestands-
+  // Installationen, bei denen der Seed nicht erneut läuft.
+  return seedNutrition(prisma);
 }

@@ -39,6 +39,10 @@ type Props = {
     instructions: string;
     steps?: { text: string; durationSeconds: number | null }[];
     notes: string;
+    nutritionKcal?: number | null;
+    nutritionProteinG?: number | null;
+    nutritionCarbsG?: number | null;
+    nutritionFatG?: number | null;
     sourceUrl: string;
     sourceType?: string;
     tags: string;
@@ -544,6 +548,17 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
           className="mt-2 w-full bg-transparent font-written italic text-ink-faded outline-none"
           placeholder="Merys Geheimtipp..."
         />
+
+        <h3 className="mt-6 font-hand text-2xl text-ink ink-text">Nährwerte pro Portion (optional)</h3>
+        <p className="font-written text-sm text-ink-faded">
+          Leer lassen → wird aus den Zutaten geschätzt. Eigene Werte überschreiben die Schätzung.
+        </p>
+        <div className="mt-2 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <FormNumber name="nutritionKcal" label="kcal" defaultValue={initial?.nutritionKcal ?? ""} min={0} />
+          <FormNumber name="nutritionProteinG" label="Eiweiß (g)" defaultValue={initial?.nutritionProteinG ?? ""} min={0} />
+          <FormNumber name="nutritionCarbsG" label="Kohlenh. (g)" defaultValue={initial?.nutritionCarbsG ?? ""} min={0} />
+          <FormNumber name="nutritionFatG" label="Fett (g)" defaultValue={initial?.nutritionFatG ?? ""} min={0} />
+        </div>
 
         <label className="mt-6 block">
           <span className="font-written text-sm text-ink-faded">Quelle (URL, optional)</span>

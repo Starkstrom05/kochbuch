@@ -16,6 +16,7 @@ import packageJson from "../../../../../package.json";
 import { addRecipeToListAction } from "../../einkaufsliste/actions";
 import { AddToMealPlanButton } from "@/components/speiseplan/AddToMealPlanButton";
 import { prisma } from "@/lib/db/prisma";
+import { computeRecipeNutrition, resolveNutrition } from "@/lib/nutrition/compute";
 
 export default async function RecipeDetailPage({
   params,
@@ -69,6 +70,42 @@ export default async function RecipeDetailPage({
     session?.user
       ? recipe.ratings.find((r) => r.user.id === session.user.id)?.stars ?? 0
       : 0;
+
+  const autoNutrition = computeRecipeNutrition(
+    recipe.ingredients.map((ri) => ({
+      amount: ri.amount,
+      unit: ri.unit,
+      density: ri.ingredient.density,
+      nutrition: ri.ingredient.nutrition
+        ? {
+            kcal: ri.ingredient.nutrition.kcal,
+            proteinG: ri.ingredient.nutrition.proteinG,
+            carbsG: ri.ingredient.nutrition.carbsG,
+            fatG: ri.ingredient.nutrition.fatG,
+          }
+        : null,
+    })),
+    recipe.servings,
+  );
+  const nutrition = resolveNutrition(autoNutrition, {
+    kcal: recipe.nutritionKcal,
+    proteinG: recipe.nutritionProteinG,
+    carbsG: recipe.nutritionCarbsG,
+    fatG: recipe.nutritionFatG,
+  });
+  const nutritionMacros = [
+    nutrition.proteinG != null ? `Eiweiß ${Math.round(nutrition.proteinG)} g` : null,
+    nutrition.carbsG != null ? `Kohlenh. ${Math.round(nutrition.carbsG)} g` : null,
+    nutrition.fatG != null ? `Fett ${Math.round(nutrition.fatG)} g` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const nutritionLabel =
+    nutrition.source === "manual"
+      ? "angegeben"
+      : nutrition.complete
+        ? "geschätzt"
+        : "geschätzt, unvollständig";
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">
@@ -196,6 +233,18 @@ export default async function RecipeDetailPage({
                 }))}
               />
             </div>
+
+            {nutrition.source !== "none" && nutrition.kcal != null ? (
+              <div className="mt-6 rounded-sm bg-paper-100 p-3 ring-1 ring-paper-200">
+                <p className="font-written text-xs uppercase tracking-wide text-ink-faded">
+                  Nährwerte pro Portion ({nutritionLabel})
+                </p>
+                <p className="mt-1 font-hand text-3xl text-ink">~{Math.round(nutrition.kcal)} kcal</p>
+                {nutritionMacros ? (
+                  <p className="mt-0.5 font-written text-sm text-ink-faded">{nutritionMacros}</p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <div>
