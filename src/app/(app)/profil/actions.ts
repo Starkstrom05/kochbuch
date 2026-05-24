@@ -183,6 +183,24 @@ export async function assignUserFamilyAction(userId: string, familyId: string) {
   revalidatePath("/profil");
 }
 
+export async function createCategoryAction(formData: FormData) {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") throw new Error("Keine Berechtigung");
+  const name = String(formData.get("name") ?? "").trim();
+  const icon = String(formData.get("icon") ?? "").trim() || null;
+  if (!name) throw new Error("Name fehlt");
+  try {
+    await prisma.category.create({
+      data: { name, icon, familyId: session.user.familyId ?? null },
+    });
+  } catch {
+    // Name ist global eindeutig — Kollision freundlich melden.
+    throw new Error(`Kategorie „${name}" existiert bereits`);
+  }
+  revalidatePath("/profil");
+  revalidatePath("/rezepte");
+}
+
 export async function reloadNutritionAction(): Promise<{ count: number }> {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") throw new Error("Keine Berechtigung");

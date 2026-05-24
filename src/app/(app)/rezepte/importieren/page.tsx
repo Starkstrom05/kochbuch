@@ -1,10 +1,16 @@
 import Link from "next/link";
+import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { ImportClient } from "@/components/import/ImportClient";
+import { categoryVisibleToFamily } from "@/lib/recipes/visibility";
 import { createRecipeAction } from "../actions";
 
 export default async function ImportierenPage() {
-  const categories = await prisma.category.findMany({ orderBy: { name: "asc" } });
+  const session = await auth();
+  const categories = await prisma.category.findMany({
+    where: categoryVisibleToFamily(session?.user?.familyId),
+    orderBy: { name: "asc" },
+  });
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">

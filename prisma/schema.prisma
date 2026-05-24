@@ -39,6 +39,7 @@ model Family {
   createdAt      DateTime @default(now())
   members        User[]
   recipes        Recipe[]
+  categories     Category[]
 }
 
 model Account {
@@ -199,10 +200,15 @@ model RecipeIngredient {
 }
 
 model Category {
-  id      String             @id @default(cuid())
-  name    String             @unique
-  icon    String?
-  recipes CategoryOnRecipe[]
+  id       String             @id @default(cuid())
+  name     String             @unique
+  icon     String?
+  // null = global (für alle Familien sichtbar); sonst nur für die eigene Familie
+  familyId String?
+  family   Family?            @relation(fields: [familyId], references: [id])
+  recipes  CategoryOnRecipe[]
+
+  @@index([familyId])
 }
 
 model CategoryOnRecipe {

@@ -9,6 +9,7 @@ import { AppNameForm } from "./AppNameForm";
 import { BackupSection } from "./BackupSection";
 import { NutritionDataForm } from "./NutritionDataForm";
 import { FamilyManager } from "./FamilyManager";
+import { CategoryManager } from "./CategoryManager";
 import { getAppName } from "@/lib/config/app-config";
 
 export default async function ProfilPage() {
@@ -17,7 +18,7 @@ export default async function ProfilPage() {
 
   const isAdmin = session.user.role === "ADMIN";
 
-  const [currentAppName, users, families] = await Promise.all([
+  const [currentAppName, users, families, ownCategories] = await Promise.all([
     getAppName(),
     isAdmin
       ? prisma.user.findMany({
@@ -28,6 +29,13 @@ export default async function ProfilPage() {
     isAdmin
       ? prisma.family.findMany({
           select: { id: true, name: true, _count: { select: { members: true } } },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
+    isAdmin && session.user.familyId
+      ? prisma.category.findMany({
+          where: { familyId: session.user.familyId },
+          select: { id: true, name: true, icon: true },
           orderBy: { name: "asc" },
         })
       : Promise.resolve([]),
@@ -68,6 +76,7 @@ export default async function ProfilPage() {
           <>
             <AppNameForm currentName={currentAppName} />
             <FamilyManager families={familyList} />
+            <CategoryManager categories={ownCategories} />
             <BackupSection />
             <NutritionDataForm />
             <UserList users={users} currentUserId={session.user.id} families={familyOptions} />

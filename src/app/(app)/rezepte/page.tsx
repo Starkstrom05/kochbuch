@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth/auth";
 import { signOutAction } from "@/lib/auth/actions";
 import { prisma } from "@/lib/db/prisma";
 import { searchRecipes } from "@/lib/recipes/search";
+import { categoryVisibleToFamily } from "@/lib/recipes/visibility";
 import { HandwrittenStars } from "@/components/oma/HandwrittenStars";
 import { EmptyState } from "@/components/oma/EmptyState";
 import { UpdateBanner } from "@/components/layout/UpdateBanner";
@@ -38,7 +39,10 @@ export default async function RezeptePage({
       minStars: minStars > 0 ? minStars : undefined,
       familyId: session?.user?.familyId,
     }),
-    prisma.category.findMany({ orderBy: { name: "asc" } }),
+    prisma.category.findMany({
+      where: categoryVisibleToFamily(session?.user?.familyId),
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const baseParams = new URLSearchParams();

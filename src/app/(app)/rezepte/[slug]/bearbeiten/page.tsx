@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { getRecipeBySlug } from "@/lib/recipes/server";
+import { categoryVisibleToFamily } from "@/lib/recipes/visibility";
 import { RecipeEditor } from "@/components/recipe/RecipeEditor";
 import { updateRecipeAction } from "../../actions";
 
@@ -20,7 +21,10 @@ export default async function BearbeitenPage({
     redirect(`/rezepte/${slug}`);
   }
 
-  const categories = await prisma.category.findMany({ orderBy: { name: "asc" } });
+  const categories = await prisma.category.findMany({
+    where: categoryVisibleToFamily(session.user.familyId),
+    orderBy: { name: "asc" },
+  });
 
   const initial = {
     id: recipe.id,

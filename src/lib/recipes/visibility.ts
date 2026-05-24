@@ -11,3 +11,10 @@ export function visibleToFamily(
     ? { OR: [{ visibility: "SHARED" }, { familyId }] }
     : { visibility: "SHARED" };
 }
+
+/** Kategorien: global (familyId null) plus die der eigenen Familie. */
+export function categoryVisibleToFamily(
+  familyId: string | null | undefined,
+): Prisma.CategoryWhereInput {
+  return familyId ? { OR: [{ familyId: null }, { familyId }] } : { familyId: null };
+}

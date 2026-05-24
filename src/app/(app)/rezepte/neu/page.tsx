@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { RecipeEditor } from "@/components/recipe/RecipeEditor";
+import { categoryVisibleToFamily } from "@/lib/recipes/visibility";
 import { createRecipeAction } from "../actions";
 
 export default async function NeuPage({
@@ -9,7 +11,11 @@ export default async function NeuPage({
   searchParams: Promise<{ title?: string }>;
 }) {
   const { title } = await searchParams;
-  const categories = await prisma.category.findMany({ orderBy: { name: "asc" } });
+  const session = await auth();
+  const categories = await prisma.category.findMany({
+    where: categoryVisibleToFamily(session?.user?.familyId),
+    orderBy: { name: "asc" },
+  });
 
   const initial = title
     ? {
