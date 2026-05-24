@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { consolidateList } from "./consolidate";
+import { consolidateList, sortConsolidatedGroups } from "./consolidate";
 
 function item(
   id: string,
@@ -105,5 +105,74 @@ describe("consolidateList", () => {
       item("3", "Butter", 50, "g"),
     ]);
     expect(result.map((g) => g.name)).toEqual(["Zucker", "Mehl", "Butter"]);
+  });
+});
+
+describe("sortConsolidatedGroups", () => {
+  it("leaves order unchanged when nothing is checked", () => {
+    const groups = consolidateList([
+      item("1", "Zucker", 100, "g"),
+      item("2", "Mehl", 200, "g"),
+      item("3", "Butter", 50, "g"),
+    ]);
+    expect(sortConsolidatedGroups(groups).map((g) => g.name)).toEqual([
+      "Zucker",
+      "Mehl",
+      "Butter",
+    ]);
+  });
+
+  it("moves fully-checked groups to the bottom", () => {
+    const groups = consolidateList([
+      item("1", "Zucker", 100, "g", "A", true),
+      item("2", "Mehl", 200, "g", "A", false),
+      item("3", "Butter", 50, "g", "A", true),
+      item("4", "Eier", 6, "Stk", "A", false),
+    ]);
+    expect(sortConsolidatedGroups(groups).map((g) => g.name)).toEqual([
+      "Mehl",
+      "Eier",
+      "Zucker",
+      "Butter",
+    ]);
+  });
+
+  it("is stable within checked and unchecked partitions", () => {
+    const groups = consolidateList([
+      item("1", "A", 1, "g", "r", true),
+      item("2", "B", 1, "g", "r", false),
+      item("3", "C", 1, "g", "r", true),
+      item("4", "D", 1, "g", "r", false),
+    ]);
+    // unchecked keep relative order (B, D), checked keep relative order (A, C)
+    expect(sortConsolidatedGroups(groups).map((g) => g.name)).toEqual([
+      "B",
+      "D",
+      "A",
+      "C",
+    ]);
+  });
+
+  it("does not mutate the input array", () => {
+    const groups = consolidateList([
+      item("1", "Zucker", 100, "g", "A", true),
+      item("2", "Mehl", 200, "g", "A", false),
+    ]);
+    const before = groups.map((g) => g.name);
+    sortConsolidatedGroups(groups);
+    expect(groups.map((g) => g.name)).toEqual(before);
+  });
+
+  it("partially-checked groups stay with the unchecked (top)", () => {
+    const groups = consolidateList([
+      item("1", "Mehl", 200, "g", "A", true),
+      item("2", "Mehl", 100, "g", "B", false), // group someChecked, not allChecked
+      item("3", "Salz", 1, "Prise", "A", true), // fully checked
+    ]);
+    // "Mehl" is not allChecked → stays before fully-checked "Salz"
+    expect(sortConsolidatedGroups(groups).map((g) => g.name)).toEqual([
+      "Mehl",
+      "Salz",
+    ]);
   });
 });

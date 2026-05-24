@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition, useState } from "react";
+import { useTransition, useState, useRef } from "react";
 import {
   toggleItemAction,
   checkAllInGroupAction,
@@ -8,7 +8,12 @@ import {
   clearListAction,
   addManualItemAction,
 } from "@/app/(app)/einkaufsliste/actions";
-import { consolidateList, type RawItem, type ConsolidatedGroup } from "@/lib/shopping/consolidate";
+import {
+  consolidateList,
+  sortConsolidatedGroups,
+  type RawItem,
+  type ConsolidatedGroup,
+} from "@/lib/shopping/consolidate";
 import { EmptyState } from "@/components/oma/EmptyState";
 
 type Props = {
@@ -22,7 +27,7 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
   const [isPending, startTransition] = useTransition();
   const [showManual, setShowManual] = useState(false);
 
-  const groups = consolidateList(items);
+  const groups = sortConsolidatedGroups(consolidateList(items));
   const checkedCount = items.filter((i) => i.checked).length;
 
   function optimisticToggle(id: string) {
@@ -153,26 +158,30 @@ function GroupRow({
       className={`py-3 transition-opacity ${group.allChecked ? "opacity-40" : ""}`}
     >
       <div className="flex items-start gap-3">
-        {/* Big checkbox for entire group */}
+        {/* Big checkbox for entire group — 44px touch target, 24px visible box */}
         <button
           onClick={() =>
             group.allChecked
               ? group.items.forEach((i) => onToggleItem(i.id))
               : onCheckAll(group)
           }
-          className={`mt-0.5 h-6 w-6 flex-shrink-0 rounded-sm border-2 transition-colors ${
-            group.allChecked
-              ? "border-ribbon bg-ribbon text-paper-50"
-              : group.someChecked
-                ? "border-ribbon/60 bg-ribbon/20"
-                : "border-paper-400 bg-paper-50"
-          }`}
+          className="-my-2 -ml-2 flex h-11 w-11 flex-shrink-0 items-center justify-center"
           aria-label={group.allChecked ? "Abhaken rückgängig" : "Alle abhaken"}
         >
-          {group.allChecked && <span className="block text-center text-xs leading-none">✓</span>}
-          {group.someChecked && !group.allChecked && (
-            <span className="block text-center text-xs leading-none">–</span>
-          )}
+          <span
+            className={`flex h-6 w-6 items-center justify-center rounded-sm border-2 transition-colors ${
+              group.allChecked
+                ? "border-ribbon bg-ribbon text-paper-50"
+                : group.someChecked
+                  ? "border-ribbon/60 bg-ribbon/20"
+                  : "border-paper-400 bg-paper-50"
+            }`}
+          >
+            {group.allChecked && <span className="text-xs leading-none">✓</span>}
+            {group.someChecked && !group.allChecked && (
+              <span className="text-xs leading-none">–</span>
+            )}
+          </span>
         </button>
 
         <div className="flex-1 min-w-0">
@@ -202,19 +211,21 @@ function GroupRow({
           {multiSource && expanded && (
             <ul className="mt-2 space-y-1">
               {group.items.map((item) => (
-                <li key={item.id} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={item.checked}
-                    onChange={() => onToggleItem(item.id)}
-                    className="accent-ribbon"
-                  />
-                  <span className={`font-written text-sm ${item.checked ? "line-through text-ink-faded" : "text-ink"}`}>
-                    {item.amount != null
-                      ? `${item.amount}${item.unit ? " " + item.unit : ""}`
-                      : ""}{" "}
-                    <span className="text-ink-faded">({item.recipeRef ?? "manuell"})</span>
-                  </span>
+                <li key={item.id}>
+                  <label className="flex cursor-pointer items-center gap-3 py-1.5">
+                    <input
+                      type="checkbox"
+                      checked={item.checked}
+                      onChange={() => onToggleItem(item.id)}
+                      className="h-5 w-5 flex-shrink-0 accent-ribbon"
+                    />
+                    <span className={`font-written text-sm ${item.checked ? "line-through text-ink-faded" : "text-ink"}`}>
+                      {item.amount != null
+                        ? `${item.amount}${item.unit ? " " + item.unit : ""}`
+                        : ""}{" "}
+                      <span className="text-ink-faded">({item.recipeRef ?? "manuell"})</span>
+                    </span>
+                  </label>
                 </li>
               ))}
             </ul>
@@ -240,32 +251,119 @@ function buildShareText(groups: ConsolidatedGroup[], listName?: string): string 
 
 function ShareButton({ groups, listName }: { groups: ConsolidatedGroup[]; listName?: string }) {
   const [copied, setCopied] = useState(false);
+  // Fallback-Text, wenn weder Web Share noch Clipboard verfügbar sind (z. B. NAS
+  // über HTTP-LAN-IP → kein Secure Context). Wird im Overlay zum Kopieren angezeigt.
+  const [fallbackText, setFallbackText] = useState<string | null>(null);
 
   async function handleShare() {
     const text = buildShareText(groups, listName);
     const title = listName ?? "Einkaufsliste";
 
-    if (typeof navigator !== "undefined" && "share" in navigator) {
+    // 1) Web Share API (nur im Secure Context vorhanden)
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      const payload = { title, text };
       try {
-        await navigator.share({ title, text });
+        if (typeof navigator.canShare === "function" && !navigator.canShare(payload)) {
+          throw new Error("cannot share");
+        }
+        await navigator.share(payload);
         return;
-      } catch {
-        // Abgebrochen oder nicht unterstützt → Clipboard-Fallback
+      } catch (err) {
+        // Nutzer-Abbruch ist kein Fehler → keinen Fallback auslösen
+        if (err instanceof DOMException && err.name === "AbortError") return;
       }
     }
 
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    // 2) Clipboard API (braucht ebenfalls Secure Context)
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        return;
+      } catch {
+        // weiter zum manuellen Fallback
+      }
+    }
+
+    // 3) Manueller Fallback — funktioniert auch ohne Secure Context
+    setFallbackText(text);
   }
 
   return (
-    <button
-      onClick={handleShare}
-      className="rounded-sm bg-paper-200 px-3 py-1.5 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
+    <>
+      <button
+        onClick={handleShare}
+        className="rounded-sm bg-paper-200 px-3 py-1.5 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
+      >
+        {copied ? "✓ Kopiert!" : "📤 Teilen"}
+      </button>
+      {fallbackText !== null && (
+        <ShareFallback text={fallbackText} onClose={() => setFallbackText(null)} />
+      )}
+    </>
+  );
+}
+
+function ShareFallback({ text, onClose }: { text: string; onClose: () => void }) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [copied, setCopied] = useState(false);
+
+  function copyManually() {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.focus();
+    el.select();
+    // execCommand("copy") funktioniert auch ohne Secure Context (Legacy-Pfad)
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch {
+      ok = false;
+    }
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 px-safe pb-safe pt-safe"
+      onClick={onClose}
     >
-      {copied ? "✓ Kopiert!" : "📤 Teilen"}
-    </button>
+      <div
+        className="w-full max-w-md rounded-sm bg-paper-50 p-4 shadow-card ring-1 ring-paper-300"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="font-hand text-2xl text-ink">Liste teilen</h2>
+        <p className="mt-1 font-written text-sm text-ink-faded">
+          Direktes Teilen ist hier nicht verfügbar. Text markieren und kopieren:
+        </p>
+        <textarea
+          ref={textareaRef}
+          readOnly
+          value={text}
+          rows={Math.min(12, text.split("\n").length + 1)}
+          className="mt-3 w-full resize-none rounded-sm border border-dotted border-ink-light bg-paper-100 p-2 font-written text-sm text-ink outline-none"
+          onFocus={(e) => e.currentTarget.select()}
+        />
+        <div className="mt-3 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="font-written text-sm text-ink-faded hover:text-ribbon"
+          >
+            Schließen
+          </button>
+          <button
+            onClick={copyManually}
+            className="rounded-sm bg-ribbon px-4 py-2 font-hand text-lg text-paper-50"
+          >
+            {copied ? "✓ Kopiert!" : "Markieren & Kopieren"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

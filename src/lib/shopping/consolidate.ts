@@ -84,6 +84,14 @@ export function consolidateList(items: RawItem[]): ConsolidatedGroup[] {
   });
 }
 
+/**
+ * Stable sort that pushes fully-checked groups to the bottom while keeping the
+ * relative order of everything else (insertion order from consolidateList).
+ */
+export function sortConsolidatedGroups(groups: ConsolidatedGroup[]): ConsolidatedGroup[] {
+  return [...groups].sort((a, b) => Number(a.allChecked) - Number(b.allChecked));
+}
+
 function buildLabel(
   total: number | null,
   unit: string | null,
