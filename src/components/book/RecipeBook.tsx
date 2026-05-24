@@ -14,7 +14,7 @@ import { BookPage } from "./BookPage";
 import { BookCover } from "./BookCover";
 import { HandwrittenStars } from "@/components/oma/HandwrittenStars";
 import { Divider } from "@/components/oma/Divider";
-import { formatAmount } from "@/lib/units/fraction";
+import { formatAmount, scaleAmount } from "@/lib/units/fraction";
 import {
   isMuted as soundIsMuted,
   loadMuted,
@@ -199,6 +199,8 @@ type Props = {
 export function RecipeBook({ recipes, title, subtitle }: Props) {
   const [muted, setMutedState] = useState<boolean>(() => loadMuted());
   const [currentPage, setCurrentPage] = useState(0);
+  // Mengen-Multiplikator (Buch zeigt viele Rezepte → kein absolutes „Portionen").
+  const [factor, setFactor] = useState(1);
   const [lightbox, setLightbox] = useState<{ paths: string[]; index: number } | null>(null);
   const flipBookRef = useRef<{
     pageFlip: () => { flipPrev(): void; flipNext(): void; getPageCount(): number };
@@ -268,6 +270,8 @@ export function RecipeBook({ recipes, title, subtitle }: Props) {
         onToggleMute={toggleMute}
         onPrev={flipPrev}
         onNext={flipNext}
+        factor={factor}
+        onFactor={setFactor}
       />
 
       <div
@@ -316,7 +320,7 @@ export function RecipeBook({ recipes, title, subtitle }: Props) {
                   pageNumber={idx + 1}
                   variant={variant}
                 >
-                  <BookPageContent page={page} onImageClick={openLightbox} />
+                  <BookPageContent page={page} onImageClick={openLightbox} factor={factor} />
                 </BookPage>
               );
             })}
@@ -423,6 +427,8 @@ function Toolbar({
   onToggleMute,
   onPrev,
   onNext,
+  factor,
+  onFactor,
 }: {
   currentPage: number;
   totalPages: number;
@@ -430,6 +436,8 @@ function Toolbar({
   onToggleMute: () => void;
   onPrev: () => void;
   onNext: () => void;
+  factor: number;
+  onFactor: (f: number) => void;
 }) {
   return (
     <div className="flex w-full items-center justify-between gap-3 px-4 py-3 text-paper-50">
@@ -462,15 +470,32 @@ function Toolbar({
         </button>
       </div>
 
-      <button
-        type="button"
-        onClick={onToggleMute}
-        aria-label={muted ? "Ton einschalten" : "Ton ausschalten"}
-        className="rounded-sm bg-paper-50/10 px-3 py-1 font-hand text-lg backdrop-blur hover:bg-paper-50/20"
-        title={muted ? "Ton einschalten" : "Ton ausschalten"}
-      >
-        {muted ? "🔇" : "🔊"}
-      </button>
+      <div className="flex items-center gap-2">
+        <label className="flex items-center gap-1 font-written text-sm text-paper-50/80">
+          <span className="hidden sm:inline">Menge</span>
+          <select
+            value={factor}
+            onChange={(e) => onFactor(Number(e.target.value))}
+            aria-label="Mengen-Multiplikator"
+            className="rounded-sm bg-paper-50/10 px-2 py-1 font-hand text-lg text-paper-50 outline-none backdrop-blur"
+          >
+            <option value={0.5}>×½</option>
+            <option value={1}>×1</option>
+            <option value={2}>×2</option>
+            <option value={3}>×3</option>
+          </select>
+        </label>
+
+        <button
+          type="button"
+          onClick={onToggleMute}
+          aria-label={muted ? "Ton einschalten" : "Ton ausschalten"}
+          className="rounded-sm bg-paper-50/10 px-3 py-1 font-hand text-lg backdrop-blur hover:bg-paper-50/20"
+          title={muted ? "Ton einschalten" : "Ton ausschalten"}
+        >
+          {muted ? "🔇" : "🔊"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -514,15 +539,17 @@ function BackCover() {
 function BookPageContent({
   page,
   onImageClick,
+  factor,
 }: {
   page: RecipePage;
   onImageClick: (paths: string[], index: number) => void;
+  factor: number;
 }) {
   if (page.type === "blank") {
     return <div className="h-full w-full" />;
   }
   if (page.type === "ingredients") {
-    return <IngredientsPage page={page} onImageClick={onImageClick} />;
+    return <IngredientsPage page={page} onImageClick={onImageClick} factor={factor} />;
   }
   return <StepsPage page={page} />;
 }
@@ -530,9 +557,11 @@ function BookPageContent({
 function IngredientsPage({
   page,
   onImageClick,
+  factor,
 }: {
   page: Extract<RecipePage, { type: "ingredients" }>;
   onImageClick: (paths: string[], index: number) => void;
+  factor: number;
 }) {
   const { recipe, isFirstOfRecipe, ingredients, pageIndex, pageTotal } = page;
   const avgStars =
@@ -650,7 +679,7 @@ function IngredientsPage({
             {ingredients.map((ri, i) => (
               <li key={i} className="flex gap-2">
                 <span className="min-w-[3.5rem] shrink-0 font-serif tabular-nums text-ink-faded">
-                  {ri.amount != null ? formatAmount(ri.amount) : ""}
+                  {ri.amount != null ? formatAmount(scaleAmount(ri.amount, 1, factor)) : ""}
                   {ri.unit ? ` ${ri.unit}` : ""}
                 </span>
                 <span>

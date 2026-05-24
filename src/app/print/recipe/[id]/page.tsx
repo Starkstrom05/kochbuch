@@ -1,14 +1,16 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
-import { formatAmount } from "@/lib/units/fraction";
+import { formatAmount, scaleAmount } from "@/lib/units/fraction";
 import { getAppName } from "@/lib/config/app-config";
 
 export const dynamic = "force-dynamic";
 
 export default async function PrintRecipePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ servings?: string | string[] }>;
 }) {
   const { id } = await params;
   const recipe = await prisma.recipe.findUnique({
@@ -21,6 +23,14 @@ export default async function PrintRecipePage({
     },
   });
   if (!recipe) notFound();
+
+  const sp = await searchParams;
+  const servingsRaw = Array.isArray(sp.servings) ? sp.servings[0] : sp.servings;
+  const servingsNum = servingsRaw ? Number(servingsRaw) : NaN;
+  const targetServings =
+    Number.isFinite(servingsNum) && servingsNum > 0
+      ? Math.min(99, Math.round(servingsNum))
+      : recipe.servings;
 
   const coverImagePath = recipe.images[0]?.path ?? null;
   const internalBase = process.env.APP_URL ?? "http://localhost:3000";
@@ -294,7 +304,10 @@ export default async function PrintRecipePage({
           <h1>{recipe.title}</h1>
           {recipe.description && <p className="description">{recipe.description}</p>}
           <div className="meta">
-            <span className="chip chip-accent">🍽 {recipe.servings} Portionen</span>
+            <span className="chip chip-accent">
+              🍽 {targetServings} Portionen
+              {targetServings !== recipe.servings ? ` (Basis ${recipe.servings})` : ""}
+            </span>
             {recipe.prepMinutes != null && (
               <span className="chip">Vorbereitung {recipe.prepMinutes} min</span>
             )}
@@ -322,7 +335,9 @@ export default async function PrintRecipePage({
             {recipe.ingredients.map((ri) => (
               <li key={ri.id}>
                 <span className="ing-amount">
-                  {ri.amount != null ? formatAmount(ri.amount) : ""}
+                  {ri.amount != null
+                    ? formatAmount(scaleAmount(ri.amount, recipe.servings, targetServings))
+                    : ""}
                 </span>
                 <span className="ing-unit">{ri.unit ?? ""}</span>
                 <span className="ing-name">

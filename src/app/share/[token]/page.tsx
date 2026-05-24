@@ -9,12 +9,19 @@ export const dynamic = "force-dynamic";
 
 export default async function SharePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ servings?: string | string[] }>;
 }) {
   const { token } = await params;
   const recipe = await getRecipeByShareToken(token);
   if (!recipe) notFound();
+
+  const sp = await searchParams;
+  const servingsRaw = Array.isArray(sp.servings) ? sp.servings[0] : sp.servings;
+  const servingsNum = servingsRaw ? Number(servingsRaw) : NaN;
+  const initialServings = Number.isFinite(servingsNum) && servingsNum > 0 ? servingsNum : null;
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
@@ -42,6 +49,8 @@ export default async function SharePage({
             <div className="mt-3">
               <IngredientList
                 baseServings={recipe.servings}
+                recipeId={recipe.id}
+                initialServings={initialServings}
                 ingredients={recipe.ingredients.map((i) => ({
                   amount: i.amount,
                   unit: i.unit,

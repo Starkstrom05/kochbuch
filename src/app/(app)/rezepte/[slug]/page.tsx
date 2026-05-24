@@ -10,6 +10,7 @@ import { RatingPicker } from "@/components/recipe/RatingPicker";
 import { ShareToggle } from "@/components/recipe/ShareToggle";
 import Image from "next/image";
 import { RecipeGallery } from "@/components/recipe/RecipeGallery";
+import { PdfLink } from "@/components/recipe/PdfLink";
 import { deactivateRecipeAction } from "../actions";
 import packageJson from "../../../../../package.json";
 import { addRecipeToListAction } from "../../einkaufsliste/actions";
@@ -18,12 +19,19 @@ import { prisma } from "@/lib/db/prisma";
 
 export default async function RecipeDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ servings?: string | string[] }>;
 }) {
   const { slug } = await params;
   const recipe = await getRecipeBySlug(slug);
   if (!recipe) notFound();
+
+  const sp = await searchParams;
+  const servingsRaw = Array.isArray(sp.servings) ? sp.servings[0] : sp.servings;
+  const servingsNum = servingsRaw ? Number(servingsRaw) : NaN;
+  const initialServings = Number.isFinite(servingsNum) && servingsNum > 0 ? servingsNum : null;
 
   const session = await auth();
   const isOwner = session?.user?.id === recipe.createdById;
@@ -90,13 +98,13 @@ export default async function RecipeDetailPage({
                 >
                   ✏️ Notiz
                 </Link>
-                <a
-                  href={`/api/recipes/${recipe.id}/pdf`}
-                  download
+                <PdfLink
+                  recipeId={recipe.id}
+                  baseServings={recipe.servings}
                   className="text-ink-faded underline underline-offset-4 hover:text-ribbon"
                 >
                   📄 PDF
-                </a>
+                </PdfLink>
                 <form action={deactivateRecipeAction.bind(null, recipe.id)}>
                   <button type="submit" className="text-ink-faded hover:text-ribbon">
                     deaktivieren
@@ -178,6 +186,8 @@ export default async function RecipeDetailPage({
             <div className="mt-3">
               <IngredientList
                 baseServings={recipe.servings}
+                recipeId={recipe.id}
+                initialServings={initialServings}
                 ingredients={recipe.ingredients.map((i) => ({
                   amount: i.amount,
                   unit: i.unit,

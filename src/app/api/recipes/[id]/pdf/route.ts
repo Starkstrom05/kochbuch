@@ -6,7 +6,7 @@ import { renderPdf } from "@/lib/pdf/render";
 export const maxDuration = 120;
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth();
@@ -24,7 +24,11 @@ export async function GET(
   }
 
   try {
-    const pdf = await renderPdf({ path: `/print/recipe/${id}`, internal: true });
+    const servings = new URL(req.url).searchParams.get("servings");
+    const printPath = servings
+      ? `/print/recipe/${id}?servings=${encodeURIComponent(servings)}`
+      : `/print/recipe/${id}`;
+    const pdf = await renderPdf({ path: printPath, internal: true });
     const filename = recipe.title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
