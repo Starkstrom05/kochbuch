@@ -6,6 +6,7 @@ import { ChangePasswordForm } from "./ChangePasswordForm";
 import { CreateUserForm } from "./CreateUserForm";
 import { UserList } from "./UserList";
 import { AppNameForm } from "./AppNameForm";
+import { BackupSection } from "./BackupSection";
 import { getAppName } from "@/lib/config/app-config";
 
 export default async function ProfilPage() {
@@ -51,6 +52,7 @@ export default async function ProfilPage() {
         {isAdmin ? (
           <>
             <AppNameForm currentName={currentAppName} />
+            <BackupSection />
             <UserList users={users} currentUserId={session.user.id} />
             <CreateUserForm />
           </>
