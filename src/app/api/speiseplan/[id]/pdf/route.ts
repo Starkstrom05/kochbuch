@@ -15,11 +15,20 @@ export async function GET(
   const { id } = await params;
   const plan = await prisma.mealPlan.findUnique({
     where: { id },
-    select: { id: true, name: true, ownerId: true },
+    select: {
+      id: true,
+      name: true,
+      ownerId: true,
+      familyShared: true,
+      owner: { select: { familyId: true } },
+    },
   });
 
   if (!plan) return NextResponse.json({ error: "Plan nicht gefunden" }, { status: 404 });
-  if (plan.ownerId !== session.user.id) {
+  const canView =
+    plan.ownerId === session.user.id ||
+    (plan.familyShared && plan.owner.familyId === session.user.familyId);
+  if (!canView) {
     return NextResponse.json({ error: "Keine Berechtigung" }, { status: 403 });
   }
 

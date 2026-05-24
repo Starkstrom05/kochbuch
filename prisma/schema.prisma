@@ -259,11 +259,12 @@ model ShoppingItem {
 }
 
 model MealPlan {
-  id        String          @id @default(cuid())
-  name      String
-  ownerId   String
-  firstDay  Int             @default(1)
-  weekStart DateTime
+  id           String          @id @default(cuid())
+  name         String
+  ownerId      String
+  firstDay     Int             @default(1)
+  familyShared Boolean         @default(false)
+  weekStart    DateTime
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
   owner     User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)

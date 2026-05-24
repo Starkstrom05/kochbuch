@@ -19,6 +19,17 @@ async function requirePlanOwner(planId: string, userId: string) {
   return plan;
 }
 
+export async function togglePlanShareAction(planId: string) {
+  const user = await requireUser();
+  const plan = await requirePlanOwner(planId, user.id);
+  await prisma.mealPlan.update({
+    where: { id: planId },
+    data: { familyShared: !plan.familyShared },
+  });
+  revalidatePath("/speiseplan");
+  revalidatePath(`/speiseplan/${planId}`);
+}
+
 export async function createMealPlanAction(formData: FormData) {
   const user = await requireUser();
   const name = String(formData.get("name") ?? "").trim();

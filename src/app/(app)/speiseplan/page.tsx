@@ -9,9 +9,19 @@ export default async function SpeiseplanPage() {
   if (!session?.user) redirect("/login");
 
   const plans = await prisma.mealPlan.findMany({
-    where: { ownerId: session.user.id },
+    where: {
+      OR: [
+        { ownerId: session.user.id },
+        ...(session.user.familyId
+          ? [{ familyShared: true, owner: { familyId: session.user.familyId } }]
+          : []),
+      ],
+    },
     orderBy: { createdAt: "desc" },
-    include: { _count: { select: { entries: true } } },
+    include: {
+      _count: { select: { entries: true } },
+      owner: { select: { id: true, name: true } },
+    },
   });
 
   return (
@@ -70,6 +80,11 @@ export default async function SpeiseplanPage() {
                   <p className="mt-2 font-written text-sm text-ink-faded">
                     {plan._count.entries} Mahlzeit{plan._count.entries !== 1 ? "en" : ""}
                   </p>
+                  {plan.ownerId !== session.user.id ? (
+                    <p className="mt-1 font-written text-xs text-ribbon">
+                      🔗 von {plan.owner.name} geteilt
+                    </p>
+                  ) : null}
                 </Link>
               </li>
             );

@@ -28,11 +28,20 @@ type Props = {
   dayLabels: DayLabel[];
   entries: Entry[];
   allRecipes: RecipeOption[];
+  /** false = nur Ansicht (geteilter Plan eines anderen Familienmitglieds). */
+  canEdit?: boolean;
 };
 
 const MEAL_TYPE_ORDER = ["Frühstück", "Mittagessen", "Abendessen", "Snack"];
 
-export function WeekView({ planId, planName, dayLabels, entries, allRecipes }: Props) {
+export function WeekView({
+  planId,
+  planName,
+  dayLabels,
+  entries,
+  allRecipes,
+  canEdit = true,
+}: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
@@ -93,39 +102,45 @@ export function WeekView({ planId, planName, dayLabels, entries, allRecipes }: P
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          {checkedIds.size > 0 ? (
-            <>
-              <button
-                onClick={handleExport}
-                disabled={isPending}
-                className="rounded-sm bg-ribbon px-4 py-2 font-hand text-lg text-paper-50 shadow-card hover:opacity-90 disabled:opacity-50"
-              >
-                🛒 Zur Einkaufsliste ({checkedIds.size})
-              </button>
-              <button
-                onClick={() => setCheckedIds(new Set())}
-                className="font-written text-sm text-ink-faded underline underline-offset-4"
-              >
-                Auswahl aufheben
-              </button>
-            </>
-          ) : (
-            <p className="font-written text-sm text-ink-faded">
-              Mahlzeiten anhaken → Einkaufsliste erstellen
-            </p>
-          )}
+      {/* Toolbar (nur für Bearbeiter) */}
+      {canEdit ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            {checkedIds.size > 0 ? (
+              <>
+                <button
+                  onClick={handleExport}
+                  disabled={isPending}
+                  className="rounded-sm bg-ribbon px-4 py-2 font-hand text-lg text-paper-50 shadow-card hover:opacity-90 disabled:opacity-50"
+                >
+                  🛒 Zur Einkaufsliste ({checkedIds.size})
+                </button>
+                <button
+                  onClick={() => setCheckedIds(new Set())}
+                  className="font-written text-sm text-ink-faded underline underline-offset-4"
+                >
+                  Auswahl aufheben
+                </button>
+              </>
+            ) : (
+              <p className="font-written text-sm text-ink-faded">
+                Mahlzeiten anhaken → Einkaufsliste erstellen
+              </p>
+            )}
+          </div>
+          <button
+            onClick={handleDelete}
+            disabled={isPending}
+            className="font-written text-sm text-ink-faded hover:text-ribbon"
+          >
+            Plan löschen
+          </button>
         </div>
-        <button
-          onClick={handleDelete}
-          disabled={isPending}
-          className="font-written text-sm text-ink-faded hover:text-ribbon"
-        >
-          Plan löschen
-        </button>
-      </div>
+      ) : (
+        <p className="font-written text-sm text-ink-faded">
+          Geteilter Plan — nur Ansicht.
+        </p>
+      )}
 
       {/* Week grid */}
       <div className="overflow-x-auto">
@@ -144,9 +159,9 @@ export function WeekView({ planId, planName, dayLabels, entries, allRecipes }: P
               <div key={dayIndex} className="paper-card flex flex-col gap-2 p-3">
                 {/* Day header — click to toggle all entries */}
                 <button
-                  onClick={() => toggleDayCheck(dayIndex)}
-                  disabled={ids.length === 0}
-                  className={`text-left ${ids.length === 0 ? "cursor-default" : "hover:opacity-80"}`}
+                  onClick={canEdit ? () => toggleDayCheck(dayIndex) : undefined}
+                  disabled={!canEdit || ids.length === 0}
+                  className={`text-left ${!canEdit || ids.length === 0 ? "cursor-default" : "hover:opacity-80"}`}
                 >
                   <div
                     className={`rounded-sm px-1 py-0.5 transition-colors ${allDayChecked ? "bg-ribbon/20" : ""}`}
@@ -168,12 +183,14 @@ export function WeekView({ planId, planName, dayLabels, entries, allRecipes }: P
                       }`}
                     >
                       <div className="flex items-start gap-2">
-                        <input
-                          type="checkbox"
-                          checked={checkedIds.has(entry.id)}
-                          onChange={() => toggleCheck(entry.id)}
-                          className="mt-0.5 accent-ribbon"
-                        />
+                        {canEdit ? (
+                          <input
+                            type="checkbox"
+                            checked={checkedIds.has(entry.id)}
+                            onChange={() => toggleCheck(entry.id)}
+                            className="mt-0.5 accent-ribbon"
+                          />
+                        ) : null}
                         <div className="min-w-0 flex-1">
                           <p className="mb-0.5 font-written text-xs leading-none text-ink-faded">
                             {entry.mealType}
@@ -188,25 +205,29 @@ export function WeekView({ planId, planName, dayLabels, entries, allRecipes }: P
                             {entry.servings} Port.
                           </p>
                         </div>
-                        <button
-                          onClick={() => handleRemove(entry.id)}
-                          disabled={isPending}
-                          className="flex-shrink-0 font-written text-xs text-ink-faded hover:text-ribbon"
-                          aria-label="Entfernen"
-                        >
-                          ✕
-                        </button>
+                        {canEdit ? (
+                          <button
+                            onClick={() => handleRemove(entry.id)}
+                            disabled={isPending}
+                            className="flex-shrink-0 font-written text-xs text-ink-faded hover:text-ribbon"
+                            aria-label="Entfernen"
+                          >
+                            ✕
+                          </button>
+                        ) : null}
                       </div>
                     </li>
                   ))}
                 </ul>
 
-                <button
-                  onClick={() => setPickerDay(dayIndex)}
-                  className="mt-auto rounded-sm border border-dashed border-paper-400 py-1.5 font-written text-xs text-ink-faded hover:border-ribbon hover:text-ribbon"
-                >
-                  + Hinzufügen
-                </button>
+                {canEdit ? (
+                  <button
+                    onClick={() => setPickerDay(dayIndex)}
+                    className="mt-auto rounded-sm border border-dashed border-paper-400 py-1.5 font-written text-xs text-ink-faded hover:border-ribbon hover:text-ribbon"
+                  >
+                    + Hinzufügen
+                  </button>
+                ) : null}
               </div>
             );
           })}

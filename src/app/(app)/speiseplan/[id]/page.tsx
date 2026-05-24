@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { WeekView } from "@/components/speiseplan/WeekView";
+import { togglePlanShareAction } from "../actions";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -27,6 +28,7 @@ export default async function SpeiseplanDetailPage({ params }: Props) {
     prisma.mealPlan.findUnique({
       where: { id },
       include: {
+        owner: { select: { familyId: true } },
         entries: {
           include: {
             recipe: { select: { id: true, title: true, slug: true, servings: true } },
@@ -43,7 +45,10 @@ export default async function SpeiseplanDetailPage({ params }: Props) {
   ]);
 
   if (!plan) notFound();
-  if (plan.ownerId !== session.user.id) redirect("/speiseplan");
+  const isOwner = plan.ownerId === session.user.id;
+  const canView =
+    isOwner || (plan.familyShared && plan.owner.familyId === session.user.familyId);
+  if (!canView) redirect("/speiseplan");
 
   // Dates aus der DB sind UTC. Lokale getDate/getDay würde je nach
   // Container-TZ den Wochentag um 1 verschieben — UTC-Komponenten und
@@ -79,6 +84,16 @@ export default async function SpeiseplanDetailPage({ params }: Props) {
           </p>
         </div>
         <div className="flex items-center gap-4">
+          {isOwner ? (
+            <form action={togglePlanShareAction.bind(null, plan.id)}>
+              <button
+                type="submit"
+                className="rounded-sm bg-paper-200 px-3 py-1.5 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
+              >
+                {plan.familyShared ? "🔗 Freigabe aufheben" : "Für Familie freigeben"}
+              </button>
+            </form>
+          ) : null}
           <a
             href={`/api/speiseplan/${plan.id}/pdf`}
             download
@@ -107,6 +122,7 @@ export default async function SpeiseplanDetailPage({ params }: Props) {
           recipe: e.recipe,
         }))}
         allRecipes={allRecipes}
+        canEdit={isOwner}
       />
     </main>
   );
