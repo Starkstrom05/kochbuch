@@ -68,32 +68,42 @@ export default async function RecipeDetailPage({
         <Link href="/rezepte" className="font-written text-sm text-ribbon underline underline-offset-4">
           ← zur Übersicht
         </Link>
-        {isOwner ? (
+        {session?.user ? (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-written text-sm">
             <Link
-              href={`/rezepte/${recipe.slug}/bearbeiten`}
+              href={`/rezepte/${recipe.slug}/koch`}
               className="text-ribbon underline underline-offset-4"
             >
-              bearbeiten
+              👨‍🍳 Koch-Modus
             </Link>
-            <Link
-              href={`/rezepte/${recipe.slug}/zeichnen`}
-              className="text-ink-faded underline underline-offset-4 hover:text-ribbon"
-            >
-              ✏️ Notiz
-            </Link>
-            <a
-              href={`/api/recipes/${recipe.id}/pdf`}
-              download
-              className="text-ink-faded underline underline-offset-4 hover:text-ribbon"
-            >
-              📄 PDF
-            </a>
-            <form action={deactivateRecipeAction.bind(null, recipe.id)}>
-              <button type="submit" className="text-ink-faded hover:text-ribbon">
-                deaktivieren
-              </button>
-            </form>
+            {isOwner ? (
+              <>
+                <Link
+                  href={`/rezepte/${recipe.slug}/bearbeiten`}
+                  className="text-ribbon underline underline-offset-4"
+                >
+                  bearbeiten
+                </Link>
+                <Link
+                  href={`/rezepte/${recipe.slug}/zeichnen`}
+                  className="text-ink-faded underline underline-offset-4 hover:text-ribbon"
+                >
+                  ✏️ Notiz
+                </Link>
+                <a
+                  href={`/api/recipes/${recipe.id}/pdf`}
+                  download
+                  className="text-ink-faded underline underline-offset-4 hover:text-ribbon"
+                >
+                  📄 PDF
+                </a>
+                <form action={deactivateRecipeAction.bind(null, recipe.id)}>
+                  <button type="submit" className="text-ink-faded hover:text-ribbon">
+                    deaktivieren
+                  </button>
+                </form>
+              </>
+            ) : null}
           </div>
         ) : null}
       </header>
