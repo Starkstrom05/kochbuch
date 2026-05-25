@@ -51,10 +51,7 @@ async function authorizeRecipeImage(
   return { ok: false, status: 403 };
 }
 
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ path: string[] }> },
-) {
+export async function GET(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
   const { path: segments } = await params;
   if (segments.length === 0) return notFound();
 
@@ -69,8 +66,7 @@ export async function GET(
   // Internal-Token (Puppeteer) wird schon in der Middleware durchgelassen —
   // wenn er hier ankommt, gilt er als vertrauenswürdig.
   const internalToken = req.headers.get("x-internal-token");
-  const isInternal =
-    !!internalToken && internalToken === process.env.AUTH_SECRET;
+  const isInternal = !!internalToken && internalToken === process.env.AUTH_SECRET;
 
   if (!isInternal) {
     const auth = await authorizeRecipeImage(segments);
@@ -79,17 +75,27 @@ export async function GET(
     }
   }
 
-  try {
-    const data = await readFile(filePath);
-    const ext = path.extname(filePath).replace(".", "").toLowerCase();
-    const contentType = MIME[ext] ?? "application/octet-stream";
-    return new Response(data, {
-      headers: {
-        "Content-Type": contentType,
-        "Cache-Control": "public, max-age=31536000, immutable",
-      },
-    });
-  } catch {
-    return notFound();
+  // Erst das Thumbnail, dann (bei sehr alten Bildern ohne <basename>-thumb.jpg,
+  // die vor der Thumb-Generierung hochgeladen wurden) das Original ausliefern
+  // statt 404.
+  const candidates = filePath.endsWith("-thumb.jpg")
+    ? [filePath, filePath.replace(/-thumb\.jpg$/, ".jpg")]
+    : [filePath];
+
+  for (const candidate of candidates) {
+    try {
+      const data = await readFile(candidate);
+      const ext = path.extname(candidate).replace(".", "").toLowerCase();
+      const contentType = MIME[ext] ?? "application/octet-stream";
+      return new Response(data, {
+        headers: {
+          "Content-Type": contentType,
+          "Cache-Control": "public, max-age=31536000, immutable",
+        },
+      });
+    } catch {
+      // naechsten Kandidaten versuchen
+    }
   }
+  return notFound();
 }

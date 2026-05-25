@@ -7,6 +7,7 @@ import { categoryVisibleToFamily } from "@/lib/recipes/visibility";
 import { HandwrittenStars } from "@/components/oma/HandwrittenStars";
 import { EmptyState } from "@/components/oma/EmptyState";
 import { MobileMenu } from "@/components/layout/MobileMenu";
+import { toThumbPath } from "@/lib/images/thumb";
 
 type View = "cards" | "photos" | "list";
 
@@ -297,7 +298,7 @@ export default async function RezeptePage({ searchParams }: { searchParams: Sear
                       {cover ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={`/api/images${cover}`}
+                          src={`/api/images${toThumbPath(cover)}`}
                           alt=""
                           className="h-full w-full object-cover sepia-[0.1]"
                         />
@@ -339,7 +340,7 @@ export default async function RezeptePage({ searchParams }: { searchParams: Sear
                       {cover ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={`/api/images${cover}`}
+                          src={`/api/images${toThumbPath(cover)}`}
                           alt=""
                           className="h-full w-full object-cover"
                         />
