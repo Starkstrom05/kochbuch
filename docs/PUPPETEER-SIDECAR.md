@@ -32,15 +32,19 @@ zurück — Standard-Verhalten unverändert.
 ## Setup mit Compose
 
 1. **Token generieren:**
+
    ```bash
    openssl rand -hex 16
    ```
+
    In `.env` ablegen:
+
    ```bash
    BROWSERLESS_TOKEN=<deinTokenHier>
    ```
 
 2. **Hochfahren mit Overlay:**
+
    ```bash
    docker compose \
      -f docker-compose.yml \
@@ -57,32 +61,24 @@ zurück — Standard-Verhalten unverändert.
 
 ## Setup auf TrueNAS Scale
 
-Browserless als zweiten Custom-App-Eintrag laufen lassen oder direkt eine
-modifizierte Variante von `docker-compose.truenas.yml` einsetzen (Service-Block
-unten ergänzen):
+Nimm die fertige Datei **`docker-compose.truenas-sidecar.yml`** statt
+`docker-compose.truenas.yml` für die Custom App (Apps → Discover → Custom App →
+„Install via YAML"). Sie ist identisch zur Standard-TrueNAS-Datei, enthält aber
+zusätzlich den `browserless`-Service, `PUPPETEER_WS_URL`/`APP_URL` am `app`-Service
+und `depends_on: browserless`.
 
-```yaml
-  browserless:
-    image: ghcr.io/browserless/chromium:latest
-    container_name: kochbuch-browserless
-    restart: unless-stopped
-    environment:
-      TOKEN: "DEIN_TOKEN"
-      CONCURRENT: "1"
-      QUEUED: "5"
-      TIMEOUT: "60000"
-    mem_limit: 1g
+Platzhalter ersetzen (zusätzlich zu `<POOL>`/`<NAS-IP>`/`<AUTH_SECRET>`):
+
+```bash
+openssl rand -hex 16   # → ersetzt <BROWSERLESS_TOKEN> (an allen Stellen)
 ```
 
-Und beim `app`-Service:
+> **Nicht** als zweiten separaten Custom-App-Eintrag laufen lassen: TrueNAS
+> isoliert jede Custom App in einem eigenen Docker-Netzwerk, dann löst
+> `ws://browserless:3000` aus dem App-Container nicht auf. App und Browserless
+> müssen im **selben** Compose stehen — genau das macht die Sidecar-Datei.
 
-```yaml
-    environment:
-      PUPPETEER_WS_URL: "ws://browserless:3000?token=DEIN_TOKEN"
-    depends_on:
-      browserless:
-        condition: service_healthy
-```
+RAM-Budget der Sidecar-Variante: app 2 GB + ollama 7 GB + browserless 1 GB = 10 GB.
 
 ## Image ohne Chromium bauen (späterer Schritt)
 

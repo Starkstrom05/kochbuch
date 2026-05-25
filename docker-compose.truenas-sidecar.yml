@@ -1,0 +1,156 @@
+# =============================================================================
+# Kochbuch — TrueNAS Scale Custom App  MIT Puppeteer-Sidecar (Browserless)
+# =============================================================================
+#
+# Variante von docker-compose.truenas.yml, die Chromium in einen eigenen
+# Browserless-Container auslagert. PDF-Export und Web-Import verbinden sich per
+# WebSocket (PUPPETEER_WS_URL) statt Chromium im App-Container zu starten.
+#
+# Vorteile (relevant fuer schwache NAS-Hardware, z.B. Celeron):
+#   • Chromium-RAM-Spitzen sind im 1-GB-Browserless-Container isoliert,
+#     statt den App-Container (mit DB/Sharp) unter Druck zu setzen
+#   • Haengt ein Render, crasht nur Browserless und startet neu — App bleibt online
+#
+# WANN NICHT: Wenn RAM knapp ist (Browserless braucht ~1 GB extra) oder kaum
+# PDF-Last anfaellt — dann reicht docker-compose.truenas.yml. Details:
+# docs/PUPPETEER-SIDECAR.md
+#
+# Fertig zum Einfügen in:  Apps → Discover → Custom App → "Install via YAML"
+#
+# Platzhalter ersetzen (Suchen & Ersetzen über die ganze Datei):
+#
+#   <POOL>              → dein TrueNAS-Pool-Name (z.B. nvmedata, tank)
+#   <NAS-IP>            → LAN-IP deines NAS    (z.B. 192.168.178.42)
+#   <AUTH_SECRET>       → per `openssl rand -base64 32` erzeugen
+#   <BROWSERLESS_TOKEN> → per `openssl rand -hex 16` erzeugen
+#
+# -----------------------------------------------------------------------------
+# Vorbereitung in der TrueNAS-UI (einmalig) — wie ohne Sidecar:
+#
+#   ZFS-Datasets anlegen unter  /mnt/<POOL>/apps/kochbuch/:
+#     • db
+#     • images
+#     • ollama
+#   (Browserless ist zustandslos und braucht KEIN Dataset.)
+#
+# -----------------------------------------------------------------------------
+# Default-Login nach erstem Start:
+#
+#   E-Mail:   admin@kochbuch.local
+#   Passwort: kochbuch        ← BITTE unter /profil ändern!
+#
+# =============================================================================
+
+services:
+  # Migration + Seed laufen einmal vor dem App-Start im selben Image.
+  app-init:
+    image: ghcr.io/starkstrom05/kochbuch:latest
+    container_name: kochbuch-app-init
+    restart: "no"
+    environment:
+      DATABASE_URL: "file:/data/db/kochbuch.db"
+    volumes:
+      - /mnt/<POOL>/apps/kochbuch/db:/data/db
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        echo "Migrate…" &&
+        node /app/node_modules/prisma/build/index.js migrate deploy &&
+        echo "Seed (Admin-User, Kategorien, Standard-Zutaten)…" &&
+        node /app/node_modules/tsx/dist/cli.mjs /app/prisma/seed.ts &&
+        echo "Init fertig."
+
+  app:
+    image: ghcr.io/starkstrom05/kochbuch:latest
+    container_name: kochbuch-app
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "file:/data/db/kochbuch.db"
+      AUTH_SECRET: "<AUTH_SECRET>"
+      AUTH_URL: "http://<NAS-IP>:3000"
+      AUTH_TRUST_HOST: "true"
+      OLLAMA_BASE_URL: "http://ollama:11434"
+      OLLAMA_MODEL: "phi3:3.8b-mini-4k-instruct-q4_K_M"
+      UPLOAD_DIR: "/data/images"
+      KOCHBUCH_SKIP_SEED: "1"
+      TZ: "Europe/Berlin"
+      # --- Sidecar: PDF/Import verbinden sich mit Browserless statt lokalem Chromium ---
+      PUPPETEER_WS_URL: "ws://browserless:3000?token=<BROWSERLESS_TOKEN>"
+      # Browserless laeuft im eigenen Container; "localhost" ist dort NICHT die App.
+      # PDF-Render muss die App ueber den Compose-Hostnamen erreichen.
+      APP_URL: "http://app:3000"
+    volumes:
+      - /mnt/<POOL>/apps/kochbuch/db:/data/db
+      - /mnt/<POOL>/apps/kochbuch/images:/data/images
+    ports:
+      - "3000:3000"
+    depends_on:
+      app-init:
+        condition: service_completed_successfully
+      ollama:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+      browserless:
+        condition: service_healthy
+    mem_limit: 2g
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # Chromium-Sidecar. Zustandslos, kein Volume noetig.
+  browserless:
+    image: ghcr.io/browserless/chromium:latest
+    container_name: kochbuch-browserless
+    restart: unless-stopped
+    environment:
+      TOKEN: "<BROWSERLESS_TOKEN>"
+      # Auf schwacher CPU einer nach dem anderen — die App serialisiert PDF/Import
+      # ohnehin per Mutex, hier doppelt absichern.
+      CONCURRENT: "1"
+      QUEUED: "5"
+      TIMEOUT: "60000"
+      DEFAULT_LAUNCH_ARGS: '["--no-sandbox","--disable-dev-shm-usage","--disable-gpu"]'
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/?token=$${TOKEN} || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: kochbuch-ollama
+    restart: unless-stopped
+    environment:
+      OLLAMA_KEEP_ALIVE: "30m"
+      OLLAMA_NUM_PARALLEL: "1"
+    volumes:
+      - /mnt/<POOL>/apps/kochbuch/ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    mem_limit: 7g
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: kochbuch-ollama-pull
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: "http://ollama:11434"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        echo "Pulling phi3:3.8b-mini-4k-instruct-q4_K_M (~2.3 GB, erster Start kann 5–15 min dauern)…" &&
+        ollama pull phi3:3.8b-mini-4k-instruct-q4_K_M &&
+        echo "Modell bereit."
