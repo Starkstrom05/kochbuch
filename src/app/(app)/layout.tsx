@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { UpdateBanner } from "@/components/layout/UpdateBanner";
 
 // All pages under (app)/ touch the database and rely on the session,
 // so prerendering them at build time would fail (no DATABASE_URL,
@@ -6,5 +7,10 @@ import type { ReactNode } from "react";
 export const dynamic = "force-dynamic";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-  return <>{children}</>;
+  return (
+    <>
+      <UpdateBanner />
+      {children}
+    </>
+  );
 }
