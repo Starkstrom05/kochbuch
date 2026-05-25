@@ -11,6 +11,11 @@ jobs:
     name: Lint + Unit Tests
     runs-on: ubuntu-latest
 
+    # Prisma 7 loads prisma.config.ts (which reads DATABASE_URL eagerly) on every
+    # CLI call, so `prisma generate` needs it set even though no query runs here.
+    env:
+      DATABASE_URL: "file:./ci-build.db"
+
     steps:
       - uses: actions/checkout@v6
 
