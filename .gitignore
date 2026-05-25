@@ -41,6 +41,9 @@ next-env.d.ts
 /prisma/dev.db
 /prisma/dev.db-journal
 /prisma/migrations/dev.db
+# Prisma 7 resolves relative file: URLs from cwd — guard a stray root dev.db
+/dev.db
+/dev.db-journal
 
 # uploads
 /uploads

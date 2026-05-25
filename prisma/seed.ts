@@ -1,8 +1,7 @@
-import { PrismaClient } from "@prisma/client";
+import "dotenv/config";
 import bcrypt from "bcryptjs";
+import { prisma } from "../src/lib/db/prisma";
 import { seedNutrition } from "../src/lib/nutrition/seed";
-
-const prisma = new PrismaClient();
 
 const CATEGORIES = [
   { name: "Hauptgerichte", icon: "🍲" },

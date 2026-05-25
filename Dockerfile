@@ -2,9 +2,11 @@
 # --- Dev deps (for builder) -------------------------------------------------
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
-# openssl required by Prisma's query engine at install + runtime
+# python3/make/g++ compile the native better-sqlite3 (Prisma 7 driver adapter);
+# openssl for the prisma CLI. Build-layer only — the runner copies the compiled
+# .node, not these tools.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    openssl ca-certificates \
+    python3 make g++ openssl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json* ./
 RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
@@ -16,8 +18,10 @@ RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 # Next.js's standalone tracing did or didn't pick up.
 FROM node:20-bookworm-slim AS prod-deps
 WORKDIR /app
+# Same native build tools as deps — better-sqlite3 is also compiled here for the
+# production node_modules that get copied into the runner.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    openssl ca-certificates \
+    python3 make g++ openssl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json* ./
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
@@ -31,11 +35,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npx prisma generate
-# Build-time placeholder so prisma validates the schema; real DATABASE_URL
-# is injected at runtime by docker compose. No queries are run at build.
+# Build-time placeholder: prisma.config.ts (Prisma 7) reads DATABASE_URL eagerly
+# when loaded, so it must be set before any prisma CLI call. The real URL is
+# injected at runtime by docker compose. No queries run at build.
 ENV DATABASE_URL="file:./build-time-placeholder.db" \
     AUTH_SECRET="build-time-only"
+RUN npx prisma generate
 RUN npm run build
 
 # --- Runtime ---------------------------------------------------------------
@@ -70,6 +75,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+# Prisma 7: die CLI (migrate deploy im Entrypoint) liest die DB-URL aus
+# prisma.config.ts statt aus schema.prisma — muss daher im Image liegen.
+COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 # DevDeps needed for migrate + seed/import scripts (called directly via node,
 # not via .bin/ symlinks because COPY dereferences them and breaks the
