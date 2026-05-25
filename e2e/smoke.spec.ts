@@ -23,9 +23,9 @@ test.describe.serial("Happy path — Rezept anlegen und ansehen", () => {
     await page.locator('input[name="ing-unit"]').first().fill("g");
     await page.locator('input[name="ing-name"]').first().fill("Testmehl");
 
-    await page.locator('textarea[name="instructions"]').fill(
-      "1. Testmehl abwiegen.\n2. Backen.\n3. Fertig.",
-    );
+    // Zubereitung ist seit dem Koch-Modus eine Schritt-Liste (step-text); das
+    // hidden instructions-Feld wird daraus synchron gehalten.
+    await page.locator('textarea[name="step-text"]').first().fill("Testmehl abwiegen und backen.");
 
     await page.getByRole("button", { name: /Rezept speichern/i }).click();
     await expect(page).toHaveURL(/\/rezepte\/.+/, { timeout: 10_000 });
