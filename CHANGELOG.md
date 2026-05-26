@@ -7,6 +7,15 @@ Versionsschema [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.22.1] — 2026-05-26
+
+### Behoben
+
+- **E2E-Tests (CI)** grün — Whats-New-Drawer ueberdeckte in Playwright-Sessions
+  Formularbuttons (Rezept speichern / importieren). Auth-Setup setzt jetzt den
+  LocalStorage-Marker `kochbuch.lastSeenReleaseNotes` auf die aktuelle Version,
+  damit der Drawer nicht auto-oeffnet. Keine User-Auswirkung.
+
 ## [0.22.0] — 2026-05-26
 
 ### Neu
