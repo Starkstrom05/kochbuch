@@ -46,6 +46,22 @@ async function main() {
   });
   console.log(`Admin-User: ${admin.email} (PW: ${adminPassword})`);
 
+  // Jeder User braucht mindestens ein eigenes Kochbuch + activeCookbookId.
+  // Die Backfill-Migration legt das nur fuer bestehende User an; ein frischer
+  // Seed muss es selbst erledigen.
+  let cookbook = await prisma.cookbook.findFirst({ where: { ownerId: admin.id } });
+  if (!cookbook) {
+    cookbook = await prisma.cookbook.create({
+      data: { ownerId: admin.id, name: `${admin.name} Kochbuch` },
+    });
+  }
+  if (!admin.activeCookbookId) {
+    await prisma.user.update({
+      where: { id: admin.id },
+      data: { activeCookbookId: cookbook.id },
+    });
+  }
+
   for (const c of CATEGORIES) {
     await prisma.category.upsert({
       where: { name: c.name },

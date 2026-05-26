@@ -7,6 +7,16 @@ Versionsschema [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.22.2] — 2026-05-26
+
+### Behoben
+
+- **Seed legt jetzt ein Default-Cookbook fuer den Admin an** und setzt es als
+  aktives Cookbook. Frische Installationen (und CI mit frisch migrierter DB)
+  konnten sonst keine Rezepte anlegen — `createRecipeAction` warf „Kein aktives
+  Kochbuch ausgewaehlt". Bestehende Installationen sind nicht betroffen
+  (Backfill aus v0.22.0 hat sie bereits versorgt).
+
 ## [0.22.1] — 2026-05-26
 
 ### Behoben
