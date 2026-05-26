@@ -1,11 +1,11 @@
 # Kochbuch — Session-Status
 
-**Stand:** Mai 2026, v0.21.0 (Familienprojekt auf TrueNAS Scale).
+**Stand:** Mai 2026, v0.22.2 (Familienprojekt auf TrueNAS Scale).
 
 ## Wo es läuft
 
 - Repo öffentlich: https://github.com/Starkstrom05/kochbuch
-- Image in GHCR: `ghcr.io/starkstrom05/kochbuch:latest` (Tag `v0.21.0`)
+- Image in GHCR: `ghcr.io/starkstrom05/kochbuch:latest` (Tag `v0.22.2`)
 - TrueNAS Scale auf TerraMaster F4-423 (Celeron N5095, 31 GiB RAM, keine GPU)
 - LAN-Erreichbarkeit `http://<nas-ip>:3000`, HTTPS-Setup via Tailscale optional
   (siehe `docs/HTTPS-SETUP.md` — behebt den Secure-Context für Teilen/Clipboard)
@@ -49,10 +49,16 @@
 - **Vorrat** (v0.7.0): Persistente Pantry-Tabelle, deterministischer Match
   gegen Rezepte (kein LLM mehr), Fuzzy-Substring auf Zutaten-Namen
   (v0.7.3: „Ketchup" matched „Tomatenketchup"). „Fehlende → Einkaufsliste".
-- **Multi-Family** (v0.14.0–v0.16.0): mehrere Familien teilen einen gemeinsamen
-  Rezept-Pool (`visibility = SHARED`) und haben zugleich familien-private
-  Inhalte (`FAMILY`); eigene Kategorien, Nutzerverwaltung pro Familie und
-  volles Branding (Name + Theme-Farben paper/ink/ribbon/sepia inkl. Ornamente).
+- **Multi-Cookbook** (v0.22.0): jeder User besitzt 1+ eigene Kochbuecher (mit
+  Name + Branding), Lese-Freigaben pro Buch (Owner oder Admin vergibt), eigener
+  Switcher im Header. Schreibrechte: Cookbook-Owner ODER Admin. Rezepte aus
+  fremden Buechern lassen sich per Button ins eigene importieren (Vollkopie
+  inkl. Bilder, Quellen-Vermerk bleibt am importierten Rezept). Listen und
+  Suche sind strikt aufs aktive Buch gefiltert. Loest das alte SHARED/FAMILY-
+  Visibility-Modell vollstaendig ab (`Recipe.familyId` + `Recipe.visibility`
+  gedroppt, `Recipe.cookbookId` ist Pflichtfeld). Backfill laeuft automatisch
+  beim Container-Start; bestehende Familie bleibt als reine Nutzer-Gruppierung
+  fuer Category-Scoping und Branding-Reste erhalten.
 - **Buch-Modus**: Pageflip-PWA mit Audio + Lightbox.
 - **Share-Links**: Pro Rezept aktivierbarer Public-Token mit eigener
   PDF-Variante.
@@ -69,15 +75,22 @@ Aus dem Review-Pass v0.7.4–v0.7.6:
 - Pfad-Traversal `/api/images` per `path.resolve` + `startsWith`.
 - IPv6-Unique-Local-Range (`fc00::/7`) per Regex-Pattern blockiert.
 
-Seit Multi-Family (v0.14.0):
+Seit Multi-Cookbook (v0.22.0):
 
-- Sichtbarkeits-/Tenancy-Filter überall in der `where`-Klausel: ein Rezept ist
-  sichtbar bei `visibility = SHARED` **oder** gleicher Family. Greift in
-  Suche, Detail, Buch, Pantry-Match, Print/PDF.
+- Sichtbarkeits-/Tenancy-Filter ueberall in der `where`-Klausel: ein Rezept ist
+  sichtbar, wenn es zum aktiven Cookbook gehoert (`visibleInCookbook` in
+  `src/lib/cookbooks/visibility.ts`). Detail-Endpoint prueft zusaetzlich
+  `canReadRecipe` (Owner/Viewer/Admin) — relevant fuer direkte Slug-Aufrufe
+  ueber den Cookbook-Wechsel hinweg.
+- Schreib-Permissions ueber `canWriteRecipe` (Cookbook-Owner ODER Admin).
+  Greift in `updateRecipe`, `deactivateRecipe`, `restoreRecipe`,
+  `permanentlyDeleteRecipe` und im UI (Edit-Buttons, Zeichnen-Seite).
 - `/api/images`: Bild sichtbar bei `isPublic`, sonst eingeloggt **und**
-  (SHARED **oder** gleiche Family). Internal-Token-Bypass für Puppeteer bleibt.
-  Anonyme `/api/images`-Requests werden schon in `proxy.ts` mit 401 geblockt.
-- Testabdeckung: 121 Unit-Tests + 13 E2E (Playwright).
+  Lese-Berechtigung aufs Cookbook. Internal-Token-Bypass fuer Puppeteer
+  bleibt. Anonyme `/api/images`-Requests werden weiterhin in `proxy.ts` mit
+  401 geblockt.
+- Testabdeckung: 182 Unit-Tests (inkl. 11 Permission-Matrix-Tests) + 13 E2E
+  (Playwright).
 
 ## Entwicklung / CI
 
