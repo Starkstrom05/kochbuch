@@ -1,11 +1,11 @@
 # Kochbuch — Session-Status
 
-**Stand:** Mai 2026, v0.19.0 (Familienprojekt auf TrueNAS Scale).
+**Stand:** Mai 2026, v0.20.0 (Familienprojekt auf TrueNAS Scale).
 
 ## Wo es läuft
 
 - Repo öffentlich: https://github.com/Starkstrom05/kochbuch
-- Image in GHCR: `ghcr.io/starkstrom05/kochbuch:latest` (Tag `v0.19.0`)
+- Image in GHCR: `ghcr.io/starkstrom05/kochbuch:latest` (Tag `v0.20.0`)
 - TrueNAS Scale auf TerraMaster F4-423 (Celeron N5095, 31 GiB RAM, keine GPU)
 - LAN-Erreichbarkeit `http://<nas-ip>:3000`, HTTPS-Setup via Tailscale optional
   (siehe `docs/HTTPS-SETUP.md` — behebt den Secure-Context für Teilen/Clipboard)

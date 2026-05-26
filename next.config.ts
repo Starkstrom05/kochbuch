@@ -24,6 +24,7 @@ const nextConfig: NextConfig = {
       "./node_modules/cosmiconfig/**",
       "./node_modules/typed-query-selector/**",
       "./node_modules/cheerio/**",
+      "./CHANGELOG.md",
     ],
   },
   experimental: {

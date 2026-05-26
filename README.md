@@ -58,6 +58,14 @@ Ollama-Modell-Pull automatisch.
 
 Anleitung: [`docs/INSTALL-TRUENAS.md`](docs/INSTALL-TRUENAS.md).
 
+## Doku
+
+- **[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)** — Einstieg fuers Selbsthosten:
+  Pfad-Auswahl, env-Vars-Referenz, Update-Prozedur, Backup, HTTPS, Add-Ons.
+- [`CHANGELOG.md`](CHANGELOG.md) — Release-Notes pro Version.
+- [`STATUS.md`](STATUS.md) — Live-Stand der Funktionen.
+- [`CLAUDE.md`](CLAUDE.md) — Code-Regeln und Konventionen.
+
 ## Status
 
 Pre-Alpha — siehe Plan in `/home/jonas/.claude/plans/`.

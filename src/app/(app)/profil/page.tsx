@@ -12,6 +12,7 @@ import { FamilyManager } from "./FamilyManager";
 import { CategoryManager } from "./CategoryManager";
 import { BrandingForm } from "./BrandingForm";
 import { getAppName } from "@/lib/config/app-config";
+import { WhatsNewMount } from "@/components/layout/WhatsNewMount";
 
 export default async function ProfilPage() {
   const session = await auth();
@@ -85,6 +86,8 @@ export default async function ProfilPage() {
 
       <div className="space-y-8">
         <ChangePasswordForm />
+
+        <WhatsNewMount variant="button" />
 
         <Link
           href="/profil/ourgroceries"
