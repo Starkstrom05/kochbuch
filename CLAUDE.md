@@ -4,7 +4,15 @@
 
 Familien-Kochbuch im Oma-Design (Handschrift-Fonts, Papier-Texturen, Tinten-Effekte).
 PWA fuer iPad mit Apple-Pencil-Stifteingabe. Selbstgehostet via Docker auf
-TrueNAS Scale. Multi-User (Familie) + oeffentlich teilbare Rezept-Links.
+TrueNAS Scale. Multi-User + oeffentlich teilbare Rezept-Links.
+
+**Cookbook-Modell** (seit v0.22): Jeder User besitzt 1+ eigene Kochbuecher und
+kann fuer weitere lesend freigegeben werden. Schreibrechte auf einem Rezept hat
+der Owner des zugehoerigen Cookbooks ODER ein ADMIN. Listen/Suche zeigen nur
+das aktive Cookbook (Header-Switcher). Permission-Helper liegen in
+`src/lib/cookbooks/permissions.ts` (`canReadRecipe`/`canWriteRecipe`,
+`canReadCookbook`/`canWriteCookbook`); Visibility-Filter in
+`src/lib/cookbooks/visibility.ts` (`visibleInCookbook`).
 
 ## Tech-Stack
 

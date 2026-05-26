@@ -4,16 +4,15 @@ import { getRecipeBySlug } from "@/lib/recipes/server";
 import { splitInstructionsToSteps } from "@/lib/recipes/steps";
 import { CookMode } from "@/components/cook/CookMode";
 
-export default async function KochPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function KochPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const recipe = await getRecipeBySlug(slug, session.user.familyId);
+  const recipe = await getRecipeBySlug(slug, {
+    id: session.user.id,
+    role: session.user.role,
+  });
   if (!recipe) notFound();
 
   // Strukturierte Schritte bevorzugen; Bestandsrezepte ohne Steps fallen auf

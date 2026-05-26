@@ -45,7 +45,9 @@ async function collectRecipeUrls(browser: Browser, count: number): Promise<strin
   await page.goto(ENTRY_URL, { waitUntil: "domcontentloaded", timeout: 30_000 });
   await new Promise((r) => setTimeout(r, 4_000));
   const urls = await page.evaluate(() => {
-    const anchors = Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href*="/rezepte/"]'));
+    const anchors = Array.from(
+      document.querySelectorAll<HTMLAnchorElement>('a[href*="/rezepte/"]'),
+    );
     return Array.from(
       new Set(
         anchors
@@ -78,9 +80,7 @@ function parseAmountUnit(raw: string): { amount: number | null; unit: string | n
   const numStr = m[1];
   const parts = numStr.split("/").map((p) => parseFloat(p.trim().replace(",", ".")));
   const amount =
-    parts.length === 2 && parts[1]
-      ? parts[0] / parts[1]
-      : parseFloat(numStr.replace(",", "."));
+    parts.length === 2 && parts[1] ? parts[0] / parts[1] : parseFloat(numStr.replace(",", "."));
   return {
     amount: Number.isFinite(amount) ? amount : null,
     unit: m[2].trim() || null,
@@ -127,9 +127,14 @@ function parseReweHtml(html: string): ParsedRecipe | null {
     if (!nameRaw) return;
     const { amount, unit } = parseAmountUnit(amountText);
     const [namePart, ...noteParts] = nameRaw.split(/[(,]/);
-    const note = noteParts.length > 0
-      ? noteParts.join(",").replace(/\)$/, "").replace(/^[ ,]+/, "").trim() || null
-      : null;
+    const note =
+      noteParts.length > 0
+        ? noteParts
+            .join(",")
+            .replace(/\)$/, "")
+            .replace(/^[ ,]+/, "")
+            .trim() || null
+        : null;
     ingredients.push({
       name: namePart.trim(),
       amount,
@@ -179,18 +184,35 @@ function toRecipeInput(parsed: ParsedRecipe, sourceUrl: string) {
   });
 }
 
-async function getOwnerUserId(): Promise<string> {
-  const admin = await prisma.user.findUnique({ where: { email: "admin@kochbuch.local" } });
-  if (admin) return admin.id;
-  const first = await prisma.user.findFirst({ orderBy: { createdAt: "asc" } });
-  if (!first) throw new Error("Kein User in der DB. Bitte zuerst 'npm run db:seed' ausführen.");
-  return first.id;
+async function getOwner(): Promise<{
+  id: string;
+  role: "ADMIN" | "MEMBER" | "CHILD";
+  cookbookId: string;
+}> {
+  let user = await prisma.user.findUnique({
+    where: { email: "admin@kochbuch.local" },
+    select: { id: true, role: true, activeCookbookId: true },
+  });
+  if (!user) {
+    user = await prisma.user.findFirst({
+      orderBy: { createdAt: "asc" },
+      select: { id: true, role: true, activeCookbookId: true },
+    });
+  }
+  if (!user) throw new Error("Kein User in der DB. Bitte zuerst 'npm run db:seed' ausführen.");
+  if (!user.activeCookbookId)
+    throw new Error("User hat kein aktives Kochbuch. Bitte zuerst eines anlegen.");
+  return {
+    id: user.id,
+    role: user.role as "ADMIN" | "MEMBER" | "CHILD",
+    cookbookId: user.activeCookbookId,
+  };
 }
 
 async function main() {
   console.log(`📚 Rewe-Rezept-Import (Ziel: ${TARGET_COUNT})\n`);
 
-  const userId = await getOwnerUserId();
+  const owner = await getOwner();
 
   console.log(`▶ Sammle URLs von ${ENTRY_URL} …`);
   const browser = await puppeteer.launch({
@@ -230,7 +252,11 @@ async function main() {
           continue;
         }
         const input = toRecipeInput(parsed, url);
-        const created = await createRecipe(input, userId);
+        const created = await createRecipe(
+          input,
+          { id: owner.id, role: owner.role },
+          owner.cookbookId,
+        );
         console.log(
           `✓ "${created.title}" (${parsed.ingredients.length} Zutaten, ${parsed.instructions.split("\n\n").length} Schritte)`,
         );

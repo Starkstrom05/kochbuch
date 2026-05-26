@@ -7,17 +7,17 @@ import { categoryVisibleToFamily } from "@/lib/recipes/visibility";
 import { RecipeEditor } from "@/components/recipe/RecipeEditor";
 import { updateRecipeAction } from "../../actions";
 
-export default async function BearbeitenPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function BearbeitenPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const recipe = await getRecipeBySlug(slug, session.user.familyId);
+  const recipe = await getRecipeBySlug(slug, {
+    id: session.user.id,
+    role: session.user.role,
+  });
   if (!recipe) notFound();
-  if (session.user.id !== recipe.createdById) {
+  const canWrite = session.user.role === "ADMIN" || recipe.cookbook?.ownerId === session.user.id;
+  if (!canWrite) {
     redirect(`/rezepte/${slug}`);
   }
 
@@ -43,7 +43,6 @@ export default async function BearbeitenPage({
     nutritionFatG: recipe.nutritionFatG,
     sourceUrl: recipe.sourceUrl ?? "",
     tags: recipe.tags ?? "",
-    visibility: recipe.visibility,
     categoryIds: recipe.categories.map((c) => c.categoryId),
     ingredients: recipe.ingredients.map((i) => ({
       name: i.ingredient.name,
@@ -57,12 +56,12 @@ export default async function BearbeitenPage({
   const action = updateRecipeAction.bind(null, recipe.id);
 
   return (
-    <main className="mx-auto max-w-4xl px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">
+    <main className="pt-safe px-safe pb-safe mx-auto max-w-4xl px-4 pt-6 pb-10 sm:px-6 sm:py-10">
       <header className="mb-8 flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="font-hand text-5xl text-ink ink-text">Rezept bearbeiten</h1>
+        <h1 className="font-hand text-ink ink-text text-5xl">Rezept bearbeiten</h1>
         <Link
           href={`/rezepte/${recipe.slug}`}
-          className="font-written text-sm text-ribbon underline underline-offset-4"
+          className="font-written text-ribbon text-sm underline underline-offset-4"
         >
           abbrechen
         </Link>

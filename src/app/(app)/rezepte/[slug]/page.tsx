@@ -11,6 +11,7 @@ import { ShareToggle } from "@/components/recipe/ShareToggle";
 import Image from "next/image";
 import { RecipeGallery } from "@/components/recipe/RecipeGallery";
 import { PdfLink } from "@/components/recipe/PdfLink";
+import { CloneRecipeButton } from "@/components/recipe/CloneRecipeButton";
 import { deactivateRecipeAction } from "../actions";
 import packageJson from "../../../../../package.json";
 import { addRecipeToListAction } from "../../einkaufsliste/actions";
@@ -27,7 +28,8 @@ export default async function RecipeDetailPage({
 }) {
   const { slug } = await params;
   const session = await auth();
-  const recipe = await getRecipeBySlug(slug, session?.user?.familyId);
+  const viewer = session?.user ? { id: session.user.id, role: session.user.role } : null;
+  const recipe = await getRecipeBySlug(slug, viewer);
   if (!recipe) notFound();
 
   const sp = await searchParams;
@@ -35,9 +37,40 @@ export default async function RecipeDetailPage({
   const servingsNum = servingsRaw ? Number(servingsRaw) : NaN;
   const initialServings = Number.isFinite(servingsNum) && servingsNum > 0 ? servingsNum : null;
 
-  const isOwner = session?.user?.id === recipe.createdById;
+  // Schreibrecht: Owner des zugehoerigen Cookbooks ODER ADMIN.
+  const canWrite =
+    !!session?.user &&
+    (session.user.role === "ADMIN" || recipe.cookbook?.ownerId === session.user.id);
+  const inActiveCookbook =
+    !!session?.user?.activeCookbookId && recipe.cookbookId === session.user.activeCookbookId;
 
-  const DAY_NAMES_LONG = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
+  // Fuer den Import-Button: Name des aktiven Cookbooks (nur laden, wenn relevant).
+  const activeCookbook =
+    session?.user?.activeCookbookId && !inActiveCookbook
+      ? await prisma.cookbook.findUnique({
+          where: { id: session.user.activeCookbookId },
+          select: { name: true },
+        })
+      : null;
+
+  // Quelle des Imports nachladen, falls vermerkt.
+  const importSource =
+    recipe.importedFromRecipeId && recipe.importedFromCookbookId
+      ? await prisma.cookbook.findUnique({
+          where: { id: recipe.importedFromCookbookId },
+          select: { name: true, owner: { select: { name: true } } },
+        })
+      : null;
+
+  const DAY_NAMES_LONG = [
+    "Montag",
+    "Dienstag",
+    "Mittwoch",
+    "Donnerstag",
+    "Freitag",
+    "Samstag",
+    "Sonntag",
+  ];
   const mealPlans = session?.user
     ? await prisma.mealPlan.findMany({
         where: { ownerId: session.user.id },
@@ -66,10 +99,9 @@ export default async function RecipeDetailPage({
     recipe.ratings.length > 0
       ? recipe.ratings.reduce((a, b) => a + b.stars, 0) / recipe.ratings.length
       : 0;
-  const myRating =
-    session?.user
-      ? recipe.ratings.find((r) => r.user.id === session.user.id)?.stars ?? 0
-      : 0;
+  const myRating = session?.user
+    ? (recipe.ratings.find((r) => r.user.id === session.user.id)?.stars ?? 0)
+    : 0;
 
   const autoNutrition = computeRecipeNutrition(
     recipe.ingredients.map((ri) => ({
@@ -108,20 +140,26 @@ export default async function RecipeDetailPage({
         : "geschätzt, unvollständig";
 
   return (
-    <main className="mx-auto max-w-4xl px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">
+    <main className="pt-safe px-safe pb-safe mx-auto max-w-4xl px-4 pt-6 pb-10 sm:px-6 sm:py-10">
       <header className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
-        <Link href="/rezepte" className="font-written text-sm text-ribbon underline underline-offset-4">
+        <Link
+          href="/rezepte"
+          className="font-written text-ribbon text-sm underline underline-offset-4"
+        >
           ← zur Übersicht
         </Link>
         {session?.user ? (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-written text-sm">
+          <div className="font-written flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
             <Link
               href={`/rezepte/${recipe.slug}/koch`}
               className="text-ribbon underline underline-offset-4"
             >
               👨‍🍳 Koch-Modus
             </Link>
-            {isOwner ? (
+            {!inActiveCookbook && activeCookbook ? (
+              <CloneRecipeButton recipeId={recipe.id} targetCookbookName={activeCookbook.name} />
+            ) : null}
+            {canWrite ? (
               <>
                 <Link
                   href={`/rezepte/${recipe.slug}/bearbeiten`}
@@ -131,14 +169,14 @@ export default async function RecipeDetailPage({
                 </Link>
                 <Link
                   href={`/rezepte/${recipe.slug}/zeichnen`}
-                  className="text-ink-faded underline underline-offset-4 hover:text-ribbon"
+                  className="text-ink-faded hover:text-ribbon underline underline-offset-4"
                 >
                   ✏️ Notiz
                 </Link>
                 <PdfLink
                   recipeId={recipe.id}
                   baseServings={recipe.servings}
-                  className="text-ink-faded underline underline-offset-4 hover:text-ribbon"
+                  className="text-ink-faded hover:text-ribbon underline underline-offset-4"
                 >
                   📄 PDF
                 </PdfLink>
@@ -162,19 +200,21 @@ export default async function RecipeDetailPage({
       />
 
       <PaperSheet seed={recipe.id} className="mt-4 p-8 sm:p-12">
-        <h1 className="font-hand text-6xl text-ink ink-text">{recipe.title}</h1>
+        <h1 className="font-hand text-ink ink-text text-6xl">{recipe.title}</h1>
 
         {recipe.description ? (
-          <p className="mt-2 font-written text-xl italic text-ink-faded">{recipe.description}</p>
+          <p className="font-written text-ink-faded mt-2 text-xl italic">{recipe.description}</p>
         ) : null}
 
-        <div className="mt-4 flex flex-wrap items-center gap-4 font-written text-sm text-ink-faded">
+        <div className="font-written text-ink-faded mt-4 flex flex-wrap items-center gap-4 text-sm">
           {recipe.categories.map((c) => (
-            <span key={c.categoryId} className="rounded-sm bg-paper-200 px-2 py-0.5">
+            <span key={c.categoryId} className="bg-paper-200 rounded-sm px-2 py-0.5">
               {c.category.icon} {c.category.name}
             </span>
           ))}
-          {recipe.prepMinutes != null ? <span>⏱ Vorbereitung: {recipe.prepMinutes} min</span> : null}
+          {recipe.prepMinutes != null ? (
+            <span>⏱ Vorbereitung: {recipe.prepMinutes} min</span>
+          ) : null}
           {recipe.cookMinutes != null ? <span>🔥 Kochen: {recipe.cookMinutes} min</span> : null}
           {avg > 0 ? (
             <span className="flex items-center gap-1">
@@ -187,7 +227,7 @@ export default async function RecipeDetailPage({
         {session?.user ? (
           <div className="mt-4 flex flex-wrap items-center gap-6">
             <RatingPicker recipeId={recipe.id} initial={myRating} seed={recipe.id} />
-            {isOwner ? (
+            {canWrite ? (
               <ShareToggle
                 recipeId={recipe.id}
                 initialPublic={recipe.isPublic}
@@ -202,7 +242,7 @@ export default async function RecipeDetailPage({
             >
               <button
                 type="submit"
-                className="rounded-sm bg-paper-200 px-3 py-1 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
+                className="bg-paper-200 font-written text-ink ring-paper-300 hover:bg-paper-300/60 rounded-sm px-3 py-1 text-sm ring-1"
               >
                 🛒 Zur Einkaufsliste
               </button>
@@ -219,7 +259,7 @@ export default async function RecipeDetailPage({
 
         <section className="grid gap-10 sm:grid-cols-[1fr_2fr]">
           <div>
-            <h2 className="font-hand text-3xl text-ink ink-text">Zutaten</h2>
+            <h2 className="font-hand text-ink ink-text text-3xl">Zutaten</h2>
             <div className="mt-3">
               <IngredientList
                 baseServings={recipe.servings}
@@ -235,21 +275,23 @@ export default async function RecipeDetailPage({
             </div>
 
             {nutrition.source !== "none" && nutrition.kcal != null ? (
-              <div className="mt-6 rounded-sm bg-paper-100 p-3 ring-1 ring-paper-200">
-                <p className="font-written text-xs uppercase tracking-wide text-ink-faded">
+              <div className="bg-paper-100 ring-paper-200 mt-6 rounded-sm p-3 ring-1">
+                <p className="font-written text-ink-faded text-xs tracking-wide uppercase">
                   Nährwerte pro Portion ({nutritionLabel})
                 </p>
-                <p className="mt-1 font-hand text-3xl text-ink">~{Math.round(nutrition.kcal)} kcal</p>
+                <p className="font-hand text-ink mt-1 text-3xl">
+                  ~{Math.round(nutrition.kcal)} kcal
+                </p>
                 {nutritionMacros ? (
-                  <p className="mt-0.5 font-written text-sm text-ink-faded">{nutritionMacros}</p>
+                  <p className="font-written text-ink-faded mt-0.5 text-sm">{nutritionMacros}</p>
                 ) : null}
               </div>
             ) : null}
           </div>
 
           <div>
-            <h2 className="font-hand text-3xl text-ink ink-text">Zubereitung</h2>
-            <div className="mt-3 whitespace-pre-line font-written text-lg leading-relaxed text-ink">
+            <h2 className="font-hand text-ink ink-text text-3xl">Zubereitung</h2>
+            <div className="font-written text-ink mt-3 text-lg leading-relaxed whitespace-pre-line">
               {recipe.instructions}
             </div>
           </div>
@@ -259,8 +301,8 @@ export default async function RecipeDetailPage({
           <>
             <Divider className="my-8" />
             <section>
-              <h2 className="font-hand text-2xl text-ink">Notizen</h2>
-              <p className="mt-2 whitespace-pre-line font-written italic text-ink-faded">
+              <h2 className="font-hand text-ink text-2xl">Notizen</h2>
+              <p className="font-written text-ink-faded mt-2 whitespace-pre-line italic">
                 {recipe.notes}
               </p>
             </section>
@@ -271,7 +313,7 @@ export default async function RecipeDetailPage({
           <>
             <Divider className="my-8" />
             <section>
-              <h2 className="font-hand text-2xl text-ink">Handschriftliche Notiz</h2>
+              <h2 className="font-hand text-ink text-2xl">Handschriftliche Notiz</h2>
               <div className="relative mt-3 overflow-hidden rounded-sm">
                 <Image
                   src={`/api/images${recipe.handwrittenPath}`}
@@ -286,7 +328,7 @@ export default async function RecipeDetailPage({
           </>
         ) : null}
 
-        <footer className="mt-10 flex items-center justify-between font-written text-xs text-ink-light">
+        <footer className="font-written text-ink-light mt-10 flex items-center justify-between text-xs">
           <span>
             angelegt von {recipe.createdBy.name}
             {recipe.sourceUrl ? (
@@ -295,6 +337,20 @@ export default async function RecipeDetailPage({
                 <a href={recipe.sourceUrl} target="_blank" rel="noreferrer" className="underline">
                   Quelle
                 </a>
+              </>
+            ) : null}
+            {importSource ? (
+              <>
+                {" · "}
+                {recipe.importedFromRecipe?.slug ? (
+                  <Link href={`/rezepte/${recipe.importedFromRecipe.slug}`} className="underline">
+                    importiert aus &bdquo;{importSource.name}&ldquo; von {importSource.owner.name}
+                  </Link>
+                ) : (
+                  <span>
+                    importiert aus &bdquo;{importSource.name}&ldquo; von {importSource.owner.name}
+                  </span>
+                )}
               </>
             ) : null}
           </span>

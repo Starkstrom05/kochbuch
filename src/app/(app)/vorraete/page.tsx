@@ -16,21 +16,21 @@ export default async function VorraetePage() {
 
   const [pantry, matches] = await Promise.all([
     getPantryForUser(session.user.id),
-    matchRecipesForUser(session.user.id, session.user.familyId, 15),
+    matchRecipesForUser(session.user.id, session.user.activeCookbookId, 15),
   ]);
 
   return (
-    <main className="mx-auto max-w-3xl px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">
+    <main className="pt-safe px-safe pb-safe mx-auto max-w-3xl px-4 pt-6 pb-10 sm:px-6 sm:py-10">
       <header className="mb-8 flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <h1 className="font-hand text-5xl text-ink ink-text">Vorrat</h1>
+          <h1 className="font-hand text-ink ink-text text-5xl">Vorrat</h1>
           <p className="font-written text-ink-faded">
             Trag ein, was du da hast — finde Rezepte mit den meisten Treffern.
           </p>
         </div>
         <Link
           href="/rezepte"
-          className="font-written text-sm text-ribbon underline underline-offset-4"
+          className="font-written text-ribbon text-sm underline underline-offset-4"
         >
           ← Rezepte
         </Link>
@@ -38,48 +38,45 @@ export default async function VorraetePage() {
 
       {/* ── Pantry-Eingabe + Liste ───────────────────────────────────────── */}
       <section className="paper-card mb-8 p-5 sm:p-6">
-        <h2 className="mb-3 font-hand text-3xl text-ink">Was hast du da?</h2>
+        <h2 className="font-hand text-ink mb-3 text-3xl">Was hast du da?</h2>
 
-        <form
-          action={addPantryItemAction}
-          className="mb-4 flex flex-wrap items-end gap-3"
-        >
-          <label className="flex-1 min-w-[160px]">
-            <span className="font-written text-sm text-ink-faded">Zutat</span>
+        <form action={addPantryItemAction} className="mb-4 flex flex-wrap items-end gap-3">
+          <label className="min-w-[160px] flex-1">
+            <span className="font-written text-ink-faded text-sm">Zutat</span>
             <input
               name="name"
               required
               placeholder="z.B. Tomaten"
-              className="mt-1 w-full border-b border-dotted border-ink-light bg-transparent font-serif text-ink outline-none"
+              className="border-ink-light text-ink mt-1 w-full border-b border-dotted bg-transparent font-serif outline-none"
             />
           </label>
           <label className="w-24">
-            <span className="font-written text-sm text-ink-faded">Menge</span>
+            <span className="font-written text-ink-faded text-sm">Menge</span>
             <input
               name="amount"
               inputMode="decimal"
               placeholder=""
-              className="mt-1 w-full border-b border-dotted border-ink-light bg-transparent font-serif text-ink outline-none"
+              className="border-ink-light text-ink mt-1 w-full border-b border-dotted bg-transparent font-serif outline-none"
             />
           </label>
           <label className="w-24">
-            <span className="font-written text-sm text-ink-faded">Einheit</span>
+            <span className="font-written text-ink-faded text-sm">Einheit</span>
             <input
               name="unit"
               placeholder="g, Stk…"
-              className="mt-1 w-full border-b border-dotted border-ink-light bg-transparent font-serif text-ink outline-none"
+              className="border-ink-light text-ink mt-1 w-full border-b border-dotted bg-transparent font-serif outline-none"
             />
           </label>
           <button
             type="submit"
-            className="inline-flex min-h-[44px] items-center rounded-sm bg-ribbon px-4 font-hand text-lg text-paper-50 shadow-card"
+            className="bg-ribbon font-hand text-paper-50 shadow-card inline-flex min-h-[44px] items-center rounded-sm px-4 text-lg"
           >
             + Hinzufügen
           </button>
         </form>
 
         {pantry.length === 0 ? (
-          <p className="font-written text-sm text-ink-faded">
+          <p className="font-written text-ink-faded text-sm">
             Noch kein Vorrat. Tipp deine erste Zutat ein.
           </p>
         ) : (
@@ -98,13 +95,13 @@ export default async function VorraetePage() {
                   <li key={item.id}>
                     <form
                       action={removeBound}
-                      className="inline-flex items-center gap-1 rounded-sm bg-paper-200 px-3 py-1 ring-1 ring-paper-300"
+                      className="bg-paper-200 ring-paper-300 inline-flex items-center gap-1 rounded-sm px-3 py-1 ring-1"
                     >
-                      <span className="font-written text-sm text-ink">{label}</span>
+                      <span className="font-written text-ink text-sm">{label}</span>
                       <button
                         type="submit"
                         aria-label={`${item.ingredient.name} entfernen`}
-                        className="ml-1 font-hand text-base text-ink-faded hover:text-ribbon"
+                        className="font-hand text-ink-faded hover:text-ribbon ml-1 text-base"
                       >
                         ✕
                       </button>
@@ -116,7 +113,7 @@ export default async function VorraetePage() {
             <form action={clearPantryAction} className="mt-4">
               <button
                 type="submit"
-                className="font-written text-sm text-ink-faded underline underline-offset-4 hover:text-ribbon"
+                className="font-written text-ink-faded hover:text-ribbon text-sm underline underline-offset-4"
               >
                 Vorrat komplett leeren
               </button>
@@ -127,14 +124,11 @@ export default async function VorraetePage() {
 
       {/* ── Match-Ergebnisse ─────────────────────────────────────────────── */}
       <section>
-        <h2 className="mb-4 font-hand text-3xl text-ink">
-          Was du damit kochen kannst
-        </h2>
+        <h2 className="font-hand text-ink mb-4 text-3xl">Was du damit kochen kannst</h2>
 
         {pantry.length === 0 ? (
           <p className="font-written text-ink-faded">
-            Füge oben deine Vorratszutaten hinzu — passende Rezepte erscheinen
-            dann hier.
+            Füge oben deine Vorratszutaten hinzu — passende Rezepte erscheinen dann hier.
           </p>
         ) : matches.length === 0 ? (
           <EmptyState
@@ -158,41 +152,39 @@ export default async function VorraetePage() {
                         className="h-20 w-20 flex-shrink-0 rounded-sm object-cover sepia-[0.1]"
                       />
                     ) : (
-                      <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-sm bg-paper-200 font-hand text-3xl text-ink-light/50">
+                      <div className="bg-paper-200 font-hand text-ink-light/50 flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-sm text-3xl">
                         🍴
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
                       <Link
                         href={`/rezepte/${m.slug}`}
-                        className="font-hand text-2xl text-ink hover:text-ribbon"
+                        className="font-hand text-ink hover:text-ribbon text-2xl"
                       >
                         {m.title}
                       </Link>
-                      <p className="mt-1 font-written text-sm text-ink-faded">
+                      <p className="font-written text-ink-faded mt-1 text-sm">
                         {m.matched.length} von {m.total} Zutaten vorhanden ({percent}%)
                       </p>
                       {m.missing.length > 0 ? (
                         <div className="mt-2 flex flex-wrap items-center gap-1">
-                          <span className="font-written text-xs text-ink-faded">
-                            fehlt:
-                          </span>
+                          <span className="font-written text-ink-faded text-xs">fehlt:</span>
                           {m.missing.slice(0, 8).map((mi) => (
                             <span
                               key={mi.id}
-                              className="rounded-sm bg-ribbon/10 px-2 py-0.5 font-written text-xs text-ribbon"
+                              className="bg-ribbon/10 font-written text-ribbon rounded-sm px-2 py-0.5 text-xs"
                             >
                               {mi.name}
                             </span>
                           ))}
                           {m.missing.length > 8 ? (
-                            <span className="font-written text-xs text-ink-faded">
+                            <span className="font-written text-ink-faded text-xs">
                               + {m.missing.length - 8} weitere
                             </span>
                           ) : null}
                         </div>
                       ) : (
-                        <p className="mt-2 font-written text-sm text-emerald-700">
+                        <p className="font-written mt-2 text-sm text-emerald-700">
                           ✓ Alle Zutaten vorhanden
                         </p>
                       )}
@@ -202,7 +194,7 @@ export default async function VorraetePage() {
                     <form action={addMissing} className="mt-3">
                       <button
                         type="submit"
-                        className="inline-flex min-h-[44px] items-center rounded-sm bg-paper-200 px-4 font-hand text-base text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
+                        className="bg-paper-200 font-hand text-ink ring-paper-300 hover:bg-paper-300/60 inline-flex min-h-[44px] items-center rounded-sm px-4 text-base ring-1"
                       >
                         🛒 Fehlende auf Einkaufsliste
                       </button>

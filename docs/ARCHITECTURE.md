@@ -123,19 +123,16 @@ Siehe `prisma/schema.prisma` fuer Ground-Truth. Hier nur das Mentalmodell:
 
 ```
 User ──────┐
-  │        │ (familyId)
-  │        ▼
-  │     Family ─── Recipe ─── RecipeImage
-  │        │         │  │
-  │        │         │  ├── RecipeStep
-  │        │         │  └── RecipeIngredient ─── Ingredient ─── IngredientNutrition
-  │        │         │                              │
-  │        │         └── Category(OnRecipe)         ├── PantryItem (per User)
-  │        │                                        └── (per User)
-  │        └── Category (familyId optional → SHARED)
+  │ owns N │ Cookbook ─── Recipe ─── RecipeImage
+  │ reads  │    │           │  │
+  │ via    │    │           │  ├── RecipeStep
+  │ Cookbook    │           │  └── RecipeIngredient ─── Ingredient ─── IngredientNutrition
+  │ Access      │           └── Category(OnRecipe)
   │
+  ├── Family (Member-Gruppierung, Branding-Reste)
   ├── MealPlan ─── MealPlanEntry (planId, recipeId, dayIndex, mealType)
   ├── ShoppingList ─── ShoppingItem
+  ├── PantryItem
   ├── Rating (recipeId, userId, unique)
   ├── UserOurGroceriesCredentials (verschluesselt)
   └── Session, Account (NextAuth)
@@ -145,8 +142,12 @@ AppMeta — key/value-Cache fuer App-Name, Version-Check, etc.
 
 **Tenancy-Schluessel:**
 
-- `Recipe.visibility ∈ {PRIVATE, FAMILY, SHARED}` + `Recipe.familyId`
-- `Category.familyId` (null = SHARED quer ueber Familien)
+- `Recipe.cookbookId` (NOT NULL) — bestimmt Sichtbarkeit und Schreibrecht
+- `Cookbook.ownerId` (User) — Schreibrecht
+- `CookbookAccess(cookbookId, userId)` — Lese-Freigabe
+- `User.role = "ADMIN"` — Schreibrecht auf alle Cookbooks
+- `User.activeCookbookId` — aktuell ausgewaehltes Buch (im Switcher)
+- `Category.familyId` (null = SHARED quer ueber Familien) — Kategorien bleiben familienweit, nicht cookbook-spezifisch
 - `MealPlan.familyShared` (boolean Flag)
 - `ShoppingList.ownerId` (rein persoenlich, **nicht** familien-geteilt)
 - `PantryItem.ownerId` (rein persoenlich)
@@ -162,11 +163,13 @@ AppMeta — key/value-Cache fuer App-Name, Version-Check, etc.
 3. JWT-Session-Cookie wird gesetzt; `Session`-Row in DB ist Backup
 4. Folgende Server-Komponenten und -Actions rufen `auth()` aus `src/lib/auth/auth.ts` ab → bekommen `session.user.id`, `session.user.familyId`, `session.user.role`
 
-### Multi-Family-Tenancy
+### Multi-Cookbook-Tenancy
 
-- **Lese-Pfad:** `visibleToFamily(familyId)` in `src/lib/recipes/visibility.ts` liefert ein Prisma-Where-Fragment, das ueberall vor `.findMany()` auf Recipe steht. Fragment: `{ OR: [{ visibility: "SHARED" }, { familyId }, { createdById: userId, visibility: "PRIVATE" }] }`.
-- **Schreib-Pfad:** Bei `createRecipe()` wird `familyId` aus `session.user.familyId` gezogen, nicht vom Client.
-- **Owner-Check vor Edit/Delete:** Server Action laedt das Rezept, vergleicht `createdById` mit `session.user.id`.
+- **Lese-Pfad:** `visibleInCookbook(cookbookId)` in `src/lib/cookbooks/visibility.ts` liefert das Where-Fragment `{ cookbookId }`. Listen/Detail filtern auf das **aktive** Cookbook (`session.user.activeCookbookId`); der Detail-Endpoint prueft zusaetzlich `canReadRecipe` (Owner/Viewer/Admin).
+- **Schreib-Pfad:** `createRecipe(input, actor, cookbookId)` bekommt das Ziel-Cookbook explizit (kommt aus der Session) und prueft `canWriteCookbook` (Owner ODER ADMIN).
+- **Edit/Delete:** Server-Actions laden Recipe + `cookbook.ownerId` und vergleichen ueber `canWriteRecipe` — Owner des zugehoerigen Cookbooks ODER `ADMIN` darf.
+- **Switcher:** `setActiveCookbookAction` in `src/app/(app)/cookbook-actions.ts` validiert Lese-Recht, persistiert `User.activeCookbookId` und ruft per `session.update()` den NextAuth-JWT auf den neuen Wert. Anschliessend `router.refresh()`.
+- **Import:** `cloneRecipe(actor, sourceRecipeId, targetCookbookId)` in `src/lib/cookbooks/server.ts` dupliziert ein Rezept inkl. Bilder, Ingredients, Steps, Categories ins eigene Cookbook und setzt `importedFromRecipeId/CookbookId/UserId` als Quellenvermerk.
 
 ### Rezept-Lifecycle
 

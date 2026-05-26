@@ -16,7 +16,9 @@ Selbstgehostetes Familien-Kochbuch im nostalgischen "Mery-Rezeptbuch"-Design.
 - Einkaufsliste aus mehreren Rezepten konsolidieren
 - "Was kann ich aus diesen Zutaten kochen?" — lokales LLM-Vorschlag
 - PDF-Export im Mery-Design (A5)
-- Multi-User (Familie) + oeffentliche Share-Links
+- Multi-User: jeder mit eigenem Kochbuch, Lese-Freigaben, Cookbook-Switcher im Header
+- Rezepte aus fremden Kochbuechern ins eigene importieren (Vollkopie inkl. Bilder)
+- Oeffentliche Share-Links pro Rezept
 
 ## Lokale Entwicklung
 

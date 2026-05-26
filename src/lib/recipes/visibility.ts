@@ -1,18 +1,10 @@
 import type { Prisma } from "@prisma/client";
 
 /**
- * Where-Fragment: Rezept ist sichtbar, wenn es SHARED ist (gemeinsamer Pool)
- * oder zur eigenen Familie gehört. Ohne familyId nur SHARED.
+ * Kategorien sind nicht an Cookbooks gebunden, sondern bleiben familienweit
+ * sichtbar (global oder pro Family). Recipe-Visibility lebt jetzt in
+ * `@/lib/cookbooks/visibility.ts` und nutzt cookbookId.
  */
-export function visibleToFamily(
-  familyId: string | null | undefined,
-): Prisma.RecipeWhereInput {
-  return familyId
-    ? { OR: [{ visibility: "SHARED" }, { familyId }] }
-    : { visibility: "SHARED" };
-}
-
-/** Kategorien: global (familyId null) plus die der eigenen Familie. */
 export function categoryVisibleToFamily(
   familyId: string | null | undefined,
 ): Prisma.CategoryWhereInput {

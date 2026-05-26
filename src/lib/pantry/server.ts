@@ -1,12 +1,12 @@
 import { prisma } from "@/lib/db/prisma";
 import type { Ingredient, PantryItem } from "@prisma/client";
-import { visibleToFamily } from "@/lib/recipes/visibility";
+import { visibleInCookbook } from "@/lib/cookbooks/visibility";
 
 // ── Pantry-CRUD ──────────────────────────────────────────────────────────────
 
-export async function getPantryForUser(userId: string): Promise<
-  (PantryItem & { ingredient: Ingredient })[]
-> {
+export async function getPantryForUser(
+  userId: string,
+): Promise<(PantryItem & { ingredient: Ingredient })[]> {
   return prisma.pantryItem.findMany({
     where: { ownerId: userId },
     include: { ingredient: true },
@@ -121,9 +121,10 @@ export function matchesPantry(
  */
 export async function matchRecipesForUser(
   userId: string,
-  familyId: string | null | undefined,
+  cookbookId: string | null | undefined,
   limit = 20,
 ): Promise<RecipeMatch[]> {
+  if (!cookbookId) return [];
   const pantry = await getPantryForUser(userId);
   if (pantry.length === 0) return [];
   const matcher = buildMatcher(pantry);
@@ -135,7 +136,7 @@ export async function matchRecipesForUser(
     where: {
       isActive: true,
       ingredients: { some: { ingredientId: { in: Array.from(candidateIds) } } },
-      ...visibleToFamily(familyId),
+      ...visibleInCookbook(cookbookId),
     },
     include: {
       ingredients: { include: { ingredient: true } },
@@ -152,16 +153,12 @@ export async function matchRecipesForUser(
  * Pantry-Matcher passen — entspricht der Logik in matchesPantry. Wird
  * als Vorfilter für die Recipe-Query genutzt.
  */
-async function collectCandidateIngredientIds(
-  matcher: PantryMatcher,
-): Promise<Set<string>> {
+async function collectCandidateIngredientIds(matcher: PantryMatcher): Promise<Set<string>> {
   const out = new Set<string>(matcher.ids);
 
   // Fuzzy-Kandidaten: SQL-LIKE mit den Pantry-Namen (≥3 Zeichen).
   // Pantry-Name als Substring im Ingredient-Name (a-includes-b).
-  const aLikePatterns = matcher.names
-    .filter((n) => n.length >= FUZZY_MIN_LEN)
-    .map((n) => `%${n}%`);
+  const aLikePatterns = matcher.names.filter((n) => n.length >= FUZZY_MIN_LEN).map((n) => `%${n}%`);
 
   if (aLikePatterns.length > 0) {
     const hits = await prisma.ingredient.findMany({
@@ -203,10 +200,7 @@ type RawRecipe = {
   }[];
 };
 
-export function rankMatches(
-  matcher: PantryMatcher,
-  recipes: RawRecipe[],
-): RecipeMatch[] {
+export function rankMatches(matcher: PantryMatcher, recipes: RawRecipe[]): RecipeMatch[] {
   const out: RecipeMatch[] = [];
   for (const r of recipes) {
     if (r.ingredients.length === 0) continue;

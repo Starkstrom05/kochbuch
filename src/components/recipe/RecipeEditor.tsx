@@ -46,7 +46,6 @@ type Props = {
     sourceUrl: string;
     sourceType?: string;
     tags: string;
-    visibility?: string;
     categoryIds: string[];
     ingredients: IngredientDraft[];
     /** Bestehende Rezeptbilder (Edit-Mode), in DB-Reihenfolge. */
@@ -219,9 +218,9 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
       ))}
 
       <section className="paper-card p-4 sm:p-6">
-        <h2 className="mb-3 font-hand text-2xl text-ink">Bilder</h2>
+        <h2 className="font-hand text-ink mb-3 text-2xl">Bilder</h2>
         {totalImages === 0 ? (
-          <p className="font-written text-sm text-ink-faded">
+          <p className="font-written text-ink-faded text-sm">
             Keine Bilder. Das erste Bild ist automatisch das Cover.
           </p>
         ) : (
@@ -229,7 +228,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
             {existing.map((img, i) => (
               <li
                 key={img.id}
-                className="group relative aspect-[4/3] overflow-hidden rounded-sm ring-1 ring-paper-300"
+                className="group ring-paper-300 relative aspect-[4/3] overflow-hidden rounded-sm ring-1"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -238,7 +237,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                   className="h-full w-full object-cover"
                 />
                 {i === 0 ? (
-                  <span className="absolute left-1 top-1 rounded-sm bg-ribbon px-1.5 py-0.5 font-hand text-xs text-paper-50">
+                  <span className="bg-ribbon font-hand text-paper-50 absolute top-1 left-1 rounded-sm px-1.5 py-0.5 text-xs">
                     Cover
                   </span>
                 ) : null}
@@ -248,7 +247,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                       type="button"
                       onClick={() => moveExisting(img.id, -1)}
                       disabled={i === 0}
-                      className="rounded-sm bg-paper-50/90 px-1.5 py-0.5 font-hand text-sm shadow disabled:opacity-30"
+                      className="bg-paper-50/90 font-hand rounded-sm px-1.5 py-0.5 text-sm shadow disabled:opacity-30"
                       aria-label="Nach links"
                     >
                       ←
@@ -257,7 +256,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                       type="button"
                       onClick={() => moveExisting(img.id, 1)}
                       disabled={i === existing.length - 1}
-                      className="rounded-sm bg-paper-50/90 px-1.5 py-0.5 font-hand text-sm shadow disabled:opacity-30"
+                      className="bg-paper-50/90 font-hand rounded-sm px-1.5 py-0.5 text-sm shadow disabled:opacity-30"
                       aria-label="Nach rechts"
                     >
                       →
@@ -266,7 +265,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                   <button
                     type="button"
                     onClick={() => removeExisting(img.id)}
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-sm bg-paper-50/90 font-hand text-base text-ribbon shadow"
+                    className="bg-paper-50/90 font-hand text-ribbon inline-flex h-11 w-11 items-center justify-center rounded-sm text-base shadow"
                     aria-label="Bild entfernen"
                   >
                     ✕
@@ -277,7 +276,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
             {newImages.map((img, i) => (
               <li
                 key={img.localId}
-                className="group relative aspect-[4/3] overflow-hidden rounded-sm ring-1 ring-sepia"
+                className="group ring-sepia relative aspect-[4/3] overflow-hidden rounded-sm ring-1"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -285,13 +284,13 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                   alt={`Neues Bild ${i + 1}`}
                   className="h-full w-full object-cover"
                 />
-                <span className="absolute left-1 top-1 rounded-sm bg-sepia px-1.5 py-0.5 font-hand text-xs text-paper-50">
+                <span className="bg-sepia font-hand text-paper-50 absolute top-1 left-1 rounded-sm px-1.5 py-0.5 text-xs">
                   Neu
                 </span>
                 <button
                   type="button"
                   onClick={() => removeNew(img.localId)}
-                  className="absolute right-1 bottom-1 inline-flex h-11 w-11 items-center justify-center rounded-sm bg-paper-50/90 font-hand text-base text-ribbon shadow opacity-0 transition group-hover:opacity-100"
+                  className="bg-paper-50/90 font-hand text-ribbon absolute right-1 bottom-1 inline-flex h-11 w-11 items-center justify-center rounded-sm text-base opacity-0 shadow transition group-hover:opacity-100"
                   aria-label="Bild entfernen"
                 >
                   ✕
@@ -301,7 +300,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
             {importedUrls.map((url) => (
               <li
                 key={url}
-                className="group relative aspect-[4/3] overflow-hidden rounded-sm ring-1 ring-sepia"
+                className="group ring-sepia relative aspect-[4/3] overflow-hidden rounded-sm ring-1"
               >
                 {/* Externe CDN-URLs (z.B. Akamai) blocken Browser-Embeds
                     teilweise — Vorschau über unseren Server-Proxy, das hidden
@@ -313,13 +312,13 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                   className="h-full w-full object-cover"
                   referrerPolicy="no-referrer"
                 />
-                <span className="absolute left-1 top-1 rounded-sm bg-sepia px-1.5 py-0.5 font-hand text-xs text-paper-50">
+                <span className="bg-sepia font-hand text-paper-50 absolute top-1 left-1 rounded-sm px-1.5 py-0.5 text-xs">
                   Import
                 </span>
                 <button
                   type="button"
                   onClick={() => removeImportedUrl(url)}
-                  className="absolute right-1 bottom-1 inline-flex h-11 w-11 items-center justify-center rounded-sm bg-paper-50/90 font-hand text-base text-ribbon shadow opacity-0 transition group-hover:opacity-100"
+                  className="bg-paper-50/90 font-hand text-ribbon absolute right-1 bottom-1 inline-flex h-11 w-11 items-center justify-center rounded-sm text-base opacity-0 shadow transition group-hover:opacity-100"
                   aria-label="Bild entfernen"
                 >
                   ✕
@@ -329,7 +328,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
           </ul>
         )}
         <div className="mt-3">
-          <label className="inline-block cursor-pointer rounded-sm bg-paper-200 px-4 py-1.5 font-hand text-base text-ink ring-1 ring-paper-300 hover:bg-paper-300/60">
+          <label className="bg-paper-200 font-hand text-ink ring-paper-300 hover:bg-paper-300/60 inline-block cursor-pointer rounded-sm px-4 py-1.5 text-base ring-1">
             + Bilder hinzufügen
             <input
               type="file"
@@ -345,31 +344,47 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
       <PaperSheet seed={initial?.id ?? "new"} className="p-6 sm:p-10">
         <div className="space-y-6">
           <label className="block">
-            <span className="font-written text-sm text-ink-faded">Titel</span>
+            <span className="font-written text-ink-faded text-sm">Titel</span>
             <input
               name="title"
               required
               defaultValue={initial?.title ?? ""}
-              className="mt-1 w-full bg-transparent font-hand text-4xl text-ink outline-none placeholder:text-ink-light/60"
+              className="font-hand text-ink placeholder:text-ink-light/60 mt-1 w-full bg-transparent text-4xl outline-none"
               placeholder="z.B. Merys Kartoffelsalat"
             />
           </label>
 
           <label className="block">
-            <span className="font-written text-sm text-ink-faded">Kurzbeschreibung</span>
+            <span className="font-written text-ink-faded text-sm">Kurzbeschreibung</span>
             <textarea
               name="description"
               defaultValue={initial?.description ?? ""}
               rows={2}
-              className="mt-1 w-full bg-transparent font-written text-lg text-ink-faded outline-none"
+              className="font-written text-ink-faded mt-1 w-full bg-transparent text-lg outline-none"
               placeholder="In einem Satz: was zeichnet das Rezept aus?"
             />
           </label>
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <FormNumber name="servings" label="Portionen" defaultValue={initial?.servings ?? 4} min={1} max={99} />
-            <FormNumber name="prepMinutes" label="Vorbereitung (min)" defaultValue={initial?.prepMinutes ?? ""} min={0} />
-            <FormNumber name="cookMinutes" label="Kochen (min)" defaultValue={initial?.cookMinutes ?? ""} min={0} />
+            <FormNumber
+              name="servings"
+              label="Portionen"
+              defaultValue={initial?.servings ?? 4}
+              min={1}
+              max={99}
+            />
+            <FormNumber
+              name="prepMinutes"
+              label="Vorbereitung (min)"
+              defaultValue={initial?.prepMinutes ?? ""}
+              min={0}
+            />
+            <FormNumber
+              name="cookMinutes"
+              label="Kochen (min)"
+              defaultValue={initial?.cookMinutes ?? ""}
+              min={0}
+            />
             <FormSelect
               name="difficulty"
               label="Schwierigkeit"
@@ -384,12 +399,12 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
           </div>
 
           <fieldset className="space-y-2">
-            <legend className="font-written text-sm text-ink-faded">Kategorien</legend>
+            <legend className="font-written text-ink-faded text-sm">Kategorien</legend>
             <div className="flex flex-wrap gap-2">
               {categories.map((c) => (
                 <label
                   key={c.id}
-                  className="inline-flex min-h-[44px] cursor-pointer items-center rounded-sm bg-paper-100 px-3 py-1 font-written text-sm ring-1 ring-paper-300 has-[:checked]:bg-ribbon has-[:checked]:text-paper-50 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ribbon has-[:focus-visible]:ring-offset-2"
+                  className="bg-paper-100 font-written ring-paper-300 has-[:checked]:bg-ribbon has-[:checked]:text-paper-50 has-[:focus-visible]:ring-ribbon inline-flex min-h-[44px] cursor-pointer items-center rounded-sm px-3 py-1 text-sm ring-1 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-offset-2"
                 >
                   <input
                     type="checkbox"
@@ -405,52 +420,28 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
           </fieldset>
 
           <label className="block">
-            <span className="font-written text-sm text-ink-faded">Tags (Komma-separiert)</span>
+            <span className="font-written text-ink-faded text-sm">Tags (Komma-separiert)</span>
             <input
               name="tags"
               defaultValue={initial?.tags ?? ""}
-              className="mt-1 w-full border-b border-dotted border-ink-light bg-transparent font-written text-ink outline-none"
+              className="border-ink-light font-written text-ink mt-1 w-full border-b border-dotted bg-transparent outline-none"
               placeholder="winter, vegetarisch, schnell"
             />
           </label>
-
-          <fieldset className="space-y-1">
-            <legend className="font-written text-sm text-ink-faded">Sichtbarkeit</legend>
-            <div className="flex flex-wrap gap-4 font-written text-sm text-ink">
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="visibility"
-                  value="SHARED"
-                  defaultChecked={(initial?.visibility ?? "SHARED") !== "FAMILY"}
-                  className="accent-ribbon"
-                />
-                Gemeinsam (alle Familien)
-              </label>
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="visibility"
-                  value="FAMILY"
-                  defaultChecked={initial?.visibility === "FAMILY"}
-                  className="accent-ribbon"
-                />
-                Nur meine Familie
-              </label>
-            </div>
-          </fieldset>
         </div>
       </PaperSheet>
 
       <PaperSheet variant="lined" seed={`${initial?.id ?? "new"}-ing`} className="p-6 sm:p-10">
-        <h3 className="font-hand text-3xl text-ink ink-text">Zutaten</h3>
-        <p className="font-written text-sm text-ink-faded">Mengen werden später automatisch skaliert.</p>
+        <h3 className="font-hand text-ink ink-text text-3xl">Zutaten</h3>
+        <p className="font-written text-ink-faded text-sm">
+          Mengen werden später automatisch skaliert.
+        </p>
 
         <ul className="mt-4 space-y-2">
           {ingredients.map((ing, i) => (
             <li
               key={i}
-              className="grid grid-cols-12 items-center gap-2 border-b border-dotted border-ink-light/40 py-1"
+              className="border-ink-light/40 grid grid-cols-12 items-center gap-2 border-b border-dotted py-1"
             >
               <input
                 name="ing-amount"
@@ -458,7 +449,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                 onChange={(e) => updateIng(i, { amount: e.target.value })}
                 placeholder="200"
                 inputMode="decimal"
-                className="col-span-2 bg-transparent font-serif outline-none placeholder:text-ink-light/40"
+                className="placeholder:text-ink-light/40 col-span-2 bg-transparent font-serif outline-none"
               />
               <input
                 name="ing-unit"
@@ -466,27 +457,27 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                 value={ing.unit}
                 onChange={(e) => updateIng(i, { unit: e.target.value })}
                 placeholder="g"
-                className="col-span-2 bg-transparent font-serif outline-none placeholder:text-ink-light/40"
+                className="placeholder:text-ink-light/40 col-span-2 bg-transparent font-serif outline-none"
               />
               <input
                 name="ing-name"
                 value={ing.name}
                 onChange={(e) => updateIng(i, { name: e.target.value })}
                 placeholder="Mehl"
-                className="col-span-5 bg-transparent font-written text-lg text-ink outline-none placeholder:text-ink-light/40"
+                className="font-written text-ink placeholder:text-ink-light/40 col-span-5 bg-transparent text-lg outline-none"
               />
               <input
                 name="ing-note"
                 value={ing.note}
                 onChange={(e) => updateIng(i, { note: e.target.value })}
                 placeholder="fein gemahlen"
-                className="col-span-2 bg-transparent font-written text-sm italic text-ink-faded outline-none placeholder:text-ink-light/40"
+                className="font-written text-ink-faded placeholder:text-ink-light/40 col-span-2 bg-transparent text-sm italic outline-none"
               />
               <button
                 type="button"
                 onClick={() => removeIng(i)}
                 aria-label="Zeile entfernen"
-                className="col-span-1 inline-flex min-h-[44px] items-center justify-end font-hand text-xl text-ribbon hover:scale-110"
+                className="font-hand text-ribbon col-span-1 inline-flex min-h-[44px] items-center justify-end text-xl hover:scale-110"
               >
                 ×
               </button>
@@ -503,15 +494,15 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
         <button
           type="button"
           onClick={addIng}
-          className="mt-4 font-hand text-xl text-ribbon underline decoration-wavy underline-offset-4"
+          className="font-hand text-ribbon mt-4 text-xl underline decoration-wavy underline-offset-4"
         >
           + noch eine Zutat
         </button>
       </PaperSheet>
 
       <PaperSheet seed={`${initial?.id ?? "new"}-steps`} className="p-6 sm:p-10">
-        <h3 className="font-hand text-3xl text-ink ink-text">Zubereitung</h3>
-        <p className="font-written text-sm text-ink-faded">
+        <h3 className="font-hand text-ink ink-text text-3xl">Zubereitung</h3>
+        <p className="font-written text-ink-faded text-sm">
           Ein Schritt pro Zeile. Dauer (min) optional — wird im Koch-Modus zum Timer.
         </p>
 
@@ -522,9 +513,9 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
           {steps.map((step, i) => (
             <li
               key={i}
-              className="flex items-start gap-2 border-b border-dotted border-ink-light/40 pb-3"
+              className="border-ink-light/40 flex items-start gap-2 border-b border-dotted pb-3"
             >
-              <span className="mt-2 w-6 flex-shrink-0 text-center font-hand text-xl text-ribbon">
+              <span className="font-hand text-ribbon mt-2 w-6 flex-shrink-0 text-center text-xl">
                 {i + 1}.
               </span>
               <textarea
@@ -533,7 +524,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                 onChange={(e) => updateStep(i, { text: e.target.value })}
                 rows={2}
                 placeholder="Zwiebeln klein hacken..."
-                className="min-w-0 flex-1 resize-y bg-transparent font-written text-lg text-ink outline-none placeholder:text-ink-light/40"
+                className="font-written text-ink placeholder:text-ink-light/40 min-w-0 flex-1 resize-y bg-transparent text-lg outline-none"
               />
               <label className="flex flex-shrink-0 items-center gap-1">
                 <input
@@ -542,16 +533,16 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                   onChange={(e) => updateStep(i, { duration: e.target.value })}
                   inputMode="numeric"
                   placeholder="–"
-                  className="w-12 border-b border-dotted border-ink-light bg-transparent text-center font-serif text-ink outline-none placeholder:text-ink-light/40"
+                  className="border-ink-light text-ink placeholder:text-ink-light/40 w-12 border-b border-dotted bg-transparent text-center font-serif outline-none"
                   aria-label={`Dauer Schritt ${i + 1} in Minuten`}
                 />
-                <span className="font-written text-xs text-ink-faded">min</span>
+                <span className="font-written text-ink-faded text-xs">min</span>
               </label>
               <button
                 type="button"
                 onClick={() => removeStep(i)}
                 aria-label="Schritt entfernen"
-                className="inline-flex min-h-[44px] items-center font-hand text-xl text-ribbon hover:scale-110"
+                className="font-hand text-ribbon inline-flex min-h-[44px] items-center text-xl hover:scale-110"
               >
                 ×
               </button>
@@ -562,38 +553,60 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
         <button
           type="button"
           onClick={addStep}
-          className="mt-4 font-hand text-xl text-ribbon underline decoration-wavy underline-offset-4"
+          className="font-hand text-ribbon mt-4 text-xl underline decoration-wavy underline-offset-4"
         >
           + noch ein Schritt
         </button>
 
-        <h3 className="mt-6 font-hand text-2xl text-ink ink-text">Notizen (optional)</h3>
+        <h3 className="font-hand text-ink ink-text mt-6 text-2xl">Notizen (optional)</h3>
         <textarea
           name="notes"
           defaultValue={initial?.notes ?? ""}
           rows={3}
-          className="mt-2 w-full bg-transparent font-written italic text-ink-faded outline-none"
+          className="font-written text-ink-faded mt-2 w-full bg-transparent italic outline-none"
           placeholder="Merys Geheimtipp..."
         />
 
-        <h3 className="mt-6 font-hand text-2xl text-ink ink-text">Nährwerte pro Portion (optional)</h3>
-        <p className="font-written text-sm text-ink-faded">
+        <h3 className="font-hand text-ink ink-text mt-6 text-2xl">
+          Nährwerte pro Portion (optional)
+        </h3>
+        <p className="font-written text-ink-faded text-sm">
           Leer lassen → wird aus den Zutaten geschätzt. Eigene Werte überschreiben die Schätzung.
         </p>
         <div className="mt-2 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <FormNumber name="nutritionKcal" label="kcal" defaultValue={initial?.nutritionKcal ?? ""} min={0} />
-          <FormNumber name="nutritionProteinG" label="Eiweiß (g)" defaultValue={initial?.nutritionProteinG ?? ""} min={0} />
-          <FormNumber name="nutritionCarbsG" label="Kohlenh. (g)" defaultValue={initial?.nutritionCarbsG ?? ""} min={0} />
-          <FormNumber name="nutritionFatG" label="Fett (g)" defaultValue={initial?.nutritionFatG ?? ""} min={0} />
+          <FormNumber
+            name="nutritionKcal"
+            label="kcal"
+            defaultValue={initial?.nutritionKcal ?? ""}
+            min={0}
+          />
+          <FormNumber
+            name="nutritionProteinG"
+            label="Eiweiß (g)"
+            defaultValue={initial?.nutritionProteinG ?? ""}
+            min={0}
+          />
+          <FormNumber
+            name="nutritionCarbsG"
+            label="Kohlenh. (g)"
+            defaultValue={initial?.nutritionCarbsG ?? ""}
+            min={0}
+          />
+          <FormNumber
+            name="nutritionFatG"
+            label="Fett (g)"
+            defaultValue={initial?.nutritionFatG ?? ""}
+            min={0}
+          />
         </div>
 
         <label className="mt-6 block">
-          <span className="font-written text-sm text-ink-faded">Quelle (URL, optional)</span>
+          <span className="font-written text-ink-faded text-sm">Quelle (URL, optional)</span>
           <input
             name="sourceUrl"
             type="url"
             defaultValue={initial?.sourceUrl ?? ""}
-            className="mt-1 w-full border-b border-dotted border-ink-light bg-transparent font-serif text-sm text-ink outline-none"
+            className="border-ink-light text-ink mt-1 w-full border-b border-dotted bg-transparent font-serif text-sm outline-none"
             placeholder="https://www.chefkoch.de/..."
           />
         </label>
@@ -602,7 +615,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
       <div className="flex items-center justify-end gap-4">
         <button
           type="submit"
-          className="rounded-sm bg-ribbon px-6 py-2 font-hand text-2xl text-paper-50 shadow-card hover:rotate-[-0.5deg]"
+          className="bg-ribbon font-hand text-paper-50 shadow-card rounded-sm px-6 py-2 text-2xl hover:rotate-[-0.5deg]"
         >
           {submitLabel}
         </button>
@@ -626,14 +639,14 @@ function FormNumber({
 }) {
   return (
     <label className="block">
-      <span className="font-written text-sm text-ink-faded">{label}</span>
+      <span className="font-written text-ink-faded text-sm">{label}</span>
       <input
         name={name}
         type="number"
         defaultValue={defaultValue}
         min={min}
         max={max}
-        className="mt-1 w-full border-b border-dotted border-ink-light bg-transparent font-serif text-ink outline-none"
+        className="border-ink-light text-ink mt-1 w-full border-b border-dotted bg-transparent font-serif outline-none"
       />
     </label>
   );
@@ -652,11 +665,11 @@ function FormSelect({
 }) {
   return (
     <label className="block">
-      <span className="font-written text-sm text-ink-faded">{label}</span>
+      <span className="font-written text-ink-faded text-sm">{label}</span>
       <select
         name={name}
         defaultValue={defaultValue}
-        className="mt-1 w-full border-b border-dotted border-ink-light bg-transparent font-serif text-ink outline-none"
+        className="border-ink-light text-ink mt-1 w-full border-b border-dotted bg-transparent font-serif outline-none"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>

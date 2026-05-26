@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { Prisma } from "@prisma/client";
-import { visibleToFamily } from "./visibility";
+import { visibleInCookbook } from "@/lib/cookbooks/visibility";
 
 export type RecipeSearch = {
   q?: string;
@@ -8,8 +8,8 @@ export type RecipeSearch = {
   /** Minimaler Durchschnitt der Sternebewertung (1-5). 0 oder undefined = kein Filter. */
   minStars?: number;
   take?: number;
-  /** familyId des Betrachters für den Sichtbarkeits-Filter (SHARED oder eigene). */
-  familyId?: string | null;
+  /** Aktives Cookbook des Betrachters. Liste enthaelt nur Rezepte dieses Buchs. */
+  cookbookId: string;
 };
 
 export async function searchRecipes({
@@ -17,11 +17,11 @@ export async function searchRecipes({
   categoryId,
   minStars,
   take = 200,
-  familyId,
+  cookbookId,
 }: RecipeSearch) {
-  // Sichtbarkeit (OR) und Volltextsuche (OR) zusammen über AND kombinieren,
+  // Cookbook-Filter und Volltextsuche (OR) zusammen über AND kombinieren,
   // da Prisma pro Ebene nur ein OR erlaubt.
-  const and: Prisma.RecipeWhereInput[] = [visibleToFamily(familyId)];
+  const and: Prisma.RecipeWhereInput[] = [visibleInCookbook(cookbookId)];
 
   if (q && q.trim()) {
     const term = q.trim();

@@ -12,6 +12,7 @@ declare module "next-auth" {
       id: string;
       role: Role;
       familyId: string | null;
+      activeCookbookId: string | null;
     } & DefaultSession["user"];
   }
 }
@@ -51,16 +52,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           name: user.name,
           role: user.role as Role,
           familyId: user.familyId,
+          activeCookbookId: user.activeCookbookId,
         };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.role = (user as { role?: Role }).role ?? "MEMBER";
         token.familyId = (user as { familyId?: string | null }).familyId ?? null;
+        token.activeCookbookId =
+          (user as { activeCookbookId?: string | null }).activeCookbookId ?? null;
+      }
+      // Bei Cookbook-Wechsel triggern wir update({ activeCookbookId }) clientseitig;
+      // hier landet der neue Wert im Token.
+      if (trigger === "update" && session && typeof session === "object") {
+        const next = (session as { activeCookbookId?: string | null }).activeCookbookId;
+        if (typeof next === "string" || next === null) token.activeCookbookId = next;
       }
       return token;
     },
@@ -69,6 +79,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = token.id as string;
         session.user.role = token.role as Role;
         session.user.familyId = (token.familyId as string | null) ?? null;
+        session.user.activeCookbookId = (token.activeCookbookId as string | null) ?? null;
       }
       return session;
     },

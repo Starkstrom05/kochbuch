@@ -7,6 +7,40 @@ Versionsschema [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.22.0] — 2026-05-26
+
+### Neu
+
+- **Mehrere Kochbuecher pro User** — jeder Benutzer hat ein eigenes Kochbuch
+  (Standardname „<Name> Kochbuch"), kann beliebig viele weitere anlegen und
+  pro Buch Branding (Akzent-, Tinte-, Papier-Farbe) und Cover hinterlegen.
+- **Cookbook-Switcher im Header** neben dem Profil-Link. Listet eigene plus
+  freigegebene Buecher; ein Wechsel filtert die Rezeptliste sofort um.
+- **Lese-Freigaben** pro Buch — Owner und Admin koennen anderen Usern Lese-
+  zugriff geben und entziehen (Profil → Meine Kochbuecher → Freigaben).
+- **Rezept-Import** aus fremden Buechern: „In mein Kochbuch importieren"-Button
+  auf der Detail-Seite kopiert das Rezept (inkl. Bilder) ins aktive Buch und
+  haengt einen Quellen-Vermerk an („importiert aus „Backbuch" von Anna").
+- **Admin-Rechte fuer alle Rezepte**: ADMIN-User koennen jedes Rezept
+  bearbeiten/deaktivieren/loeschen, auch in fremden Buechern.
+
+### Geändert
+
+- Recipe-Sichtbarkeit ist jetzt ausschliesslich an `cookbookId` gebunden; die
+  alten Felder `Recipe.visibility` (SHARED/FAMILY) und `Recipe.familyId`
+  wurden ersatzlos entfernt. Migration laeuft beim Container-Start
+  automatisch, keine User-Aktion noetig.
+- `Family` bleibt als Konzept fuer User-Gruppierung und Category-Scoping
+  erhalten, ist fuer Rezepte aber nicht mehr relevant.
+- Neue User bekommen beim Anlegen automatisch ein leeres Kochbuch.
+
+### Migration
+
+- Phase A (`add_cookbook_models`): legt Cookbook + CookbookAccess an und
+  verschiebt alle bestehenden Rezepte ins Cookbook ihres Erstellers.
+- Phase C (`enforce_cookbook_required`): zieht `Recipe.cookbookId` auf
+  NOT NULL nach und droppt die Legacy-Spalten.
+
 ## [0.21.0] — 2026-05-26
 
 ### Neu

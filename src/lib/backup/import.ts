@@ -3,6 +3,7 @@ import { createRecipe } from "@/lib/recipes/server";
 import { addImageFromBuffer } from "@/lib/recipes/images";
 import { recipeInputSchema } from "@/lib/schemas/recipe";
 import type { BackupData } from "@/lib/schemas/backup";
+import type { Actor } from "@/lib/cookbooks/permissions";
 import { planImport, type ImportMode } from "./transform";
 
 export type ImportSummary = {
@@ -20,7 +21,7 @@ export type ImportSummary = {
 export async function applyBackup(
   data: BackupData,
   readImage: (zipPath: string) => Promise<Buffer | null>,
-  opts: { mode: ImportMode; userId: string },
+  opts: { mode: ImportMode; actor: Actor; cookbookId: string },
 ): Promise<ImportSummary> {
   // 1) Kategorien per Name upserten → name(lower) → id
   const catMap = new Map<string, string>();
@@ -84,7 +85,7 @@ export async function applyBackup(
         continue;
       }
 
-      const recipe = await createRecipe(parsed.data, opts.userId);
+      const recipe = await createRecipe(parsed.data, opts.actor, opts.cookbookId);
       if (!recipe) throw new Error("Anlegen fehlgeschlagen");
       summary.imported++;
 

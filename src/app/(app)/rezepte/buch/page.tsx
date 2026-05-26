@@ -9,14 +9,15 @@ import { getAppName } from "@/lib/config/app-config";
 
 type SearchParams = Promise<{ q?: string; categoryId?: string }>;
 
-export default async function RezepteBuchPage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
+export default async function RezepteBuchPage({ searchParams }: { searchParams: SearchParams }) {
   const session = await auth();
   const { q, categoryId } = await searchParams;
-  const matches = await searchRecipes({ q, categoryId, familyId: session?.user?.familyId });
+  if (!session?.user?.activeCookbookId) redirect("/rezepte");
+  const matches = await searchRecipes({
+    q,
+    categoryId,
+    cookbookId: session.user.activeCookbookId,
+  });
   if (matches.length === 0) {
     redirect(
       `/rezepte${q || categoryId ? `?${new URLSearchParams({ ...(q ? { q } : {}), ...(categoryId ? { categoryId } : {}) }).toString()}` : ""}`,
@@ -67,7 +68,10 @@ export default async function RezepteBuchPage({
           : `Alle Rezepte`;
 
   return (
-    <main className="fixed inset-0 flex flex-col pt-safe pb-safe px-safe" style={{ background: "linear-gradient(160deg, #2a1d12 0%, #1a120a 100%)" }}>
+    <main
+      className="pt-safe pb-safe px-safe fixed inset-0 flex flex-col"
+      style={{ background: "linear-gradient(160deg, #2a1d12 0%, #1a120a 100%)" }}
+    >
       <InkFilters />
       <RecipeBook recipes={recipes} title={await getAppName()} subtitle={subtitle} />
     </main>

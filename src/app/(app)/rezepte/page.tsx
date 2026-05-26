@@ -27,13 +27,16 @@ export default async function RezeptePage({ searchParams }: { searchParams: Sear
   const { q, categoryId, minStars: minStarsRaw, view: viewRaw } = await searchParams;
   const minStars = minStarsRaw ? Number(minStarsRaw) : 0;
   const view = parseView(viewRaw);
+  const cookbookId = session?.user?.activeCookbookId;
   const [recipes, categories] = await Promise.all([
-    searchRecipes({
-      q,
-      categoryId,
-      minStars: minStars > 0 ? minStars : undefined,
-      familyId: session?.user?.familyId,
-    }),
+    cookbookId
+      ? searchRecipes({
+          q,
+          categoryId,
+          minStars: minStars > 0 ? minStars : undefined,
+          cookbookId,
+        })
+      : Promise.resolve([] as Awaited<ReturnType<typeof searchRecipes>>),
     prisma.category.findMany({
       where: categoryVisibleToFamily(session?.user?.familyId),
       orderBy: { name: "asc" },

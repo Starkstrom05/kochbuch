@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { writeFile, mkdir, unlink } from "fs/promises";
+import { writeFile, mkdir, unlink, copyFile, access } from "fs/promises";
 import path from "path";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "./uploads";
@@ -56,6 +56,46 @@ export async function deleteRecipeImageFiles(relativePath: string): Promise<void
 
 export function resolveUploadPath(relativePath: string): string {
   return path.join(UPLOAD_DIR, relativePath);
+}
+
+/**
+ * Kopiert ein bestehendes Rezept-Bild + Thumbnail ins Verzeichnis eines neuen
+ * Rezepts (z. B. beim Import in ein anderes Cookbook). Liefert die neuen
+ * relativen Pfade. Best-effort: fehlt eine Quell-Datei, wird der Eintrag
+ * stillschweigend uebersprungen.
+ */
+export async function cloneRecipeImageFiles(
+  sourceRelativePath: string,
+  targetRecipeId: string,
+): Promise<ProcessedImage | null> {
+  const sourceAbs = path.join(UPLOAD_DIR, sourceRelativePath);
+  try {
+    await access(sourceAbs);
+  } catch {
+    return null;
+  }
+  const basename = path.basename(sourceRelativePath, path.extname(sourceRelativePath));
+  const targetDir = path.join(UPLOAD_DIR, "recipes", targetRecipeId);
+  await mkdir(targetDir, { recursive: true });
+  const targetFull = path.join(targetDir, `${basename}.jpg`);
+  const targetThumb = path.join(targetDir, `${basename}-thumb.jpg`);
+  await copyFile(sourceAbs, targetFull);
+  const sourceThumb = sourceAbs.replace(/\.jpg$/i, "-thumb.jpg");
+  try {
+    await copyFile(sourceThumb, targetThumb);
+  } catch {
+    // Thumbnail fehlt — neu erzeugen, damit die Liste sauber bleibt
+    const thumbBuffer = await sharp(sourceAbs)
+      .rotate()
+      .resize(400, 300, { fit: "cover", position: "centre" })
+      .jpeg({ quality: 80 })
+      .toBuffer();
+    await writeFile(targetThumb, thumbBuffer);
+  }
+  return {
+    path: `/recipes/${targetRecipeId}/${basename}.jpg`,
+    thumbPath: `/recipes/${targetRecipeId}/${basename}-thumb.jpg`,
+  };
 }
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB

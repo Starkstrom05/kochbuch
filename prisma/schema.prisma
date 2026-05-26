@@ -14,6 +14,8 @@ model User {
   role          String         @default("MEMBER")
   familyId      String?
   family        Family?        @relation(fields: [familyId], references: [id])
+  activeCookbookId String?
+  activeCookbook   Cookbook?    @relation("UserActiveCookbook", fields: [activeCookbookId], references: [id], onDelete: SetNull)
   createdAt     DateTime       @default(now())
   recipes       Recipe[]
   ratings       Rating[]
@@ -23,8 +25,47 @@ model User {
   sessions      Session[]
   accounts      Account[]
   ourGroceries  UserOurGroceriesCredentials?
+  cookbooks         Cookbook[]       @relation("CookbookOwner")
+  cookbookAccesses  CookbookAccess[] @relation("CookbookViewer")
+  cookbookGrants    CookbookAccess[] @relation("CookbookGranter")
 
   @@index([familyId])
+  @@index([activeCookbookId])
+}
+
+// Cookbook: persoenliche Rezeptsammlung eines Users. Owner hat Schreibrecht,
+// Viewer (via CookbookAccess) nur Leserecht. Admin (User.role = "ADMIN")
+// hat Schreibrecht auf ALLE Cookbooks.
+model Cookbook {
+  id             String           @id @default(cuid())
+  ownerId        String
+  owner          User             @relation("CookbookOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  name           String
+  coverImagePath String?
+  accentColor    String?
+  inkColor       String?
+  paperColor     String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  recipes        Recipe[]
+  accesses       CookbookAccess[]
+  activeViewers  User[]           @relation("UserActiveCookbook")
+
+  @@index([ownerId])
+}
+
+model CookbookAccess {
+  id          String   @id @default(cuid())
+  cookbookId  String
+  userId      String
+  grantedById String
+  grantedAt   DateTime @default(now())
+  cookbook    Cookbook @relation(fields: [cookbookId], references: [id], onDelete: Cascade)
+  user        User     @relation("CookbookViewer", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy   User     @relation("CookbookGranter", fields: [grantedById], references: [id])
+
+  @@unique([cookbookId, userId])
+  @@index([userId])
 }
 
 // Mandant: eine Familie/ein Haushalt. Branding-Spalten werden in Phase 8e genutzt.
@@ -37,7 +78,6 @@ model Family {
   paperColor     String?
   createdAt      DateTime @default(now())
   members        User[]
-  recipes        Recipe[]
   categories     Category[]
 }
 
@@ -93,10 +133,14 @@ model Recipe {
   isActive        Boolean            @default(true)
   shareToken      String?            @unique
   tags            String?
-  // Mandanten-Sichtbarkeit: SHARED = für alle Familien, FAMILY = nur eigene
-  visibility      String             @default("SHARED")
-  familyId        String?
-  family          Family?            @relation(fields: [familyId], references: [id])
+  cookbookId      String
+  cookbook        Cookbook           @relation(fields: [cookbookId], references: [id], onDelete: Cascade)
+  // Quellen-Vermerk fuer importierte Rezepte (Vollkopie aus fremdem Cookbook)
+  importedFromRecipeId   String?
+  importedFromRecipe     Recipe?     @relation("RecipeImportSource", fields: [importedFromRecipeId], references: [id], onDelete: SetNull)
+  importedFromRecipeCopies Recipe[]  @relation("RecipeImportSource")
+  importedFromCookbookId String?
+  importedFromUserId     String?
   // Optionale Nährwert-Override pro Portion (überschreibt die Auto-Schätzung)
   nutritionKcal     Float?
   nutritionProteinG Float?
@@ -118,7 +162,8 @@ model Recipe {
   @@index([sourceUrl])
   @@index([updatedAt])
   @@index([isActive])
-  @@index([familyId])
+  @@index([cookbookId])
+  @@index([importedFromRecipeId])
 }
 
 model RecipeImage {

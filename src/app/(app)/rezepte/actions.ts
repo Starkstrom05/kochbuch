@@ -72,15 +72,9 @@ function buildInput(formData: FormData) {
     title: String(formData.get("title") ?? ""),
     description: String(formData.get("description") ?? "") || null,
     servings: Number(formData.get("servings") ?? 4) || 4,
-    prepMinutes: formData.get("prepMinutes")
-      ? Number(formData.get("prepMinutes"))
-      : null,
-    cookMinutes: formData.get("cookMinutes")
-      ? Number(formData.get("cookMinutes"))
-      : null,
-    difficulty: formData.get("difficulty")
-      ? Number(formData.get("difficulty"))
-      : null,
+    prepMinutes: formData.get("prepMinutes") ? Number(formData.get("prepMinutes")) : null,
+    cookMinutes: formData.get("cookMinutes") ? Number(formData.get("cookMinutes")) : null,
+    difficulty: formData.get("difficulty") ? Number(formData.get("difficulty")) : null,
     instructions: String(formData.get("instructions") ?? ""),
     notes: String(formData.get("notes") ?? "") || null,
     sourceUrl: String(formData.get("sourceUrl") ?? "") || null,
@@ -89,7 +83,6 @@ function buildInput(formData: FormData) {
     categoryIds: formData.getAll("categoryIds").map((v) => String(v)),
     ingredients: parseIngredients(formData),
     steps: parseSteps(formData),
-    visibility: formData.get("visibility") === "FAMILY" ? "FAMILY" : "SHARED",
     nutritionKcal: optionalNumber(formData, "nutritionKcal"),
     nutritionProteinG: optionalNumber(formData, "nutritionProteinG"),
     nutritionCarbsG: optionalNumber(formData, "nutritionCarbsG"),
@@ -165,11 +158,16 @@ async function processImagesFromFormData(
   }
 }
 
+function actorFromSession(session: { user: { id: string; role: string } }) {
+  return { id: session.user.id, role: session.user.role as "ADMIN" | "MEMBER" | "CHILD" };
+}
+
 export async function createRecipeAction(formData: FormData) {
   const session = await auth();
   if (!session?.user) throw new Error("Nicht angemeldet");
+  if (!session.user.activeCookbookId) throw new Error("Kein aktives Kochbuch ausgewaehlt");
   const input = buildInput(formData);
-  const recipe = await svCreate(input, session.user.id);
+  const recipe = await svCreate(input, actorFromSession(session), session.user.activeCookbookId);
   if (!recipe) throw new Error("Rezept konnte nicht erstellt werden");
   await processImagesFromFormData(recipe.id, formData, input.sourceUrl ?? null, false);
   revalidatePath("/rezepte");
@@ -180,7 +178,7 @@ export async function updateRecipeAction(id: string, formData: FormData) {
   const session = await auth();
   if (!session?.user) throw new Error("Nicht angemeldet");
   const input = buildInput(formData);
-  const recipe = await svUpdate(id, input, session.user.id);
+  const recipe = await svUpdate(id, input, actorFromSession(session));
   if (!recipe) throw new Error("Rezept konnte nicht aktualisiert werden");
   await processImagesFromFormData(recipe.id, formData, input.sourceUrl ?? null, true);
   revalidatePath("/rezepte");
@@ -191,7 +189,7 @@ export async function updateRecipeAction(id: string, formData: FormData) {
 export async function deactivateRecipeAction(id: string) {
   const session = await auth();
   if (!session?.user) throw new Error("Nicht angemeldet");
-  await svDeactivate(id, session.user.id);
+  await svDeactivate(id, actorFromSession(session));
   revalidatePath("/rezepte");
   revalidatePath("/rezepte/archiv");
   redirect("/rezepte");
@@ -200,7 +198,7 @@ export async function deactivateRecipeAction(id: string) {
 export async function restoreRecipeAction(id: string) {
   const session = await auth();
   if (!session?.user) throw new Error("Nicht angemeldet");
-  await svRestore(id, session.user.id);
+  await svRestore(id, actorFromSession(session));
   revalidatePath("/rezepte");
   revalidatePath("/rezepte/archiv");
 }
@@ -208,6 +206,6 @@ export async function restoreRecipeAction(id: string) {
 export async function permanentlyDeleteRecipeAction(id: string) {
   const session = await auth();
   if (!session?.user) throw new Error("Nicht angemeldet");
-  await svPermanentlyDelete(id, session.user.id);
+  await svPermanentlyDelete(id, actorFromSession(session));
   revalidatePath("/rezepte/archiv");
 }

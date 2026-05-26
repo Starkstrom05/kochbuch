@@ -11,6 +11,7 @@ import { NutritionDataForm } from "./NutritionDataForm";
 import { FamilyManager } from "./FamilyManager";
 import { CategoryManager } from "./CategoryManager";
 import { BrandingForm } from "./BrandingForm";
+import { CookbookManager, type ManagedCookbook } from "./CookbookManager";
 import { getAppName } from "@/lib/config/app-config";
 import { WhatsNewMount } from "@/components/layout/WhatsNewMount";
 
@@ -20,41 +21,69 @@ export default async function ProfilPage() {
 
   const isAdmin = session.user.role === "ADMIN";
 
-  const [currentAppName, users, families, ownCategories, ownFamily] = await Promise.all([
-    getAppName(),
-    isAdmin
-      ? prisma.user.findMany({
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            role: true,
-            familyId: true,
-            createdAt: true,
-          },
-          orderBy: { createdAt: "asc" },
-        })
-      : Promise.resolve([]),
-    isAdmin
-      ? prisma.family.findMany({
-          select: { id: true, name: true, _count: { select: { members: true } } },
-          orderBy: { name: "asc" },
-        })
-      : Promise.resolve([]),
-    isAdmin && session.user.familyId
-      ? prisma.category.findMany({
-          where: { familyId: session.user.familyId },
-          select: { id: true, name: true, icon: true },
-          orderBy: { name: "asc" },
-        })
-      : Promise.resolve([]),
-    isAdmin && session.user.familyId
-      ? prisma.family.findUnique({
-          where: { id: session.user.familyId },
-          select: { name: true, accentColor: true, inkColor: true, paperColor: true },
-        })
-      : Promise.resolve(null),
-  ]);
+  const [currentAppName, users, families, ownCategories, ownFamily, cookbookRows, allUsers] =
+    await Promise.all([
+      getAppName(),
+      isAdmin
+        ? prisma.user.findMany({
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              role: true,
+              familyId: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: "asc" },
+          })
+        : Promise.resolve([]),
+      isAdmin
+        ? prisma.family.findMany({
+            select: { id: true, name: true, _count: { select: { members: true } } },
+            orderBy: { name: "asc" },
+          })
+        : Promise.resolve([]),
+      isAdmin && session.user.familyId
+        ? prisma.category.findMany({
+            where: { familyId: session.user.familyId },
+            select: { id: true, name: true, icon: true },
+            orderBy: { name: "asc" },
+          })
+        : Promise.resolve([]),
+      isAdmin && session.user.familyId
+        ? prisma.family.findUnique({
+            where: { id: session.user.familyId },
+            select: { name: true, accentColor: true, inkColor: true, paperColor: true },
+          })
+        : Promise.resolve(null),
+      // Cookbooks: eigene + freigegebene. Admin sieht alle.
+      isAdmin
+        ? prisma.cookbook.findMany({
+            include: {
+              owner: { select: { id: true, name: true } },
+              accesses: { include: { user: { select: { id: true, name: true } } } },
+            },
+            orderBy: [{ ownerId: "asc" }, { name: "asc" }],
+          })
+        : prisma.cookbook.findMany({
+            where: {
+              OR: [
+                { ownerId: session.user.id },
+                { accesses: { some: { userId: session.user.id } } },
+              ],
+            },
+            include: {
+              owner: { select: { id: true, name: true } },
+              accesses: { include: { user: { select: { id: true, name: true } } } },
+            },
+            orderBy: [{ ownerId: "asc" }, { name: "asc" }],
+          }),
+      prisma.user.findMany({
+        where: { id: { not: session.user.id } },
+        select: { id: true, name: true, email: true },
+        orderBy: { name: "asc" },
+      }),
+    ]);
 
   const familyOptions = families.map((f) => ({ id: f.id, name: f.name }));
   const familyList = families.map((f) => ({
@@ -62,6 +91,19 @@ export default async function ProfilPage() {
     name: f.name,
     memberCount: f._count.members,
   }));
+
+  const cookbooks: ManagedCookbook[] = cookbookRows.map((c) => ({
+    id: c.id,
+    name: c.name,
+    isOwn: c.ownerId === session.user.id,
+    ownerName: c.owner.name,
+    accentColor: c.accentColor,
+    inkColor: c.inkColor,
+    paperColor: c.paperColor,
+    accesses: c.accesses.map((a) => ({ userId: a.userId, userName: a.user.name })),
+  }));
+  const ownCount = cookbooks.filter((c) => c.isOwn).length;
+  const candidateUsers = allUsers.map((u) => ({ id: u.id, name: u.name, email: u.email }));
 
   return (
     <main className="pt-safe px-safe pb-safe mx-auto max-w-2xl px-4 pt-6 pb-10 sm:px-6 sm:py-10">
@@ -86,6 +128,12 @@ export default async function ProfilPage() {
 
       <div className="space-y-8">
         <ChangePasswordForm />
+
+        <CookbookManager
+          cookbooks={cookbooks}
+          ownCount={ownCount}
+          candidateUsers={candidateUsers}
+        />
 
         <WhatsNewMount variant="button" />
 

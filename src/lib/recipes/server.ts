@@ -2,7 +2,12 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { type RecipeInput, slugify } from "@/lib/schemas/recipe";
 import { splitInstructionsToSteps, stepsToInstructions } from "@/lib/recipes/steps";
-import { visibleToFamily } from "@/lib/recipes/visibility";
+import {
+  type Actor,
+  canReadRecipe,
+  canWriteCookbook,
+  canWriteRecipe,
+} from "@/lib/cookbooks/permissions";
 
 /**
  * Resolve structured steps + the synced `instructions` text from the input.
@@ -19,7 +24,11 @@ function resolveSteps(input: RecipeInput): {
     : splitInstructionsToSteps(input.instructions);
   const instructions = input.steps?.length ? stepsToInstructions(input.steps) : input.instructions;
   return {
-    steps: source.map((s, position) => ({ position, text: s.text, durationSeconds: s.durationSeconds })),
+    steps: source.map((s, position) => ({
+      position,
+      text: s.text,
+      durationSeconds: s.durationSeconds,
+    })),
     instructions,
   };
 }
@@ -61,16 +70,17 @@ function friendlyP2002(err: unknown): never {
   throw err;
 }
 
-export async function createRecipe(input: RecipeInput, userId: string) {
+export async function createRecipe(input: RecipeInput, actor: Actor, cookbookId: string) {
+  if (!(await canWriteCookbook(actor, cookbookId)))
+    throw new Error("Keine Berechtigung fuer dieses Kochbuch");
   try {
     return await prisma.$transaction(async (tx) => {
       const slug = await uniqueSlug(tx, slugify(input.title));
-      const ingredientMap = await upsertIngredients(tx, input.ingredients.map((i) => i.name));
+      const ingredientMap = await upsertIngredients(
+        tx,
+        input.ingredients.map((i) => i.name),
+      );
       const { steps, instructions } = resolveSteps(input);
-      const creator = await tx.user.findUnique({
-        where: { id: userId },
-        select: { familyId: true },
-      });
 
       return tx.recipe.create({
         data: {
@@ -90,9 +100,8 @@ export async function createRecipe(input: RecipeInput, userId: string) {
           nutritionProteinG: input.nutritionProteinG ?? null,
           nutritionCarbsG: input.nutritionCarbsG ?? null,
           nutritionFatG: input.nutritionFatG ?? null,
-          visibility: input.visibility ?? "SHARED",
-          familyId: creator?.familyId ?? null,
-          createdById: userId,
+          cookbookId,
+          createdById: actor.id,
           categories: {
             create: input.categoryIds.map((categoryId) => ({ categoryId })),
           },
@@ -115,19 +124,25 @@ export async function createRecipe(input: RecipeInput, userId: string) {
   }
 }
 
-export async function updateRecipe(id: string, input: RecipeInput, userId: string) {
+export async function updateRecipe(id: string, input: RecipeInput, actor: Actor) {
   try {
     return await prisma.$transaction(async (tx) => {
-      const existing = await tx.recipe.findUnique({ where: { id } });
+      const existing = await tx.recipe.findUnique({
+        where: { id },
+        include: { cookbook: { select: { ownerId: true } } },
+      });
       if (!existing) throw new Error("Rezept nicht gefunden");
-      if (existing.createdById !== userId) throw new Error("Keine Berechtigung");
+      if (!(await canWriteRecipe(actor, existing))) throw new Error("Keine Berechtigung");
 
       const newSlug =
         existing.title === input.title
           ? existing.slug
           : await uniqueSlug(tx, slugify(input.title), id);
 
-      const ingredientMap = await upsertIngredients(tx, input.ingredients.map((i) => i.name));
+      const ingredientMap = await upsertIngredients(
+        tx,
+        input.ingredients.map((i) => i.name),
+      );
       const { steps, instructions } = resolveSteps(input);
 
       await tx.recipeIngredient.deleteMany({ where: { recipeId: id } });
@@ -152,7 +167,6 @@ export async function updateRecipe(id: string, input: RecipeInput, userId: strin
           nutritionProteinG: input.nutritionProteinG ?? null,
           nutritionCarbsG: input.nutritionCarbsG ?? null,
           nutritionFatG: input.nutritionFatG ?? null,
-          visibility: input.visibility ?? "SHARED",
           categories: {
             create: input.categoryIds.map((categoryId) => ({ categoryId })),
           },
@@ -175,31 +189,46 @@ export async function updateRecipe(id: string, input: RecipeInput, userId: strin
   }
 }
 
-export async function deactivateRecipe(id: string, userId: string) {
-  const existing = await prisma.recipe.findUnique({ where: { id } });
+export async function deactivateRecipe(id: string, actor: Actor) {
+  const existing = await prisma.recipe.findUnique({
+    where: { id },
+    include: { cookbook: { select: { ownerId: true } } },
+  });
   if (!existing) throw new Error("Rezept nicht gefunden");
-  if (existing.createdById !== userId) throw new Error("Keine Berechtigung");
+  if (!(await canWriteRecipe(actor, existing))) throw new Error("Keine Berechtigung");
   return prisma.recipe.update({ where: { id }, data: { isActive: false } });
 }
 
-export async function restoreRecipe(id: string, userId: string) {
-  const existing = await prisma.recipe.findUnique({ where: { id } });
+export async function restoreRecipe(id: string, actor: Actor) {
+  const existing = await prisma.recipe.findUnique({
+    where: { id },
+    include: { cookbook: { select: { ownerId: true } } },
+  });
   if (!existing) throw new Error("Rezept nicht gefunden");
-  if (existing.createdById !== userId) throw new Error("Keine Berechtigung");
+  if (!(await canWriteRecipe(actor, existing))) throw new Error("Keine Berechtigung");
   return prisma.recipe.update({ where: { id }, data: { isActive: true } });
 }
 
-export async function permanentlyDeleteRecipe(id: string, userId: string) {
-  const existing = await prisma.recipe.findUnique({ where: { id } });
+export async function permanentlyDeleteRecipe(id: string, actor: Actor) {
+  const existing = await prisma.recipe.findUnique({
+    where: { id },
+    include: { cookbook: { select: { ownerId: true } } },
+  });
   if (!existing) throw new Error("Rezept nicht gefunden");
-  if (existing.createdById !== userId) throw new Error("Keine Berechtigung");
+  if (!(await canWriteRecipe(actor, existing))) throw new Error("Keine Berechtigung");
   if (existing.isActive) throw new Error("Rezept muss zuerst deaktiviert werden");
   return prisma.recipe.delete({ where: { id } });
 }
 
-export async function getArchivedRecipes(userId: string) {
+/**
+ * Archiv eines Cookbooks. Admin sieht alle inaktiven Rezepte; normaler User
+ * sieht nur seine eigenen inaktiven Rezepte im aktiven Cookbook.
+ */
+export async function getArchivedRecipes(actor: Actor, cookbookId: string) {
+  const where: Prisma.RecipeWhereInput = { isActive: false, cookbookId };
+  if (actor.role !== "ADMIN") where.createdById = actor.id;
   return prisma.recipe.findMany({
-    where: { isActive: false, createdById: userId },
+    where,
     orderBy: { updatedAt: "desc" },
     include: {
       categories: { include: { category: true } },
@@ -208,9 +237,14 @@ export async function getArchivedRecipes(userId: string) {
   });
 }
 
-export async function getRecipeBySlug(slug: string, viewerFamilyId?: string | null) {
-  return prisma.recipe.findFirst({
-    where: { slug, isActive: true, ...visibleToFamily(viewerFamilyId) },
+/**
+ * Laedt ein Rezept und prueft, ob der Viewer es lesen darf. `viewer` darf null
+ * sein (oeffentlicher Zugriff via Share-Token laeuft ueber
+ * getRecipeByShareToken, nicht hier).
+ */
+export async function getRecipeBySlug(slug: string, viewer: Actor | null) {
+  const recipe = await prisma.recipe.findFirst({
+    where: { slug, isActive: true },
     include: {
       ingredients: {
         include: { ingredient: { include: { nutrition: true } } },
@@ -221,8 +255,15 @@ export async function getRecipeBySlug(slug: string, viewerFamilyId?: string | nu
       createdBy: { select: { id: true, name: true } },
       images: { orderBy: { order: "asc" } },
       steps: { orderBy: { position: "asc" } },
+      cookbook: { select: { id: true, name: true, ownerId: true } },
+      importedFromRecipe: { select: { id: true, slug: true, title: true, cookbookId: true } },
     },
   });
+  if (!recipe) return null;
+  if (!viewer) return null;
+  const allowed = await canReadRecipe(viewer, recipe);
+  if (!allowed) return null;
+  return recipe;
 }
 
 export async function getRecipeByShareToken(token: string) {

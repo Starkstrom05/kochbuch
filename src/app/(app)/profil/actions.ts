@@ -5,11 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
-import {
-  changePasswordSchema,
-  createUserSchema,
-  createFamilySchema,
-} from "@/lib/schemas/profile";
+import { changePasswordSchema, createUserSchema, createFamilySchema } from "@/lib/schemas/profile";
 import { seedNutrition } from "@/lib/nutrition/seed";
 
 export type ChangePasswordState =
@@ -77,7 +73,9 @@ export async function createUserAction(
   }
 
   const parsed = createUserSchema.safeParse({
-    email: String(formData.get("email") ?? "").trim().toLowerCase(),
+    email: String(formData.get("email") ?? "")
+      .trim()
+      .toLowerCase(),
     name: String(formData.get("name") ?? "").trim(),
     password: String(formData.get("password") ?? ""),
     role: String(formData.get("role") ?? "MEMBER"),
@@ -98,7 +96,7 @@ export async function createUserAction(
   }
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 10);
-  await prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       email: parsed.data.email,
       name: parsed.data.name,
@@ -106,6 +104,16 @@ export async function createUserAction(
       passwordHash,
       familyId: parsed.data.familyId ?? null,
     },
+  });
+
+  // Jeder neue User bekommt ein eigenes Kochbuch und es wird als aktiv gesetzt.
+  // Damit ist die Schreib-Berechtigung beim ersten Login bereits gegeben.
+  const cookbook = await prisma.cookbook.create({
+    data: { ownerId: user.id, name: `${parsed.data.name} Kochbuch` },
+  });
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { activeCookbookId: cookbook.id },
   });
 
   revalidatePath("/profil");

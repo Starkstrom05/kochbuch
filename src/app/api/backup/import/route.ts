@@ -42,13 +42,24 @@ export async function POST(req: Request) {
     );
   }
 
+  if (!session.user.activeCookbookId) {
+    return NextResponse.json(
+      { error: "Kein aktives Kochbuch ausgewaehlt — bitte in der Kopfzeile umschalten." },
+      { status: 400 },
+    );
+  }
+
   const summary = await applyBackup(
     data,
     async (zipPath) => {
       const entry = zip.file(zipPath);
       return entry ? await entry.async("nodebuffer") : null;
     },
-    { mode, userId: session.user.id },
+    {
+      mode,
+      actor: { id: session.user.id, role: session.user.role },
+      cookbookId: session.user.activeCookbookId,
+    },
   );
 
   return NextResponse.json(summary);
