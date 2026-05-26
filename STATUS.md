@@ -1,11 +1,11 @@
 # Kochbuch — Session-Status
 
-**Stand:** Mai 2026, v0.17.2 (Familienprojekt auf TrueNAS Scale).
+**Stand:** Mai 2026, v0.19.0 (Familienprojekt auf TrueNAS Scale).
 
 ## Wo es läuft
 
 - Repo öffentlich: https://github.com/Starkstrom05/kochbuch
-- Image in GHCR: `ghcr.io/starkstrom05/kochbuch:latest` (Tag `v0.17.2`)
+- Image in GHCR: `ghcr.io/starkstrom05/kochbuch:latest` (Tag `v0.19.0`)
 - TrueNAS Scale auf TerraMaster F4-423 (Celeron N5095, 31 GiB RAM, keine GPU)
 - LAN-Erreichbarkeit `http://<nas-ip>:3000`, HTTPS-Setup via Tailscale optional
   (siehe `docs/HTTPS-SETUP.md` — behebt den Secure-Context für Teilen/Clipboard)
@@ -37,6 +37,15 @@
   Übernahme in Einkaufsliste; optional familien-geteilt (v0.15.0).
 - **Einkaufsliste**: pro User, Konsolidierung über Rezepte, Abhaken
   (Erledigte sortieren nach unten), Drucken/Teilen mit Insecure-Context-Fallback.
+- **OurGroceries-Brücke** (v0.19.0): Opt-In-Direkt-Export der Einkaufsliste in
+  die OurGroceries-App. Per-User-Credentials AES-256-GCM-verschlüsselt (Key aus
+  `OURGROCERIES_ENCRYPTION_KEY`); Modul ist ohne Key deaktiviert. Teilen-Menü
+  bietet Klartext / OurGroceries / CSV-Download (Fallback). **Bewusste Ausnahme
+  vom Lokal-First-Prinzip** (siehe `CLAUDE.md`) — Items werden an
+  `ourgroceries.com` (USA) übertragen, nur wenn der User aktiv verbindet.
+  Reverse-engineerte API; mittleres Wartungsrisiko, automatischer CSV-Fallback
+  bei API-Bruch. E2E-Test mit Mock-Server bewusst zurückgestellt (manuelle
+  Verifikation via Setup-Seite + Push-Knopf).
 - **Vorrat** (v0.7.0): Persistente Pantry-Tabelle, deterministischer Match
   gegen Rezepte (kein LLM mehr), Fuzzy-Substring auf Zutaten-Namen
   (v0.7.3: „Ketchup" matched „Tomatenketchup"). „Fehlende → Einkaufsliste".

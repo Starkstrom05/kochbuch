@@ -119,6 +119,24 @@ muss sie `packageJson.version` verwenden.
 - Cloud-API-Calls zur Laufzeit (KI laeuft lokal via Ollama)
 - Bilder in `public/` (gehoeren ins `UPLOAD_DIR`-Volume)
 
+## Bewusste Ausnahmen vom Lokal-First-Prinzip
+
+Jede Ausnahme von „keine externen Cloud-Calls zur Laufzeit" muss hier explizit
+gelistet werden — sonst veraltet die Ausnahme zur stillen Regel. Eintragsform:
+Modulname, Datum, Datenfluss (was geht raus, wohin, warum), Opt-In-Mechanismus.
+
+- **OurGroceries-Bruecke** (seit 2026-05-26):
+  - Modul: `src/lib/integrations/ourgroceries/` + `/api/shopping-list/[id]/export/ourgroceries`
+  - Datenfluss: Auf User-Auslosung schickt der NAS-Container Einkaufslisten-Items
+    (Name, Menge, optional Kategorie, optional Rezept-Quelle als Notiz) per HTTPS
+    an `ourgroceries.com` (USA). Nur **unchecked** Items, keine Bilder/Naehrwerte.
+  - Auth: Username/Passwort pro User, AES-256-GCM-verschluesselt in
+    `UserOurGroceriesCredentials` (Key aus `OURGROCERIES_ENCRYPTION_KEY`).
+  - Opt-In: nur User mit hinterlegten Credentials exportieren; nichts passiert
+    automatisch im Hintergrund.
+  - Begruendung: OurGroceries ist der Familien-Workflow im Laden; CSV-Upload-Reibung
+    war dem User zu hoch. Wartungsrisiko (reverse-engineerte API) bewusst akzeptiert.
+
 ## Datei-Konventionen
 
 - Route-Handler: `src/app/api/<resource>/route.ts`

@@ -31,17 +31,13 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
   const checkedCount = items.filter((i) => i.checked).length;
 
   function optimisticToggle(id: string) {
-    setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, checked: !i.checked } : i)),
-    );
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, checked: !i.checked } : i)));
     startTransition(() => toggleItemAction(id));
   }
 
   function optimisticCheckGroup(group: ConsolidatedGroup) {
     const ids = group.items.map((i) => i.id);
-    setItems((prev) =>
-      prev.map((i) => (ids.includes(i.id) ? { ...i, checked: true } : i)),
-    );
+    setItems((prev) => prev.map((i) => (ids.includes(i.id) ? { ...i, checked: true } : i)));
     startTransition(() => checkAllInGroupAction(listId, ids));
   }
 
@@ -65,7 +61,7 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
           action={
             <button
               onClick={() => setShowManual(true)}
-              className="rounded-sm bg-ribbon px-5 py-2 font-hand text-xl text-paper-50"
+              className="bg-ribbon font-hand text-paper-50 rounded-sm px-5 py-2 text-xl"
             >
               + Zutat hinzufügen
             </button>
@@ -74,7 +70,10 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
         {showManual && (
           <ManualAddForm
             listId={listId}
-            onAdded={(item) => { setItems((p) => [...p, item]); setShowManual(false); }}
+            onAdded={(item) => {
+              setItems((p) => [...p, item]);
+              setShowManual(false);
+            }}
             onCancel={() => setShowManual(false)}
           />
         )}
@@ -86,7 +85,7 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="font-written text-sm text-ink-faded">
+        <span className="font-written text-ink-faded text-sm">
           {checkedCount}/{items.length} erledigt
         </span>
         <div className="flex gap-3">
@@ -94,22 +93,22 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
             <button
               onClick={optimisticClearChecked}
               disabled={isPending}
-              className="rounded-sm bg-paper-200 px-3 py-1.5 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
+              className="bg-paper-200 font-written text-ink ring-paper-300 hover:bg-paper-300/60 rounded-sm px-3 py-1.5 text-sm ring-1"
             >
               Erledigte entfernen
             </button>
           )}
-          <ShareButton groups={groups} listName={listName} />
+          <ShareButton groups={groups} listName={listName} listId={listId} />
           <button
             onClick={() => setShowManual((v) => !v)}
-            className="rounded-sm bg-paper-200 px-3 py-1.5 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
+            className="bg-paper-200 font-written text-ink ring-paper-300 hover:bg-paper-300/60 rounded-sm px-3 py-1.5 text-sm ring-1"
           >
             + Manuell
           </button>
           <button
             onClick={optimisticClearAll}
             disabled={isPending}
-            className="rounded-sm px-3 py-1.5 font-written text-sm text-ink-faded hover:text-ribbon"
+            className="font-written text-ink-faded hover:text-ribbon rounded-sm px-3 py-1.5 text-sm"
           >
             Liste leeren
           </button>
@@ -119,13 +118,16 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
       {showManual && (
         <ManualAddForm
           listId={listId}
-          onAdded={(item) => { setItems((p) => [...p, item]); setShowManual(false); }}
+          onAdded={(item) => {
+            setItems((p) => [...p, item]);
+            setShowManual(false);
+          }}
           onCancel={() => setShowManual(false)}
         />
       )}
 
       {/* Consolidated groups */}
-      <ul className="divide-y divide-paper-200">
+      <ul className="divide-paper-200 divide-y">
         {groups.map((group) => (
           <GroupRow
             key={group.name.toLowerCase()}
@@ -154,16 +156,12 @@ function GroupRow({
   const multiSource = group.items.length > 1;
 
   return (
-    <li
-      className={`py-3 transition-opacity ${group.allChecked ? "opacity-40" : ""}`}
-    >
+    <li className={`py-3 transition-opacity ${group.allChecked ? "opacity-40" : ""}`}>
       <div className="flex items-start gap-3">
         {/* Big checkbox for entire group — 44px touch target, 24px visible box */}
         <button
           onClick={() =>
-            group.allChecked
-              ? group.items.forEach((i) => onToggleItem(i.id))
-              : onCheckAll(group)
+            group.allChecked ? group.items.forEach((i) => onToggleItem(i.id)) : onCheckAll(group)
           }
           className="-my-2 -ml-2 flex h-11 w-11 flex-shrink-0 items-center justify-center"
           aria-label={group.allChecked ? "Abhaken rückgängig" : "Alle abhaken"}
@@ -184,18 +182,20 @@ function GroupRow({
           </span>
         </button>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline gap-2 flex-wrap">
-            <span className={`font-written text-lg text-ink ${group.allChecked ? "line-through" : ""}`}>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline gap-2">
+            <span
+              className={`font-written text-ink text-lg ${group.allChecked ? "line-through" : ""}`}
+            >
               {group.name}
             </span>
             {group.totalLabel && (
-              <span className="font-serif text-sm text-ink-faded">{group.totalLabel}</span>
+              <span className="text-ink-faded font-serif text-sm">{group.totalLabel}</span>
             )}
             {multiSource && (
               <button
                 onClick={() => setExpanded((v) => !v)}
-                className="font-written text-xs text-ribbon underline underline-offset-2"
+                className="font-written text-ribbon text-xs underline underline-offset-2"
               >
                 {expanded ? "▲" : "▼"} {group.items.length} Rezepte
               </button>
@@ -204,7 +204,7 @@ function GroupRow({
 
           {/* Single source label */}
           {!multiSource && group.items[0].recipeRef && (
-            <p className="font-written text-xs text-ink-faded">{group.items[0].recipeRef}</p>
+            <p className="font-written text-ink-faded text-xs">{group.items[0].recipeRef}</p>
           )}
 
           {/* Expanded individual items */}
@@ -217,9 +217,11 @@ function GroupRow({
                       type="checkbox"
                       checked={item.checked}
                       onChange={() => onToggleItem(item.id)}
-                      className="h-5 w-5 flex-shrink-0 accent-ribbon"
+                      className="accent-ribbon h-5 w-5 flex-shrink-0"
                     />
-                    <span className={`font-written text-sm ${item.checked ? "line-through text-ink-faded" : "text-ink"}`}>
+                    <span
+                      className={`font-written text-sm ${item.checked ? "text-ink-faded line-through" : "text-ink"}`}
+                    >
                       {item.amount != null
                         ? `${item.amount}${item.unit ? " " + item.unit : ""}`
                         : ""}{" "}
@@ -249,17 +251,31 @@ function buildShareText(groups: ConsolidatedGroup[], listName?: string): string 
   return `${title}\n\n${lines.join("\n")}`;
 }
 
-function ShareButton({ groups, listName }: { groups: ConsolidatedGroup[]; listName?: string }) {
+function ShareButton({
+  groups,
+  listName,
+  listId,
+}: {
+  groups: ConsolidatedGroup[];
+  listName?: string;
+  listId: string;
+}) {
   const [copied, setCopied] = useState(false);
-  // Fallback-Text, wenn weder Web Share noch Clipboard verfügbar sind (z. B. NAS
-  // über HTTP-LAN-IP → kein Secure Context). Wird im Overlay zum Kopieren angezeigt.
+  const [menuOpen, setMenuOpen] = useState(false);
   const [fallbackText, setFallbackText] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ kind: "info" | "error"; text: string } | null>(null);
+  const [ogFallback, setOgFallback] = useState<{ url: string; reason: string } | null>(null);
 
-  async function handleShare() {
+  function flash(kind: "info" | "error", text: string) {
+    setToast({ kind, text });
+    setTimeout(() => setToast(null), 4000);
+  }
+
+  async function handleShareText() {
+    setMenuOpen(false);
     const text = buildShareText(groups, listName);
     const title = listName ?? "Einkaufsliste";
 
-    // 1) Web Share API (nur im Secure Context vorhanden)
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       const payload = { title, text };
       try {
@@ -269,12 +285,10 @@ function ShareButton({ groups, listName }: { groups: ConsolidatedGroup[]; listNa
         await navigator.share(payload);
         return;
       } catch (err) {
-        // Nutzer-Abbruch ist kein Fehler → keinen Fallback auslösen
         if (err instanceof DOMException && err.name === "AbortError") return;
       }
     }
 
-    // 2) Clipboard API (braucht ebenfalls Secure Context)
     if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
       try {
         await navigator.clipboard.writeText(text);
@@ -286,22 +300,163 @@ function ShareButton({ groups, listName }: { groups: ConsolidatedGroup[]; listNa
       }
     }
 
-    // 3) Manueller Fallback — funktioniert auch ohne Secure Context
     setFallbackText(text);
+  }
+
+  async function handleOurGroceries() {
+    setMenuOpen(false);
+    try {
+      const res = await fetch(`/api/shopping-list/${listId}/export/ourgroceries`, {
+        method: "POST",
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        needsSetup?: boolean;
+        fallback?: string;
+        added?: number;
+        failed?: number;
+        listName?: string | null;
+      };
+
+      if (res.ok) {
+        const failed = data.failed ?? 0;
+        const target = data.listName ? ` (Liste »${data.listName}«)` : "";
+        flash(
+          failed > 0 ? "error" : "info",
+          failed > 0
+            ? `${data.added ?? 0} zu OurGroceries${target}, ${failed} fehlgeschlagen.`
+            : `${data.added ?? 0} Items zu OurGroceries${target} übertragen.`,
+        );
+        return;
+      }
+
+      if (res.status === 412 || data.needsSetup) {
+        flash("error", data.error ?? "Bitte zuerst mit OurGroceries verbinden.");
+        return;
+      }
+
+      // 502/503 — Fallback auf CSV anbieten
+      setOgFallback({
+        url: `/api/shopping-list/${listId}/export/csv`,
+        reason: data.error ?? "OurGroceries nicht erreichbar.",
+      });
+    } catch (err) {
+      flash("error", `Netzwerkfehler: ${(err as Error).message}`);
+    }
+  }
+
+  function handleCsvDownload() {
+    setMenuOpen(false);
+    window.location.href = `/api/shopping-list/${listId}/export/csv`;
   }
 
   return (
     <>
-      <button
-        onClick={handleShare}
-        className="rounded-sm bg-paper-200 px-3 py-1.5 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
-      >
-        {copied ? "✓ Kopiert!" : "📤 Teilen"}
-      </button>
+      <div className="relative">
+        <button
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          className="bg-paper-200 font-written text-ink ring-paper-300 hover:bg-paper-300/60 rounded-sm px-3 py-1.5 text-sm ring-1"
+        >
+          {copied ? "✓ Kopiert!" : "📤 Teilen"}
+        </button>
+        {menuOpen && (
+          <div
+            className="bg-paper-50 shadow-card ring-paper-300 absolute right-0 z-40 mt-1 w-56 rounded-sm p-1 ring-1"
+            role="menu"
+          >
+            <button
+              role="menuitem"
+              onClick={handleShareText}
+              className="font-written text-ink hover:bg-paper-200 block w-full rounded-sm px-3 py-2 text-left text-sm"
+            >
+              Klartext / Teilen-Dialog
+            </button>
+            <button
+              role="menuitem"
+              onClick={handleOurGroceries}
+              className="font-written text-ink hover:bg-paper-200 block w-full rounded-sm px-3 py-2 text-left text-sm"
+            >
+              → OurGroceries
+            </button>
+            <button
+              role="menuitem"
+              onClick={handleCsvDownload}
+              className="font-written text-ink hover:bg-paper-200 block w-full rounded-sm px-3 py-2 text-left text-sm"
+            >
+              CSV herunterladen
+            </button>
+          </div>
+        )}
+      </div>
+
       {fallbackText !== null && (
         <ShareFallback text={fallbackText} onClose={() => setFallbackText(null)} />
       )}
+
+      {toast && (
+        <div
+          className={`font-written shadow-card fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-sm px-4 py-2 text-sm ${
+            toast.kind === "error"
+              ? "bg-ribbon text-paper-50"
+              : "bg-paper-50 text-ink ring-paper-300 ring-1"
+          }`}
+          role="status"
+        >
+          {toast.text}
+        </div>
+      )}
+
+      {ogFallback && (
+        <OurGroceriesFallback
+          reason={ogFallback.reason}
+          downloadUrl={ogFallback.url}
+          onClose={() => setOgFallback(null)}
+        />
+      )}
     </>
+  );
+}
+
+function OurGroceriesFallback({
+  reason,
+  downloadUrl,
+  onClose,
+}: {
+  reason: string;
+  downloadUrl: string;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="bg-ink/40 px-safe pb-safe pt-safe fixed inset-0 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-paper-50 shadow-card ring-paper-300 w-full max-w-md rounded-sm p-4 ring-1"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="font-hand text-ink text-2xl">OurGroceries nicht erreichbar</h2>
+        <p className="font-written text-ink-faded mt-2 text-sm">{reason}</p>
+        <p className="font-written text-ink mt-3 text-sm">
+          Du kannst die Liste stattdessen als CSV herunterladen und manuell in OurGroceries
+          hochladen.
+        </p>
+        <div className="mt-4 flex justify-end gap-3">
+          <button onClick={onClose} className="font-written text-ink-faded text-sm">
+            Abbrechen
+          </button>
+          <a
+            href={downloadUrl}
+            onClick={onClose}
+            className="bg-ribbon font-hand text-paper-50 rounded-sm px-4 py-2 text-lg"
+          >
+            CSV herunterladen
+          </a>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -329,15 +484,15 @@ function ShareFallback({ text, onClose }: { text: string; onClose: () => void })
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 px-safe pb-safe pt-safe"
+      className="bg-ink/40 px-safe pb-safe pt-safe fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-sm bg-paper-50 p-4 shadow-card ring-1 ring-paper-300"
+        className="bg-paper-50 shadow-card ring-paper-300 w-full max-w-md rounded-sm p-4 ring-1"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="font-hand text-2xl text-ink">Liste teilen</h2>
-        <p className="mt-1 font-written text-sm text-ink-faded">
+        <h2 className="font-hand text-ink text-2xl">Liste teilen</h2>
+        <p className="font-written text-ink-faded mt-1 text-sm">
           Direktes Teilen ist hier nicht verfügbar. Text markieren und kopieren:
         </p>
         <textarea
@@ -345,19 +500,19 @@ function ShareFallback({ text, onClose }: { text: string; onClose: () => void })
           readOnly
           value={text}
           rows={Math.min(12, text.split("\n").length + 1)}
-          className="mt-3 w-full resize-none rounded-sm border border-dotted border-ink-light bg-paper-100 p-2 font-written text-sm text-ink outline-none"
+          className="border-ink-light bg-paper-100 font-written text-ink mt-3 w-full resize-none rounded-sm border border-dotted p-2 text-sm outline-none"
           onFocus={(e) => e.currentTarget.select()}
         />
         <div className="mt-3 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="font-written text-sm text-ink-faded hover:text-ribbon"
+            className="font-written text-ink-faded hover:text-ribbon text-sm"
           >
             Schließen
           </button>
           <button
             onClick={copyManually}
-            className="rounded-sm bg-ribbon px-4 py-2 font-hand text-lg text-paper-50"
+            className="bg-ribbon font-hand text-paper-50 rounded-sm px-4 py-2 text-lg"
           >
             {copied ? "✓ Kopiert!" : "Markieren & Kopieren"}
           </button>
@@ -388,55 +543,64 @@ function ManualAddForm({
     const amount = fd.get("amount") ? Number(String(fd.get("amount")).replace(",", ".")) : null;
     const unit = String(fd.get("unit") ?? "").trim() || null;
     const tempId = `temp-${Date.now()}`;
-    onAdded({ id: tempId, name, amount: Number.isFinite(amount!) ? amount : null, unit, recipeRef: null, checked: false });
+    onAdded({
+      id: tempId,
+      name,
+      amount: Number.isFinite(amount!) ? amount : null,
+      unit,
+      recipeRef: null,
+      checked: false,
+    });
     startTransition(() => addManualItemAction(listId, fd));
   }
 
   return (
     <form
       onSubmit={submit}
-      className="flex flex-wrap items-end gap-2 rounded-sm bg-paper-100 p-3 ring-1 ring-paper-300"
+      className="bg-paper-100 ring-paper-300 flex flex-wrap items-end gap-2 rounded-sm p-3 ring-1"
     >
-      <label className="flex-1 min-w-[140px]">
-        <span className="font-written text-xs text-ink-faded">Zutat</span>
+      <label className="min-w-[140px] flex-1">
+        <span className="font-written text-ink-faded text-xs">Zutat</span>
         <input
           name="name"
           required
           autoFocus
           placeholder="Milch"
-          className="mt-1 w-full border-b border-dotted border-ink-light bg-transparent font-written text-ink outline-none"
+          className="border-ink-light font-written text-ink mt-1 w-full border-b border-dotted bg-transparent outline-none"
         />
       </label>
       <label className="w-20">
-        <span className="font-written text-xs text-ink-faded">Menge</span>
+        <span className="font-written text-ink-faded text-xs">Menge</span>
         <input
           name="amount"
           inputMode="decimal"
           placeholder="500"
-          className="mt-1 w-full border-b border-dotted border-ink-light bg-transparent font-serif text-ink outline-none"
+          className="border-ink-light text-ink mt-1 w-full border-b border-dotted bg-transparent font-serif outline-none"
         />
       </label>
       <label className="w-16">
-        <span className="font-written text-xs text-ink-faded">Einheit</span>
+        <span className="font-written text-ink-faded text-xs">Einheit</span>
         <input
           name="unit"
           placeholder="ml"
           list="units-list"
-          className="mt-1 w-full border-b border-dotted border-ink-light bg-transparent font-serif text-ink outline-none"
+          className="border-ink-light text-ink mt-1 w-full border-b border-dotted bg-transparent font-serif outline-none"
         />
       </label>
       <datalist id="units-list">
-        {["g","kg","ml","l","EL","TL","Stk"].map((u) => <option key={u} value={u}/>)}
+        {["g", "kg", "ml", "l", "EL", "TL", "Stk"].map((u) => (
+          <option key={u} value={u} />
+        ))}
       </datalist>
       <div className="flex gap-2">
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-sm bg-ribbon px-3 py-1.5 font-hand text-lg text-paper-50"
+          className="bg-ribbon font-hand text-paper-50 rounded-sm px-3 py-1.5 text-lg"
         >
           +
         </button>
-        <button type="button" onClick={onCancel} className="font-written text-sm text-ink-faded">
+        <button type="button" onClick={onCancel} className="font-written text-ink-faded text-sm">
           ✕
         </button>
       </div>

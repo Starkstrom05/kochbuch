@@ -22,6 +22,7 @@ model User {
   pantry        PantryItem[]
   sessions      Session[]
   accounts      Account[]
+  ourGroceries  UserOurGroceriesCredentials?
 
   @@index([familyId])
 }
@@ -289,4 +290,22 @@ model MealPlanEntry {
 model AppMeta {
   key   String @id
   value String
+}
+
+// OurGroceries-Bruecke: pro User verschluesselte Zugangsdaten + gewaehlte
+// Ziel-Liste. Klartext-Username/Passwort wird AES-256-GCM-verschluesselt
+// (Key aus OURGROCERIES_ENCRYPTION_KEY). Siehe CLAUDE.md "Bewusste Ausnahmen
+// vom Lokal-First-Prinzip".
+model UserOurGroceriesCredentials {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  encryptedSecret Bytes
+  iv              Bytes
+  authTag         Bytes
+  defaultListId   String?
+  defaultListName String?
+  lastSyncAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
