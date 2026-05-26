@@ -90,6 +90,21 @@ export default async function ProfilPage() {
         <WhatsNewMount variant="button" />
 
         <Link
+          href="/hilfe"
+          className="paper-card flex items-center justify-between gap-4 p-6 transition hover:rotate-[-0.2deg]"
+        >
+          <div>
+            <h2 className="font-hand text-ink text-3xl">Hilfe</h2>
+            <p className="font-written text-ink-faded mt-1 text-sm">
+              Kurzanleitungen zu allen Funktionen.
+            </p>
+          </div>
+          <span aria-hidden className="font-hand text-ribbon text-3xl">
+            →
+          </span>
+        </Link>
+
+        <Link
           href="/profil/ourgroceries"
           className="paper-card flex items-center justify-between gap-4 p-6 transition hover:rotate-[-0.2deg]"
         >

@@ -62,9 +62,15 @@ Anleitung: [`docs/INSTALL-TRUENAS.md`](docs/INSTALL-TRUENAS.md).
 
 - **[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)** — Einstieg fuers Selbsthosten:
   Pfad-Auswahl, env-Vars-Referenz, Update-Prozedur, Backup, HTTPS, Add-Ons.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Modul-Karte und Datenfluesse
+  fuer Maintainer.
+- [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) — Dev-Setup, Konventionen,
+  Release-Prozess fuer Forks und PRs.
 - [`CHANGELOG.md`](CHANGELOG.md) — Release-Notes pro Version.
 - [`STATUS.md`](STATUS.md) — Live-Stand der Funktionen.
 - [`CLAUDE.md`](CLAUDE.md) — Code-Regeln und Konventionen.
+
+In-App fuer Familienmitglieder: **`/hilfe`** (Kurzanleitungen zu allen Funktionen).
 
 ## Status
 
