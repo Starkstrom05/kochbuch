@@ -23,7 +23,14 @@ export default async function ProfilPage() {
     getAppName(),
     isAdmin
       ? prisma.user.findMany({
-          select: { id: true, email: true, name: true, role: true, familyId: true, createdAt: true },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            familyId: true,
+            createdAt: true,
+          },
           orderBy: { createdAt: "asc" },
         })
       : Promise.resolve([]),
@@ -56,20 +63,20 @@ export default async function ProfilPage() {
   }));
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">
+    <main className="pt-safe px-safe pb-safe mx-auto max-w-2xl px-4 pt-6 pb-10 sm:px-6 sm:py-10">
       <header className="mb-8">
         <Link
           href="/rezepte"
-          className="font-written text-sm text-ribbon underline underline-offset-4"
+          className="font-written text-ribbon text-sm underline underline-offset-4"
         >
           ← zurück
         </Link>
-        <h1 className="mt-2 font-hand text-6xl text-ink ink-text">Profil</h1>
+        <h1 className="font-hand text-ink ink-text mt-2 text-6xl">Profil</h1>
         <p className="font-written text-ink-faded">
           {session.user.name ? `${session.user.name} · ` : ""}
           {session.user.email}
           {isAdmin ? (
-            <span className="ml-2 rounded-sm bg-ribbon/20 px-2 py-0.5 font-written text-xs text-ribbon">
+            <span className="bg-ribbon/20 font-written text-ribbon ml-2 rounded-sm px-2 py-0.5 text-xs">
               Admin
             </span>
           ) : null}
@@ -78,6 +85,21 @@ export default async function ProfilPage() {
 
       <div className="space-y-8">
         <ChangePasswordForm />
+
+        <Link
+          href="/profil/ourgroceries"
+          className="paper-card flex items-center justify-between gap-4 p-6 transition hover:rotate-[-0.2deg]"
+        >
+          <div>
+            <h2 className="font-hand text-ink text-3xl">OurGroceries-Brücke</h2>
+            <p className="font-written text-ink-faded mt-1 text-sm">
+              Einkaufsliste direkt in die OurGroceries-App pushen (Opt-In).
+            </p>
+          </div>
+          <span aria-hidden className="font-hand text-ribbon text-3xl">
+            →
+          </span>
+        </Link>
 
         {isAdmin ? (
           <>
