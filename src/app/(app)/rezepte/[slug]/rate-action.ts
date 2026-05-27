@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
+import { canReadRecipe } from "@/lib/cookbooks/permissions";
 
 const rateSchema = z.object({
   recipeId: z.string().min(1),
@@ -18,6 +19,8 @@ export async function rateRecipeAction(input: z.infer<typeof rateSchema>) {
   const parsed = rateSchema.parse(input);
   const recipe = await prisma.recipe.findUnique({ where: { id: parsed.recipeId } });
   if (!recipe) throw new Error("Rezept nicht gefunden");
+  const allowed = await canReadRecipe({ id: session.user.id, role: session.user.role }, recipe);
+  if (!allowed) throw new Error("Keine Berechtigung");
 
   await prisma.rating.upsert({
     where: {

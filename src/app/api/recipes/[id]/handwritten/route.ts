@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
+import { canWriteRecipe } from "@/lib/cookbooks/permissions";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import sharp from "sharp";
@@ -8,17 +9,15 @@ import sharp from "sharp";
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "./uploads";
 const MAX_BYTES = 10 * 1024 * 1024;
 
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
   const { id } = await params;
   const recipe = await prisma.recipe.findUnique({ where: { id } });
   if (!recipe) return NextResponse.json({ error: "Rezept nicht gefunden" }, { status: 404 });
-  if (recipe.createdById !== session.user.id) {
+  const allowed = await canWriteRecipe({ id: session.user.id, role: session.user.role }, recipe);
+  if (!allowed) {
     return NextResponse.json({ error: "Keine Berechtigung" }, { status: 403 });
   }
 

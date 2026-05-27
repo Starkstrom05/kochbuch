@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { WeekView } from "@/components/speiseplan/WeekView";
 import { togglePlanShareAction } from "../actions";
+import { readableCookbookIds } from "@/lib/cookbooks/permissions";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -24,6 +25,11 @@ export default async function SpeiseplanDetailPage({ params }: Props) {
 
   const { id } = await params;
 
+  const cookbookIds = await readableCookbookIds({
+    id: session.user.id,
+    role: session.user.role,
+  });
+
   const [plan, allRecipes] = await Promise.all([
     prisma.mealPlan.findUnique({
       where: { id },
@@ -38,7 +44,7 @@ export default async function SpeiseplanDetailPage({ params }: Props) {
       },
     }),
     prisma.recipe.findMany({
-      where: { isActive: true },
+      where: { isActive: true, cookbookId: { in: cookbookIds } },
       select: { id: true, title: true, servings: true },
       orderBy: { title: "asc" },
     }),
@@ -46,8 +52,7 @@ export default async function SpeiseplanDetailPage({ params }: Props) {
 
   if (!plan) notFound();
   const isOwner = plan.ownerId === session.user.id;
-  const canView =
-    isOwner || (plan.familyShared && plan.owner.familyId === session.user.familyId);
+  const canView = isOwner || (plan.familyShared && plan.owner.familyId === session.user.familyId);
   if (!canView) redirect("/speiseplan");
 
   // Dates aus der DB sind UTC. Lokale getDate/getDay würde je nach
@@ -70,10 +75,10 @@ export default async function SpeiseplanDetailPage({ params }: Props) {
   });
 
   return (
-    <main className="mx-auto max-w-7xl px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">
+    <main className="pt-safe px-safe pb-safe mx-auto max-w-7xl px-4 pt-6 pb-10 sm:px-6 sm:py-10">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-hand text-5xl text-ink ink-text">{plan.name}</h1>
+          <h1 className="font-hand text-ink ink-text text-5xl">{plan.name}</h1>
           <p className="font-written text-ink-faded">
             {weekStart.toLocaleDateString("de-DE", {
               day: "numeric",
@@ -88,7 +93,7 @@ export default async function SpeiseplanDetailPage({ params }: Props) {
             <form action={togglePlanShareAction.bind(null, plan.id)}>
               <button
                 type="submit"
-                className="rounded-sm bg-paper-200 px-3 py-1.5 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
+                className="bg-paper-200 font-written text-ink ring-paper-300 hover:bg-paper-300/60 rounded-sm px-3 py-1.5 text-sm ring-1"
               >
                 {plan.familyShared ? "🔗 Freigabe aufheben" : "Für Familie freigeben"}
               </button>
@@ -97,13 +102,13 @@ export default async function SpeiseplanDetailPage({ params }: Props) {
           <a
             href={`/api/speiseplan/${plan.id}/pdf`}
             download
-            className="rounded-sm bg-paper-200 px-3 py-1.5 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
+            className="bg-paper-200 font-written text-ink ring-paper-300 hover:bg-paper-300/60 rounded-sm px-3 py-1.5 text-sm ring-1"
           >
             📄 PDF
           </a>
           <Link
             href="/speiseplan"
-            className="font-written text-sm text-ink-faded underline underline-offset-4"
+            className="font-written text-ink-faded text-sm underline underline-offset-4"
           >
             ← alle Pläne
           </Link>

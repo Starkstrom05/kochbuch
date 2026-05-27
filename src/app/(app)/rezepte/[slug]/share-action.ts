@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
+import { canWriteRecipe } from "@/lib/cookbooks/permissions";
 
 export async function toggleShareAction(
   recipeId: string,
@@ -13,7 +14,8 @@ export async function toggleShareAction(
 
   const recipe = await prisma.recipe.findUnique({ where: { id: recipeId } });
   if (!recipe) throw new Error("Rezept nicht gefunden");
-  if (recipe.createdById !== session.user.id) throw new Error("Keine Berechtigung");
+  const allowed = await canWriteRecipe({ id: session.user.id, role: session.user.role }, recipe);
+  if (!allowed) throw new Error("Keine Berechtigung");
 
   let newState: { isPublic: boolean; token: string | null };
   if (recipe.isPublic && recipe.shareToken) {

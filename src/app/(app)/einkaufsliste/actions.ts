@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
+import { canReadRecipe } from "@/lib/cookbooks/permissions";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -34,6 +35,8 @@ export async function addRecipeToListAction(recipeId: string, targetServings?: n
     include: { ingredients: { include: { ingredient: true }, orderBy: { order: "asc" } } },
   });
   if (!recipe) throw new Error("Rezept nicht gefunden");
+  const allowed = await canReadRecipe({ id: user.id, role: user.role }, recipe);
+  if (!allowed) throw new Error("Keine Berechtigung");
 
   const list = await getOrCreateList(user.id);
   const scale = targetServings && targetServings > 0 ? targetServings / recipe.servings : 1;
