@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
+import { canReadRecipe } from "@/lib/cookbooks/permissions";
 import { buildShoppingItemsForEntries } from "@/lib/speiseplan/shopping-export";
 
 async function requireUser() {
@@ -55,6 +56,14 @@ export async function addMealEntryAction(
 ) {
   const user = await requireUser();
   await requirePlanOwner(planId, user.id);
+
+  const recipe = await prisma.recipe.findUnique({
+    where: { id: recipeId },
+    select: { cookbookId: true },
+  });
+  if (!recipe) throw new Error("Rezept nicht gefunden");
+  const allowed = await canReadRecipe({ id: user.id, role: user.role }, recipe);
+  if (!allowed) throw new Error("Keine Berechtigung");
 
   const existingCount = await prisma.mealPlanEntry.count({ where: { planId, dayIndex } });
 

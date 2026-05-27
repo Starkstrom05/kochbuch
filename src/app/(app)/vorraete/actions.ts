@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
+import { canReadRecipe } from "@/lib/cookbooks/permissions";
 import {
   addPantryItem,
   buildMatcher,
@@ -37,12 +38,7 @@ export async function addPantryItemAction(formData: FormData) {
   const amount = amountRaw ? Number(amountRaw.replace(",", ".")) : null;
   const unit = String(formData.get("unit") ?? "").trim() || null;
 
-  await addPantryItem(
-    user.id,
-    name,
-    Number.isFinite(amount as number) ? amount : null,
-    unit,
-  );
+  await addPantryItem(user.id, name, Number.isFinite(amount as number) ? amount : null, unit);
   revalidatePath("/vorraete");
 }
 
@@ -72,6 +68,8 @@ export async function addMissingToListAction(recipeId: string) {
     },
   });
   if (!recipe) throw new Error("Rezept nicht gefunden");
+  const allowed = await canReadRecipe({ id: user.id, role: user.role }, recipe);
+  if (!allowed) throw new Error("Keine Berechtigung");
 
   const pantry = await prisma.pantryItem.findMany({
     where: { ownerId: user.id },
