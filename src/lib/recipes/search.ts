@@ -13,6 +13,29 @@ export type RecipeSearch = {
 };
 
 /**
+ * Token-Liste in einen FTS5-MATCH-String konvertieren:
+ *  - Sonderzeichen, die FTS-Syntax sind (", *, NEAR, OR …), werden in
+ *    Anführungszeichen verpackt (Phrase-Match).
+ *  - Jedes Token bekommt einen Prefix-`*` für „beginnt mit"-Match — sonst
+ *    findet die Suche "tom" das Rezept "Tomatensuppe" nicht.
+ *  - Mehrere Tokens werden mit `AND` (impliziter Default) verknuepft.
+ *
+ * Exportiert fuer Unit-Tests.
+ */
+export function buildFtsQuery(rawTerm: string): string {
+  return rawTerm
+    .split(/\s+/)
+    .filter((t) => t.length > 0)
+    .map((t) => {
+      // Innere Quotes verdoppeln (FTS5-Escape), dann gesamtes Token quoten +
+      // Prefix-Stern. "1/2" bleibt zusammen, "kann's" wird sauber gehandhabt.
+      const escaped = t.replace(/"/g, '""');
+      return `"${escaped}"*`;
+    })
+    .join(" ");
+}
+
+/**
  * Baut die WHERE-Klausel + optional die `id IN (...)`-Einschnitt-Liste fuer
  * den Stern-Filter. Geteilte Logik zwischen `searchRecipes` und
  * `searchRecipesFull`.
@@ -26,12 +49,20 @@ async function buildSearchWhere(search: RecipeSearch): Promise<Prisma.RecipeWher
 
   if (q && q.trim()) {
     const term = q.trim();
+    // FTS5-Volltext-Match fuer title/description/instructions/tags.
+    // Ingredient-Namen muessen separat per Prisma-Relational gefiltert werden,
+    // weil die FTS-Tabelle nur die Recipe-Spalten spiegelt (siehe Migration).
+    const ftsQuery = buildFtsQuery(term);
+    const ftsHits = ftsQuery
+      ? await prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
+          SELECT r.id FROM "Recipe" r
+          JOIN "recipe_fts" fts ON r.rowid = fts.rowid
+          WHERE "recipe_fts" MATCH ${ftsQuery}
+        `)
+      : [];
     and.push({
       OR: [
-        { title: { contains: term } },
-        { description: { contains: term } },
-        { instructions: { contains: term } },
-        { tags: { contains: term } },
+        { id: { in: ftsHits.map((h) => h.id) } },
         { ingredients: { some: { ingredient: { name: { contains: term } } } } },
       ],
     });
