@@ -3,10 +3,16 @@
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { auth, signOut } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { changePasswordSchema, createUserSchema, createFamilySchema } from "@/lib/schemas/profile";
 import { seedNutrition } from "@/lib/nutrition/seed";
+
+const assignUserFamilySchema = z.object({
+  userId: z.string().min(1).max(64),
+  familyId: z.string().min(1).max(64).nullable(),
+});
 
 export type ChangePasswordState =
   | { status: "idle" }
@@ -181,11 +187,18 @@ export async function createFamilyAction(formData: FormData) {
 export async function assignUserFamilyAction(userId: string, familyId: string) {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") throw new Error("Keine Berechtigung");
-  const fam = familyId
-    ? await prisma.family.findUnique({ where: { id: familyId }, select: { id: true } })
+  const parsed = assignUserFamilySchema.parse({
+    userId,
+    familyId: familyId ? familyId : null,
+  });
+  const fam = parsed.familyId
+    ? await prisma.family.findUnique({
+        where: { id: parsed.familyId },
+        select: { id: true },
+      })
     : null;
   await prisma.user.update({
-    where: { id: userId },
+    where: { id: parsed.userId },
     data: { familyId: fam?.id ?? null },
   });
   revalidatePath("/profil");

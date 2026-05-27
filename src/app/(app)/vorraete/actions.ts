@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { canReadRecipe } from "@/lib/cookbooks/permissions";
@@ -12,6 +13,12 @@ import {
   matchesPantry,
   removePantryItem,
 } from "@/lib/pantry/server";
+
+const pantryItemSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  amount: z.number().finite().min(0).max(99999).nullable(),
+  unit: z.string().trim().max(30).nullable(),
+});
 
 async function requireUser() {
   const session = await auth();
@@ -32,13 +39,19 @@ async function getOrCreateList(userId: string) {
 
 export async function addPantryItemAction(formData: FormData) {
   const user = await requireUser();
-  const name = String(formData.get("name") ?? "").trim();
-  if (!name) return;
+  const nameRaw = String(formData.get("name") ?? "").trim();
+  if (!nameRaw) return;
   const amountRaw = String(formData.get("amount") ?? "");
-  const amount = amountRaw ? Number(amountRaw.replace(",", ".")) : null;
-  const unit = String(formData.get("unit") ?? "").trim() || null;
+  const amountParsed = amountRaw ? Number(amountRaw.replace(",", ".")) : null;
+  const unitRaw = String(formData.get("unit") ?? "").trim() || null;
 
-  await addPantryItem(user.id, name, Number.isFinite(amount as number) ? amount : null, unit);
+  const parsed = pantryItemSchema.parse({
+    name: nameRaw,
+    amount: Number.isFinite(amountParsed as number) ? amountParsed : null,
+    unit: unitRaw,
+  });
+
+  await addPantryItem(user.id, parsed.name, parsed.amount, parsed.unit);
   revalidatePath("/vorraete");
 }
 
