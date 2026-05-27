@@ -217,6 +217,18 @@ export async function permanentlyDeleteRecipe(id: string, actor: Actor) {
   if (!existing) throw new Error("Rezept nicht gefunden");
   if (!(await canWriteRecipe(actor, existing))) throw new Error("Keine Berechtigung");
   if (existing.isActive) throw new Error("Rezept muss zuerst deaktiviert werden");
+
+  // MealPlanEntry.recipeId hat onDelete: Restrict — ohne Pre-Check wuerde
+  // ein hartes Delete mit P2003 scheitern und der User saehe eine kryptische
+  // Prisma-Fehlermeldung. Lieber freundlich mit Hinweis, in welchen Plaenen
+  // das Rezept noch eingeplant ist.
+  const planRefs = await prisma.mealPlanEntry.count({ where: { recipeId: id } });
+  if (planRefs > 0) {
+    throw new Error(
+      `Rezept ist in ${planRefs} Speiseplan-Eintrag${planRefs === 1 ? "" : "en"} eingeplant — bitte zuerst dort entfernen.`,
+    );
+  }
+
   return prisma.recipe.delete({ where: { id } });
 }
 

@@ -144,17 +144,13 @@ export async function reconcileImages(recipeId: string, orderedIds: string[]): P
   }
   // Two-pass reorder via negative offsets, damit unique-Konstraints
   // (falls je nachgezogen) sicher umgangen sind. Aktuell hat (recipeId, order)
-  // keinen unique-Index, aber so bleibt's konfliktfrei.
-  for (let i = 0; i < orderedIds.length; i++) {
-    await prisma.recipeImage.update({
-      where: { id: orderedIds[i] },
-      data: { order: -(i + 1) },
-    });
-  }
-  for (let i = 0; i < orderedIds.length; i++) {
-    await prisma.recipeImage.update({
-      where: { id: orderedIds[i] },
-      data: { order: i },
-    });
-  }
+  // keinen unique-Index, aber so bleibt's konfliktfrei. In einer Transaktion
+  // gebuendelt, damit ein Crash mitten in den 2N UPDATEs den Bildersatz nicht
+  // teilweise im negativen Offset stehen laesst.
+  await prisma.$transaction([
+    ...orderedIds.map((id, i) =>
+      prisma.recipeImage.update({ where: { id }, data: { order: -(i + 1) } }),
+    ),
+    ...orderedIds.map((id, i) => prisma.recipeImage.update({ where: { id }, data: { order: i } })),
+  ]);
 }
