@@ -249,8 +249,16 @@ async function fetchHtmlViaPuppeteer(url: string, externalSignal?: AbortSignal):
         Object.defineProperty(navigator, "plugins", { get: () => [1, 2, 3, 4, 5] });
       });
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
-      // Cloudflare-Challenge kann ein paar Sekunden brauchen
-      await new Promise((r) => setTimeout(r, 3_000));
+      // Auf JSON-LD warten — typische Rezept-Seiten (Chefkoch, Rewe, …)
+      // injizieren das nach dem Cloudflare-Challenge. Statt 3 s pauschal zu
+      // sleepen blockieren wir nur, bis das Skript da ist, max 5 s. Seiten
+      // ohne JSON-LD fallen durch den catch und gehen sofort weiter — der
+      // anschliessende Parser hat seinen eigenen "kein JSON-LD"-Pfad.
+      await page
+        .waitForFunction(() => !!document.querySelector('script[type="application/ld+json"]'), {
+          timeout: 5_000,
+        })
+        .catch(() => undefined);
       return await page.content();
     });
   });

@@ -25,6 +25,20 @@ export function decideWriteCookbook(actor: Actor, cookbook: { ownerId: string })
 }
 
 /**
+ * Pure Schreib-Entscheidung fuer ein bereits geladenes Rezept. Erspart einen
+ * weiteren Cookbook-Lookup, wenn das Rezept schon mit `cookbook: { ownerId }`
+ * im Include kommt — sonst lieber `canWriteRecipe` benutzen.
+ */
+export function decideWriteRecipe(
+  actor: Actor,
+  recipe: { cookbook?: { ownerId: string } | null },
+): boolean {
+  if (actor.role === "ADMIN") return true;
+  if (!recipe.cookbook) return false;
+  return recipe.cookbook.ownerId === actor.id;
+}
+
+/**
  * Pure Permission-Entscheidung ohne DB. Owner, eingetragener Viewer oder
  * ADMIN duerfen lesen.
  */
