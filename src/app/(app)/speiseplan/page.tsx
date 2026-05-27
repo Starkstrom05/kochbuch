@@ -3,18 +3,22 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { EmptyState } from "@/components/oma/EmptyState";
+import { cookbookSharingPeerIds } from "@/lib/speiseplan/permissions";
 
 export default async function SpeiseplanPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
+  const peerIds = await cookbookSharingPeerIds({
+    id: session.user.id,
+    role: session.user.role,
+  });
+
   const plans = await prisma.mealPlan.findMany({
     where: {
       OR: [
         { ownerId: session.user.id },
-        ...(session.user.familyId
-          ? [{ familyShared: true, owner: { familyId: session.user.familyId } }]
-          : []),
+        ...(peerIds.length > 0 ? [{ familyShared: true, ownerId: { in: peerIds } }] : []),
       ],
     },
     orderBy: { createdAt: "desc" },
@@ -25,22 +29,22 @@ export default async function SpeiseplanPage() {
   });
 
   return (
-    <main className="mx-auto max-w-4xl px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">
+    <main className="pt-safe px-safe pb-safe mx-auto max-w-4xl px-4 pt-6 pb-10 sm:px-6 sm:py-10">
       <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-hand text-5xl text-ink ink-text">Speiseplan</h1>
+          <h1 className="font-hand text-ink ink-text text-5xl">Speiseplan</h1>
           <p className="font-written text-ink-faded">Wochenpläne &amp; Mahlzeiten</p>
         </div>
         <div className="flex items-center gap-4">
           <Link
             href="/rezepte"
-            className="font-written text-sm text-ink-faded underline underline-offset-4"
+            className="font-written text-ink-faded text-sm underline underline-offset-4"
           >
             ← Rezepte
           </Link>
           <Link
             href="/speiseplan/neu"
-            className="inline-flex min-h-[44px] items-center rounded-sm bg-ribbon px-4 font-hand text-xl text-paper-50 shadow-card hover:rotate-[-0.5deg]"
+            className="bg-ribbon font-hand text-paper-50 shadow-card inline-flex min-h-[44px] items-center rounded-sm px-4 text-xl hover:rotate-[-0.5deg]"
           >
             + Neuer Plan
           </Link>
@@ -55,7 +59,7 @@ export default async function SpeiseplanPage() {
           action={
             <Link
               href="/speiseplan/neu"
-              className="inline-block rounded-sm bg-ribbon px-6 py-2 font-hand text-2xl text-paper-50 shadow-card"
+              className="bg-ribbon font-hand text-paper-50 shadow-card inline-block rounded-sm px-6 py-2 text-2xl"
             >
               Neuer Plan
             </Link>
@@ -75,13 +79,13 @@ export default async function SpeiseplanPage() {
             return (
               <li key={plan.id} className={`paper-card ${tilt} p-5`}>
                 <Link href={`/speiseplan/${plan.id}`}>
-                  <h2 className="font-hand text-3xl text-ink">{plan.name}</h2>
-                  <p className="mt-1 font-written text-ink-faded">{dateStr}</p>
-                  <p className="mt-2 font-written text-sm text-ink-faded">
+                  <h2 className="font-hand text-ink text-3xl">{plan.name}</h2>
+                  <p className="font-written text-ink-faded mt-1">{dateStr}</p>
+                  <p className="font-written text-ink-faded mt-2 text-sm">
                     {plan._count.entries} Mahlzeit{plan._count.entries !== 1 ? "en" : ""}
                   </p>
                   {plan.ownerId !== session.user.id ? (
-                    <p className="mt-1 font-written text-xs text-ribbon">
+                    <p className="font-written text-ribbon mt-1 text-xs">
                       🔗 von {plan.owner.name} geteilt
                     </p>
                   ) : null}

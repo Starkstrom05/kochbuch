@@ -2,13 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { renderPdf } from "@/lib/pdf/render";
+import { canViewMealPlan } from "@/lib/speiseplan/permissions";
 
 export const maxDuration = 120;
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
@@ -20,14 +18,11 @@ export async function GET(
       name: true,
       ownerId: true,
       familyShared: true,
-      owner: { select: { familyId: true } },
     },
   });
 
   if (!plan) return NextResponse.json({ error: "Plan nicht gefunden" }, { status: 404 });
-  const canView =
-    plan.ownerId === session.user.id ||
-    (plan.familyShared && plan.owner.familyId === session.user.familyId);
+  const canView = await canViewMealPlan({ id: session.user.id, role: session.user.role }, plan);
   if (!canView) {
     return NextResponse.json({ error: "Keine Berechtigung" }, { status: 403 });
   }
