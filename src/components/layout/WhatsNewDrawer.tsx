@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Release } from "@/lib/changelog/parse";
 import { compareSemver } from "@/lib/changelog/parse";
+import { OmaDialog } from "@/components/oma/Dialog";
 
 const STORAGE_KEY = "kochbuch.lastSeenReleaseNotes";
 
@@ -90,65 +91,64 @@ export function WhatsNewButton({ currentVersion, releases }: Props) {
 
 function WhatsNewDialog({ releases, onClose }: { releases: Release[]; onClose: () => void }) {
   return (
-    <div
-      className="bg-ink/40 px-safe pb-safe pt-safe fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center"
-      onClick={onClose}
+    <OmaDialog
+      open
+      onClose={onClose}
+      labelledBy="whats-new-title"
+      className="bg-paper-50 shadow-card ring-paper-300 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-sm p-6 ring-1"
     >
-      <div
-        className="bg-paper-50 shadow-card ring-paper-300 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-sm p-6 ring-1"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="mb-4 flex items-baseline justify-between gap-4">
-          <h2 className="font-hand text-ink ink-text text-4xl">Was ist neu?</h2>
-          <button
-            onClick={onClose}
-            className="font-written text-ink-faded hover:text-ribbon text-sm"
-            aria-label="Schließen"
-          >
-            ✕
-          </button>
-        </header>
+      <header className="mb-4 flex items-baseline justify-between gap-4">
+        <h2 id="whats-new-title" className="font-hand text-ink ink-text text-4xl">
+          Was ist neu?
+        </h2>
+        <button
+          onClick={onClose}
+          className="font-written text-ink-faded hover:text-ribbon text-sm"
+          aria-label="Schließen"
+        >
+          ✕
+        </button>
+      </header>
 
-        <div className="space-y-8">
-          {releases.map((release) => (
-            <section key={release.version}>
-              <h3 className="font-hand text-ink text-2xl">
-                v{release.version}
-                {release.date ? (
-                  <span className="font-written text-ink-faded ml-3 text-sm">
-                    {formatDate(release.date)}
-                  </span>
-                ) : null}
-              </h3>
-              <div className="mt-3 space-y-4">
-                {release.sections.map((section) => (
-                  <div key={section.title}>
-                    <h4 className="font-hand text-ribbon text-lg">{section.title}</h4>
-                    <ul className="mt-1 list-disc space-y-1 pl-5">
-                      {section.items.map((item, idx) => (
-                        <li key={idx} className="font-written text-ink text-sm">
-                          <ReleaseNoteItem text={item} />
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-
-        <div className="mt-6 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="bg-ribbon font-hand text-paper-50 shadow-card rounded-sm px-4 py-2 text-lg"
-          >
-            Verstanden
-          </button>
-        </div>
+      <div className="space-y-8">
+        {releases.map((release) => (
+          <section key={release.version}>
+            <h3 className="font-hand text-ink text-2xl">
+              v{release.version}
+              {release.date ? (
+                <span className="font-written text-ink-faded ml-3 text-sm">
+                  {formatDate(release.date)}
+                </span>
+              ) : null}
+            </h3>
+            <div className="mt-3 space-y-4">
+              {release.sections.map((section) => (
+                <div key={section.title}>
+                  <h4 className="font-hand text-ribbon text-lg">{section.title}</h4>
+                  <ul className="mt-1 list-disc space-y-1 pl-5">
+                    {section.items.map((item, idx) => (
+                      <li key={idx} className="font-written text-ink text-sm">
+                        <ReleaseNoteItem text={item} />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
       </div>
-    </div>
+
+      <div className="mt-6 flex justify-end">
+        <button
+          type="button"
+          onClick={onClose}
+          className="bg-ribbon font-hand text-paper-50 shadow-card rounded-sm px-4 py-2 text-lg"
+        >
+          Verstanden
+        </button>
+      </div>
+    </OmaDialog>
   );
 }
 
