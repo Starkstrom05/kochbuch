@@ -30,6 +30,22 @@ export async function usersShareCookbook(userA: string, userB: string): Promise<
   return hit !== null;
 }
 
+/**
+ * Pure Sichtbarkeits-Entscheidung ohne DB-Lookup. `sharedCookbook` muss vom
+ * Caller vorab ermittelt werden (z. B. via `usersShareCookbook`). Ermoeglicht
+ * Unit-Tests ohne Prisma-Mock und teilt den Pfad mit `canViewMealPlan`.
+ */
+export function decideViewMealPlan(
+  actor: Actor,
+  plan: MealPlanForVisibility,
+  sharedCookbook: boolean,
+): boolean {
+  if (actor.role === "ADMIN") return true;
+  if (plan.ownerId === actor.id) return true;
+  if (!plan.familyShared) return false;
+  return sharedCookbook;
+}
+
 export async function canViewMealPlan(actor: Actor, plan: MealPlanForVisibility): Promise<boolean> {
   if (actor.role === "ADMIN") return true;
   if (plan.ownerId === actor.id) return true;
