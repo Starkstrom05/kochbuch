@@ -10,6 +10,7 @@ import {
   shareCookbookAction,
   updateCookbookBrandingAction,
 } from "@/app/(app)/cookbook-actions";
+import { useOmaConfirm, useOmaAlert } from "@/components/oma/useConfirm";
 
 export type ManagedCookbook = {
   id: string;
@@ -64,6 +65,8 @@ function CookbookCard({
   const [custom, setCustom] = useState(
     Boolean(cookbook.accentColor || cookbook.inkColor || cookbook.paperColor),
   );
+  const { confirm, dialog: confirmDialog } = useOmaConfirm();
+  const { alert, dialog: alertDialog } = useOmaAlert();
   const [showAccess, setShowAccess] = useState(false);
 
   function handleRename(e: React.FormEvent<HTMLFormElement>) {
@@ -101,14 +104,23 @@ function CookbookCard({
     });
   }
 
-  function handleDelete() {
-    if (!confirm(`Kochbuch "${cookbook.name}" und alle enthaltenen Rezepte loeschen?`)) return;
+  async function handleDelete() {
+    const ok = await confirm({
+      title: "Kochbuch löschen?",
+      message: `„${cookbook.name}" und alle enthaltenen Rezepte werden unwiderruflich gelöscht.`,
+      confirmLabel: "Löschen",
+      variant: "danger",
+    });
+    if (!ok) return;
     startTransition(async () => {
       try {
         await deleteCookbookAction(cookbook.id);
         router.refresh();
       } catch (e) {
-        alert(e instanceof Error ? e.message : "Fehler beim Loeschen");
+        await alert({
+          title: "Fehler beim Löschen",
+          message: e instanceof Error ? e.message : "Unbekannter Fehler",
+        });
       }
     });
   }
@@ -254,6 +266,8 @@ function CookbookCard({
           </button>
         </div>
       ) : null}
+      {confirmDialog}
+      {alertDialog}
     </div>
   );
 }

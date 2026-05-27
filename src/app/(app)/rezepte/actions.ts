@@ -18,6 +18,7 @@ import {
 } from "@/lib/recipes/images";
 import { MAX_UPLOAD_BYTES } from "@/lib/images/upload";
 import { recipeInputSchema } from "@/lib/schemas/recipe";
+import { actorFromSession } from "@/lib/auth/helpers";
 
 function parseIngredients(formData: FormData) {
   const names = formData.getAll("ing-name").map((v) => String(v));
@@ -156,10 +157,6 @@ async function processImagesFromFormData(
       );
     }
   }
-}
-
-function actorFromSession(session: { user: { id: string; role: string } }) {
-  return { id: session.user.id, role: session.user.role as "ADMIN" | "MEMBER" | "CHILD" };
 }
 
 export async function createRecipeAction(formData: FormData) {
