@@ -167,6 +167,18 @@ export async function deleteUserAction(targetId: string) {
       throw new Error("Der letzte Admin kann nicht gelöscht werden");
     }
   }
+
+  // Recipe.createdById ist Restrict — ein User mit eigenen Rezepten kann nicht
+  // einfach geloescht werden, ohne dass Prisma mit P2003 wirft. Vorab pruefen
+  // und konkret melden, damit der Admin weiss, was zu tun ist (Rezepte in ein
+  // anderes Cookbook klonen oder den User vorher entleeren).
+  const ownedRecipes = await prisma.recipe.count({ where: { createdById: targetId } });
+  if (ownedRecipes > 0) {
+    throw new Error(
+      `User besitzt noch ${ownedRecipes} Rezept${ownedRecipes === 1 ? "" : "e"} — bitte zuerst in ein anderes Kochbuch klonen oder loeschen.`,
+    );
+  }
+
   await prisma.user.delete({ where: { id: targetId } });
   revalidatePath("/profil");
 }
