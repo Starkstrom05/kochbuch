@@ -1,11 +1,11 @@
 # Kochbuch — Session-Status
 
-**Stand:** Mai 2026, v0.22.2 (Familienprojekt auf TrueNAS Scale).
+**Stand:** Mai 2026, v0.22.11 (Familienprojekt auf TrueNAS Scale).
 
 ## Wo es läuft
 
 - Repo öffentlich: https://github.com/Starkstrom05/kochbuch
-- Image in GHCR: `ghcr.io/starkstrom05/kochbuch:latest` (Tag `v0.22.2`)
+- Image in GHCR: `ghcr.io/starkstrom05/kochbuch:latest` (Tag `v0.22.11`)
 - TrueNAS Scale auf TerraMaster F4-423 (Celeron N5095, 31 GiB RAM, keine GPU)
 - LAN-Erreichbarkeit `http://<nas-ip>:3000`, HTTPS-Setup via Tailscale optional
   (siehe `docs/HTTPS-SETUP.md` — behebt den Secure-Context für Teilen/Clipboard)
@@ -89,8 +89,33 @@ Seit Multi-Cookbook (v0.22.0):
   Lese-Berechtigung aufs Cookbook. Internal-Token-Bypass fuer Puppeteer
   bleibt. Anonyme `/api/images`-Requests werden weiterhin in `proxy.ts` mit
   401 geblockt.
-- Testabdeckung: 182 Unit-Tests (inkl. 11 Permission-Matrix-Tests) + 13 E2E
-  (Playwright).
+
+Aus dem Review-Pass v0.22.3 – v0.22.11 (Sicherheits-/Performance-Sweep):
+
+- **Cookbook-Permissions** an allen Server-Action-/API-Grenzen durchgezogen
+  (`rateRecipe`, `addRecipeToList`, `addMissingToList`, `addMealEntry`,
+  `share-action`, `handwritten`). Schliesst Pfade, ueber die per Recipe-ID-
+  Guess Titel/Zutaten aus fremden Cookbooks exfiltriert werden konnten.
+- **Speiseplan-Picker** + Speiseplan-Sharing folgen dem Cookbook-Sharing-Graphen
+  statt der seit v0.22 faktisch toten `User.familyId`.
+- **Image-Import** mit `Content-Length`-Cap + Streaming-Limit + manuellem
+  Redirect-Reject; Web-Import mit Hop-Counter; image-proxy lehnt 30x ab.
+- **Quotas + Zod-Validierung** an allen offenen Server-Action-Grenzen
+  (Einkaufsliste, Vorraete, Speiseplan, Admin); Cookbook-Quota auf 20/User.
+- **SQLite WAL** + `busy_timeout` aktiv — kein `SQLITE_BUSY` mehr zwischen
+  PDF-Renderer und Save.
+- **Tesseract-Worker** als Singleton mit Mutex (statt Sprachpaket-Neuladen).
+- **Ollama-Retries** auf 2 statt 3 gedeckelt; **JSON-LD-Wait** statt 3 s
+  pauschal beim Web-Import.
+- **OmaDialog** als zentraler a11y-Wrapper mit Focus-Trap/Escape/Body-Scroll-
+  Lock; ersetzt `window.confirm/alert` an allen Stellen.
+- **FTS5-Volltextsuche** (v0.22.11) loest die 5x-LIKE-Klauseln ab.
+
+### Testabdeckung
+
+- **222 Unit-Tests** (vorher 182): u. a. `extractJson`/`aiRecipeSchema`/`scale`,
+  `decideViewMealPlan`, `buildFtsQuery`.
+- **13 E2E** (Playwright) unveraendert.
 
 ## Entwicklung / CI
 
