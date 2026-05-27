@@ -13,6 +13,7 @@ import { RecipeGallery } from "@/components/recipe/RecipeGallery";
 import { PdfLink } from "@/components/recipe/PdfLink";
 import { CloneRecipeButton } from "@/components/recipe/CloneRecipeButton";
 import { deactivateRecipeAction } from "../actions";
+import { decideWriteRecipe } from "@/lib/cookbooks/permissions";
 import packageJson from "../../../../../package.json";
 import { addRecipeToListAction } from "../../einkaufsliste/actions";
 import { AddToMealPlanButton } from "@/components/speiseplan/AddToMealPlanButton";
@@ -39,8 +40,7 @@ export default async function RecipeDetailPage({
 
   // Schreibrecht: Owner des zugehoerigen Cookbooks ODER ADMIN.
   const canWrite =
-    !!session?.user &&
-    (session.user.role === "ADMIN" || recipe.cookbook?.ownerId === session.user.id);
+    !!session?.user && decideWriteRecipe({ id: session.user.id, role: session.user.role }, recipe);
   const inActiveCookbook =
     !!session?.user?.activeCookbookId && recipe.cookbookId === session.user.activeCookbookId;
 

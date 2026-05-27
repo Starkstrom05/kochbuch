@@ -6,6 +6,7 @@ import { getRecipeBySlug } from "@/lib/recipes/server";
 import { categoryVisibleToFamily } from "@/lib/recipes/visibility";
 import { RecipeEditor } from "@/components/recipe/RecipeEditor";
 import { updateRecipeAction } from "../../actions";
+import { decideWriteRecipe } from "@/lib/cookbooks/permissions";
 
 export default async function BearbeitenPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -16,7 +17,7 @@ export default async function BearbeitenPage({ params }: { params: Promise<{ slu
     role: session.user.role,
   });
   if (!recipe) notFound();
-  const canWrite = session.user.role === "ADMIN" || recipe.cookbook?.ownerId === session.user.id;
+  const canWrite = decideWriteRecipe({ id: session.user.id, role: session.user.role }, recipe);
   if (!canWrite) {
     redirect(`/rezepte/${slug}`);
   }
