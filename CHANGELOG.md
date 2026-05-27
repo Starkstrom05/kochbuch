@@ -7,6 +7,135 @@ Versionsschema [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.22.11] — 2026-05-27
+
+### Performance
+
+- **FTS5-Volltextsuche** loest die fuenf OR-LIKE-Klauseln in `/rezepte`
+  ab. Token-Prefix-Match (`tom` findet `Tomatensuppe`), Umlaute werden ueber
+  den Tokenizer auf ASCII normalisiert. Triggers halten den FTS-Index bei
+  jedem Recipe-INSERT/UPDATE/DELETE synchron; die Migration backfilled den
+  Bestand. Spuerbar schneller, besonders auf dem NAS.
+
+## [0.22.10] — 2026-05-27
+
+### Behoben / Aufgeraeumt
+
+- **Inline-Permission-Checks** fuer Rezept-Schreibrecht (`role === "ADMIN" || …`)
+  an drei Stellen durch `decideWriteRecipe` ersetzt.
+- **Web-Import wartet auf JSON-LD** statt pauschal 3 s zu sleepen — Chefkoch,
+  Rewe & Co. kommen schneller durch den Puppeteer-Pfad.
+- **`window.confirm` / `window.alert`** rausgeworfen: vier Stellen
+  (Plan-Loeschen, Cookbook-Loeschen, User-Loeschen, Rezept-Importfehler) nutzen
+  jetzt einen Oma-Dialog mit Focus-Trap statt System-Modal.
+- **Pantry-Match** ist jetzt case-insensitive — „Tomate" und „tomate" landen
+  endgueltig im selben Ingredient.
+- **`requireUser`** zentral aus `lib/auth/helpers`, drei lokal duplizierte
+  Kopien entfernt.
+- **`actorFromSession`** validiert die Rolle per `isRole`-Check, statt sie
+  blind in das `Role`-Union zu casten.
+- **A11y**: `aria-label` an Zutat-Inputs, Skeleton-Loader mit `role="status"`,
+  Tinten-Farbwahl im Zeichen-Modus mit `aria-pressed`.
+
+## [0.22.9] — 2026-05-27
+
+### Behoben
+
+- **Speiseplan-Sharing** folgt jetzt dem Cookbook-Sharing-Graphen. „Familie
+  freigeben" hatte nach der v0.22-Migration kaum noch gegriffen, weil
+  `User.familyId` nur per Admin gesetzt wird — jetzt sieht jeder, der mit
+  dem Plan-Owner mindestens ein Cookbook teilt.
+- **App-Theme** zieht primaer das aktive Cookbook fuer Akzent-/Tinte-/Papier-
+  Farben, nicht mehr die `Family`-Tabelle (die nach v0.22 fuer die meisten
+  User leer ist).
+
+## [0.22.8] — 2026-05-27
+
+### Performance
+
+- **Drei fehlende Indexes** auf `Account.userId`, `Session.userId`,
+  `Rating.userId` — jeder Login schlaegt jetzt sofort den Index, kein
+  Full-Scan mehr.
+- **Buch-Ansicht** macht nur noch eine statt zwei Recipe-Queries.
+
+### Behoben
+
+- **`reconcileImages`** laeuft in einer Transaktion — bei einem Crash mitten
+  in der Bilder-Sortierung bleibt der Satz nicht mehr mit negativen
+  `order`-Werten unsichtbar liegen.
+- **Ollama-Retries** auf 2 statt 3 gedeckelt — verhindert bis zu 4,5 min
+  CPU-Voll-Last bei halbkaputtem LLM-JSON.
+- **User-/Rezept-Loeschen** zeigt freundliche Meldung statt kryptischem
+  Prisma-FK-Crash, wenn das Rezept noch in einem Speiseplan steckt bzw. der
+  User noch eigene Rezepte hat.
+
+## [0.22.7] — 2026-05-27
+
+### Behoben / Aufgeraeumt
+
+- **Image-URL-Import** verweigert Redirects + cappt den Download per
+  `Content-Length` + Streaming-Limit. Vorher konnte ein boesartiger Server
+  500 MB in den RAM ziehen, bevor der Size-Check zuschlug.
+- **`image-proxy`** lehnt Upstream-Redirects ab — keine SSRF-Lücke ueber
+  301-auf-interne-IP mehr.
+- **Web-Import** cappt die Redirect-Tiefe bei 5 Hops (vorher unbegrenzte
+  Rekursion moeglich).
+- **DB-Backup** im Entrypoint nutzt `sqlite3 .backup` statt `cp` (WAL-konsistent),
+  Rotation auf 30 Backups; Healthcheck-Toleranz auf 60 s.
+- **OmaDialog**: drei Modals (Whats-New, Rezept-Picker, Speiseplan-Add) nutzen
+  jetzt einen gemeinsamen Wrapper mit Focus-Trap, Escape und Body-Scroll-Lock.
+- **CI-Skip** ueberspringt nur noch single-commit Release-Pushes; bei multi-
+  commit Pushes laeuft die Test-Suite normal.
+- **Coverage**: 26 neue Unit-Tests fuer `extractJson` / `aiRecipeSchema` /
+  `scale` — das LLM-JSON-Parsing hat jetzt eine echte Regression-Bremse.
+
+## [0.22.6] — 2026-05-27
+
+### Performance
+
+- **SQLite WAL** aktiv: `PRAGMA journal_mode=WAL`, `busy_timeout=5000`,
+  `synchronous=NORMAL` — paralleler Read/Write moeglich, kein `SQLITE_BUSY`
+  mehr zwischen Puppeteer-PDF und gleichzeitigem Save.
+- **Tesseract-Worker** ist jetzt ein Prozess-weiter Singleton mit Mutex —
+  spart das ~10–20 MB Sprachpaket-Neuladen bei jedem OCR-Aufruf.
+
+### Behoben
+
+- **Cookbook-Quota**: max 20 eigene Buecher pro User (vorher unbegrenzt).
+- **Zod-Validierung** an allen offenen Server-Action-Grenzen (Einkaufsliste,
+  Vorraete, Speiseplan, Admin) — Laengen-Limits, Range-Checks, Enum fuer
+  Mahlzeit-Typen.
+
+## [0.22.5] — 2026-05-27
+
+### Sicherheit
+
+- **Cookbook-Permission-Drift** geschlossen: `addRecipeToList`, `rateRecipe`,
+  `addMissingToList`, `addMealEntry` pruefen jetzt `canReadRecipe`, der
+  Speiseplan-Picker filtert per `readableCookbookIds`. Share-Link-Toggle und
+  Handschrift-Upload pruefen `canWriteRecipe` statt `createdById`. Schliesst
+  einen Pfad, ueber den ein angemeldeter User mit geratenem `recipeId` Zutaten
+  und Titel aus fremden Cookbooks in seine eigene Liste/Plan ziehen konnte.
+
+## [0.22.4] — 2026-05-27
+
+### Geaendert
+
+- **Release-Pipeline** beschleunigt: `npm prune` statt zweitem `npm ci`,
+  `.next/cache` als Buildx-Mount, Registry-Cache zusaetzlich zu GHA-Cache.
+
+## [0.22.3] — 2026-05-27
+
+### Behoben
+
+- **PDF-Export** + **Bild-Endpoint** + **Buch-Ansicht** nach v0.22-Migration
+  repariert: griffen noch auf das vor v0.22 gedroppte `Recipe.familyId`/
+  `visibility` zu, Prisma-Query schlug fehl. Cookbook-Permissions sind jetzt
+  die einzige Wahrheit, Buch-Titel zeigt den Namen des aktiven Cookbooks
+  (vorher hartcodiert „Merys Kochbuch").
+- **Share-Link-UI**: das readonly URL-Feld unter dem Toggle entfernt; nur
+  noch „Link kopieren"-Button.
+
 ## [0.22.2] — 2026-05-26
 
 ### Behoben
