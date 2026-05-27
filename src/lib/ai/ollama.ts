@@ -141,8 +141,11 @@ export async function structureRecipeFromText(
 ): Promise<AiRecipe> {
   if (!(await checkOllamaHealth())) throw new OllamaUnreachableError();
 
+  // Max 2 Versuche: Erstversuch + ein Retry mit verschaerftem Prompt. Drei
+  // Versuche × 90 s Timeout = bis 4,5 min Voll-Last auf dem N5095, fuer die
+  // 1-2 % zusaetzliche Erfolgsquote nicht wert.
   let lastError: unknown;
-  for (let attempt = 0; attempt <= 2; attempt++) {
+  for (let attempt = 0; attempt <= 1; attempt++) {
     if (signal?.aborted) throw new Error("Abgebrochen");
     try {
       const raw = await ollamaChat(
