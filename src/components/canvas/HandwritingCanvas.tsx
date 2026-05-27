@@ -154,8 +154,8 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    const scaleX = (canvas.width / dpr) / rect.width;
-    const scaleY = (canvas.height / dpr) / rect.height;
+    const scaleX = canvas.width / dpr / rect.width;
+    const scaleY = canvas.height / dpr / rect.height;
     return {
       x: (e.clientX - rect.left) * scaleX,
       y: (e.clientY - rect.top) * scaleY,
@@ -168,9 +168,7 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
     const dpr = window.devicePixelRatio || 1;
-    undoStack.current.push(
-      ctx.getImageData(0, 0, canvas.width / dpr, canvas.height / dpr),
-    );
+    undoStack.current.push(ctx.getImageData(0, 0, canvas.width / dpr, canvas.height / dpr));
     if (undoStack.current.length > 30) undoStack.current.shift();
     setCanUndo(true);
   }
@@ -196,12 +194,7 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
     const stroke = currentStroke.current;
 
     // Draw from the last saved point to the new point
-    drawSmoothedStroke(
-      ctx,
-      stroke.slice(Math.max(0, stroke.length - 4)),
-      tool,
-      inkColor,
-    );
+    drawSmoothedStroke(ctx, stroke.slice(Math.max(0, stroke.length - 4)), tool, inkColor);
   }
 
   function onPointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
@@ -247,13 +240,10 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
   const save = useCallback(() => {
     const canvas = canvasRef.current!;
     setIsSaving(true);
-    canvas.toBlob(
-      (blob) => {
-        setIsSaving(false);
-        if (blob) onSave?.(blob);
-      },
-      "image/png",
-    );
+    canvas.toBlob((blob) => {
+      setIsSaving(false);
+      if (blob) onSave?.(blob);
+    }, "image/png");
   }, [onSave]);
 
   // Keyboard shortcut: Ctrl+Z
@@ -280,7 +270,7 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
   return (
     <div ref={containerRef} className={`flex h-full flex-col gap-3 ${className ?? ""}`}>
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-sm bg-paper-100 px-4 py-2 ring-1 ring-paper-300">
+      <div className="bg-paper-100 ring-paper-300 flex flex-wrap items-center gap-3 rounded-sm px-4 py-2 ring-1">
         {/* Tool */}
         <div className="flex gap-1">
           {(["pen", "eraser"] as Tool[]).map((t) => (
@@ -288,10 +278,8 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
               key={t}
               onClick={() => setTool(t)}
               title={t === "pen" ? "Stift" : "Radierer"}
-              className={`rounded-sm px-3 py-1.5 font-written text-sm transition-colors ${
-                tool === t
-                  ? "bg-ribbon text-paper-50"
-                  : "text-ink-faded hover:bg-paper-200"
+              className={`font-written rounded-sm px-3 py-1.5 text-sm transition-colors ${
+                tool === t ? "bg-ribbon text-paper-50" : "text-ink-faded hover:bg-paper-200"
               }`}
             >
               {t === "pen" ? "✒️ Stift" : "⬜ Radierer"}
@@ -307,6 +295,8 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
                 key={c.value}
                 onClick={() => setInkColor(c.value)}
                 title={c.label}
+                aria-label={`Tintenfarbe ${c.label}`}
+                aria-pressed={inkColor === c.value}
                 className="h-6 w-6 rounded-full ring-2 ring-offset-1 transition-transform hover:scale-110"
                 style={{
                   backgroundColor: c.value,
@@ -322,13 +312,13 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
           <button
             onClick={undo}
             disabled={!canUndo}
-            className="rounded-sm px-3 py-1.5 font-written text-sm text-ink-faded hover:bg-paper-200 disabled:opacity-30"
+            className="font-written text-ink-faded hover:bg-paper-200 rounded-sm px-3 py-1.5 text-sm disabled:opacity-30"
           >
             ↩ Zurück
           </button>
           <button
             onClick={clear}
-            className="rounded-sm px-3 py-1.5 font-written text-sm text-ink-faded hover:bg-paper-200"
+            className="font-written text-ink-faded hover:bg-paper-200 rounded-sm px-3 py-1.5 text-sm"
           >
             Leeren
           </button>
@@ -336,7 +326,7 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
       </div>
 
       {/* Canvas */}
-      <div className="relative flex-1 overflow-hidden rounded-sm ring-1 ring-paper-300">
+      <div className="ring-paper-300 relative flex-1 overflow-hidden rounded-sm ring-1">
         <canvas
           ref={canvasRef}
           onPointerDown={onPointerDown}
@@ -354,7 +344,7 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
         <button
           onClick={save}
           disabled={isSaving}
-          className="self-end rounded-sm bg-ribbon px-6 py-2 font-hand text-xl text-paper-50 shadow-sm disabled:opacity-60 hover:rotate-[-0.5deg]"
+          className="bg-ribbon font-hand text-paper-50 self-end rounded-sm px-6 py-2 text-xl shadow-sm hover:rotate-[-0.5deg] disabled:opacity-60"
         >
           {isSaving ? "Speichert…" : "Notiz speichern"}
         </button>
