@@ -12,20 +12,15 @@ COPY package.json package-lock.json* ./
 RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 
 # --- Prod deps (for runtime) ------------------------------------------------
-# Separate stage with only production dependencies. We copy this into the
-# runner so puppeteer/bcryptjs and their transitive deps (ws, chromium-bidi,
-# @puppeteer/browsers, ...) are guaranteed to be there, regardless of what
-# Next.js's standalone tracing did or didn't pick up.
-FROM node:20-bookworm-slim AS prod-deps
-WORKDIR /app
-# Same native build tools as deps — better-sqlite3 is also compiled here for the
-# production node_modules that get copied into the runner.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 make g++ openssl ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-COPY package.json package-lock.json* ./
+# Reuses the compiled node_modules from `deps` and prunes devDependencies
+# instead of running a second `npm ci`. Avoids compiling better-sqlite3 twice
+# and keeps the prod tree byte-identical to the one Next.js traced against.
+# Result is copied into the runner so puppeteer/bcryptjs and transitive deps
+# (ws, chromium-bidi, @puppeteer/browsers, ...) are guaranteed to be present,
+# regardless of what Next.js's standalone tracing did or didn't pick up.
+FROM deps AS prod-deps
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --no-audit --no-fund
+RUN --mount=type=cache,target=/root/.npm npm prune --omit=dev --no-audit --no-fund
 
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
@@ -41,7 +36,10 @@ COPY . .
 ENV DATABASE_URL="file:./build-time-placeholder.db" \
     AUTH_SECRET="build-time-only"
 RUN npx prisma generate
-RUN npm run build
+# .next/cache holds Webpack/SWC build artifacts; mounting it as a buildx cache
+# lets incremental builds reuse compiled chunks across CI runs (~halves the
+# `next build` step on small diffs).
+RUN --mount=type=cache,target=/app/.next/cache npm run build
 
 # --- Runtime ---------------------------------------------------------------
 FROM node:20-bookworm-slim AS runner
