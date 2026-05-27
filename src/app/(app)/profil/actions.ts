@@ -245,7 +245,15 @@ export async function updateBrandingAction(formData: FormData) {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") throw new Error("Keine Berechtigung");
   const familyId = session.user.familyId;
-  if (!familyId) throw new Error("Du bist keiner Familie zugeordnet");
+  if (!familyId) {
+    // Seit v0.22 lebt Branding primaer am Cookbook (siehe CookbookManager).
+    // Family-Branding ist ein Alt-Pfad; ohne familyId gibt's hier nichts zu
+    // schreiben. Statt zu crashen freundlich auf das Cookbook-Branding
+    // verweisen.
+    throw new Error(
+      "Branding wird seit v0.22 pro Kochbuch verwaltet — siehe deine Kochbuch-Einstellungen.",
+    );
+  }
 
   const name = String(formData.get("name") ?? "").trim();
   const useColors = formData.get("customColors") === "on";
