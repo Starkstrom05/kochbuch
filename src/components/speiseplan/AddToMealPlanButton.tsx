@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { addMealEntryAction } from "@/app/(app)/speiseplan/actions";
+import { OmaDialog } from "@/components/oma/Dialog";
 
 type DayOption = { index: number; label: string };
 type PlanOption = { id: string; name: string; days: DayOption[] };
@@ -25,15 +26,6 @@ export function AddToMealPlanButton({ recipeId, defaultServings, plans }: Props)
 
   const selectedPlan = plans.find((p) => p.id === planId);
 
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
-
   function handleSubmit() {
     startTransition(async () => {
       await addMealEntryAction(planId, recipeId, dayIndex, mealType, servings);
@@ -51,106 +43,104 @@ export function AddToMealPlanButton({ recipeId, defaultServings, plans }: Props)
     <>
       <button
         onClick={() => setOpen(true)}
-        className="rounded-sm bg-paper-200 px-3 py-1 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
+        className="bg-paper-200 font-written text-ink ring-paper-300 hover:bg-paper-300/60 rounded-sm px-3 py-1 text-sm ring-1"
       >
         📅 Zum Speiseplan
       </button>
 
-      {open && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-40 bg-black/40"
+      <OmaDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        labelledBy="add-meal-plan-title"
+        className="paper-card w-full max-w-sm space-y-4 p-6"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <h2 id="add-meal-plan-title" className="font-hand text-ink text-2xl">
+            Zum Speiseplan
+          </h2>
+          <button
             onClick={() => setOpen(false)}
-            aria-hidden="true"
-          />
-
-          {/* Dialog */}
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-x-4 top-1/2 z-50 mx-auto max-w-sm -translate-y-1/2 paper-card p-6 space-y-4"
+            className="font-written text-ink-faded hover:text-ribbon text-lg"
+            aria-label="Schließen"
           >
-            <div className="flex items-start justify-between gap-2">
-              <h2 className="font-hand text-2xl text-ink">Zum Speiseplan</h2>
-              <button
-                onClick={() => setOpen(false)}
-                className="font-written text-lg text-ink-faded hover:text-ribbon"
-                aria-label="Schließen"
+            ✕
+          </button>
+        </div>
+
+        {done ? (
+          <p className="font-written text-ink py-4 text-center">✓ Hinzugefügt!</p>
+        ) : (
+          <div className="space-y-4">
+            <label className="block">
+              <span className="font-written text-ink-faded text-sm">Plan</span>
+              <select
+                value={planId}
+                onChange={(e) => {
+                  setPlanId(e.target.value);
+                  setDayIndex(0);
+                }}
+                className="border-ink-light font-written text-ink mt-1 block w-full border-b border-dotted bg-transparent outline-none"
               >
-                ✕
-              </button>
-            </div>
+                {plans.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-            {done ? (
-              <p className="py-4 text-center font-written text-ink">
-                ✓ Hinzugefügt!
-              </p>
-            ) : (
-              <div className="space-y-4">
-                <label className="block">
-                  <span className="font-written text-sm text-ink-faded">Plan</span>
-                  <select
-                    value={planId}
-                    onChange={(e) => { setPlanId(e.target.value); setDayIndex(0); }}
-                    className="mt-1 block w-full border-b border-dotted border-ink-light bg-transparent font-written text-ink outline-none"
-                  >
-                    {plans.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </label>
+            <label className="block">
+              <span className="font-written text-ink-faded text-sm">Tag</span>
+              <select
+                value={dayIndex}
+                onChange={(e) => setDayIndex(Number(e.target.value))}
+                className="border-ink-light font-written text-ink mt-1 block w-full border-b border-dotted bg-transparent outline-none"
+              >
+                {(selectedPlan?.days ?? []).map((d) => (
+                  <option key={d.index} value={d.index}>
+                    {d.label}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-                <label className="block">
-                  <span className="font-written text-sm text-ink-faded">Tag</span>
-                  <select
-                    value={dayIndex}
-                    onChange={(e) => setDayIndex(Number(e.target.value))}
-                    className="mt-1 block w-full border-b border-dotted border-ink-light bg-transparent font-written text-ink outline-none"
-                  >
-                    {(selectedPlan?.days ?? []).map((d) => (
-                      <option key={d.index} value={d.index}>{d.label}</option>
-                    ))}
-                  </select>
-                </label>
+            <label className="block">
+              <span className="font-written text-ink-faded text-sm">Mahlzeit</span>
+              <select
+                value={mealType}
+                onChange={(e) => setMealType(e.target.value)}
+                className="border-ink-light font-written text-ink mt-1 block w-full border-b border-dotted bg-transparent outline-none"
+              >
+                {MEAL_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-                <label className="block">
-                  <span className="font-written text-sm text-ink-faded">Mahlzeit</span>
-                  <select
-                    value={mealType}
-                    onChange={(e) => setMealType(e.target.value)}
-                    className="mt-1 block w-full border-b border-dotted border-ink-light bg-transparent font-written text-ink outline-none"
-                  >
-                    {MEAL_TYPES.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </label>
+            <label className="block">
+              <span className="font-written text-ink-faded text-sm">Portionen</span>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={servings}
+                onChange={(e) => setServings(Number(e.target.value))}
+                className="border-ink-light text-ink mt-1 w-20 border-b border-dotted bg-transparent font-serif outline-none"
+              />
+            </label>
 
-                <label className="block">
-                  <span className="font-written text-sm text-ink-faded">Portionen</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={servings}
-                    onChange={(e) => setServings(Number(e.target.value))}
-                    className="mt-1 w-20 border-b border-dotted border-ink-light bg-transparent font-serif text-ink outline-none"
-                  />
-                </label>
-
-                <button
-                  onClick={handleSubmit}
-                  disabled={isPending || !planId}
-                  className="w-full rounded-sm bg-ribbon py-2 font-hand text-xl text-paper-50 shadow-card disabled:opacity-50"
-                >
-                  Hinzufügen
-                </button>
-              </div>
-            )}
+            <button
+              onClick={handleSubmit}
+              disabled={isPending || !planId}
+              className="bg-ribbon font-hand text-paper-50 shadow-card w-full rounded-sm py-2 text-xl disabled:opacity-50"
+            >
+              Hinzufügen
+            </button>
           </div>
-        </>
-      )}
+        )}
+      </OmaDialog>
     </>
   );
 }
