@@ -112,7 +112,6 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
   const [newImages, setNewImages] = useState<NewImage[]>([]);
   const [importedUrls, setImportedUrls] = useState<string[]>(initial?.imageUrls ?? []);
   const newIdCounter = useRef(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Object-URLs aufraeumen, damit Memory nicht leaked.
   useEffect(() => {
@@ -135,7 +134,6 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
       });
     }
     if (toAdd.length) setNewImages((prev) => [...prev, ...toAdd]);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function removeExisting(id: string) {
@@ -449,6 +447,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                 onChange={(e) => updateIng(i, { amount: e.target.value })}
                 placeholder="200"
                 inputMode="decimal"
+                aria-label={`Menge fuer Zutat ${i + 1}`}
                 className="placeholder:text-ink-light/40 col-span-2 bg-transparent font-serif outline-none"
               />
               <input
@@ -457,6 +456,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                 value={ing.unit}
                 onChange={(e) => updateIng(i, { unit: e.target.value })}
                 placeholder="g"
+                aria-label={`Einheit fuer Zutat ${i + 1}`}
                 className="placeholder:text-ink-light/40 col-span-2 bg-transparent font-serif outline-none"
               />
               <input
@@ -464,6 +464,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                 value={ing.name}
                 onChange={(e) => updateIng(i, { name: e.target.value })}
                 placeholder="Mehl"
+                aria-label={`Name fuer Zutat ${i + 1}`}
                 className="font-written text-ink placeholder:text-ink-light/40 col-span-5 bg-transparent text-lg outline-none"
               />
               <input
@@ -471,6 +472,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                 value={ing.note}
                 onChange={(e) => updateIng(i, { note: e.target.value })}
                 placeholder="fein gemahlen"
+                aria-label={`Notiz fuer Zutat ${i + 1}`}
                 className="font-written text-ink-faded placeholder:text-ink-light/40 col-span-2 bg-transparent text-sm italic outline-none"
               />
               <button

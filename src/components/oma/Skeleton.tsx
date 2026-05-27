@@ -5,16 +5,22 @@ type Props = {
 export function Skeleton({ className }: Props) {
   return (
     <div
-      className={`animate-pulse rounded-sm bg-paper-200/60 ring-1 ring-paper-300/40 ${className ?? ""}`}
+      className={`bg-paper-200/60 ring-paper-300/40 animate-pulse rounded-sm ring-1 ${className ?? ""}`}
       aria-hidden="true"
     />
   );
 }
 
-export function SkeletonLine({ width = "100%", className }: { width?: string; className?: string }) {
+export function SkeletonLine({
+  width = "100%",
+  className,
+}: {
+  width?: string;
+  className?: string;
+}) {
   return (
     <div
-      className={`h-3 animate-pulse rounded-full bg-paper-200/60 ${className ?? ""}`}
+      className={`bg-paper-200/60 h-3 animate-pulse rounded-full ${className ?? ""}`}
       style={{ width }}
       aria-hidden="true"
     />
@@ -38,6 +44,8 @@ export function RecipeGridSkeleton({ count = 6 }: { count?: number }) {
   return (
     <div
       className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+      role="status"
+      aria-live="polite"
       aria-label="Lädt Rezepte…"
       aria-busy="true"
     >
@@ -50,7 +58,13 @@ export function RecipeGridSkeleton({ count = 6 }: { count?: number }) {
 
 export function ShoppingListSkeleton() {
   return (
-    <div className="space-y-3" aria-label="Lädt Einkaufsliste…" aria-busy="true">
+    <div
+      className="space-y-3"
+      role="status"
+      aria-live="polite"
+      aria-label="Lädt Einkaufsliste…"
+      aria-busy="true"
+    >
       {Array.from({ length: 5 }).map((_, i) => (
         <div key={i} className="paper-card flex items-center gap-3 p-3">
           <Skeleton className="h-6 w-6 rounded-full" />
