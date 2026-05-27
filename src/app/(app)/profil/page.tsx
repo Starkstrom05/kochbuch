@@ -10,7 +10,6 @@ import { BackupSection } from "./BackupSection";
 import { NutritionDataForm } from "./NutritionDataForm";
 import { FamilyManager } from "./FamilyManager";
 import { CategoryManager } from "./CategoryManager";
-import { BrandingForm } from "./BrandingForm";
 import { CookbookManager, type ManagedCookbook } from "./CookbookManager";
 import { getAppName } from "@/lib/config/app-config";
 import { WhatsNewMount } from "@/components/layout/WhatsNewMount";
@@ -21,7 +20,7 @@ export default async function ProfilPage() {
 
   const isAdmin = session.user.role === "ADMIN";
 
-  const [currentAppName, users, families, ownCategories, ownFamily, cookbookRows, allUsers] =
+  const [currentAppName, users, families, ownCategories, cookbookRows, allUsers] =
     await Promise.all([
       getAppName(),
       isAdmin
@@ -50,12 +49,6 @@ export default async function ProfilPage() {
             orderBy: { name: "asc" },
           })
         : Promise.resolve([]),
-      isAdmin && session.user.familyId
-        ? prisma.family.findUnique({
-            where: { id: session.user.familyId },
-            select: { name: true, accentColor: true, inkColor: true, paperColor: true },
-          })
-        : Promise.resolve(null),
       // Cookbooks: eigene + freigegebene. Admin sieht alle.
       isAdmin
         ? prisma.cookbook.findMany({
@@ -171,7 +164,6 @@ export default async function ProfilPage() {
           <>
             <AppNameForm currentName={currentAppName} />
             <FamilyManager families={familyList} />
-            {ownFamily ? <BrandingForm branding={ownFamily} /> : null}
             <CategoryManager categories={ownCategories} />
             <BackupSection />
             <NutritionDataForm />
