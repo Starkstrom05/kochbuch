@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { WeekView } from "@/components/speiseplan/WeekView";
 import { togglePlanShareAction } from "../actions";
 import { readableCookbookIds } from "@/lib/cookbooks/permissions";
+import { canViewMealPlan } from "@/lib/speiseplan/permissions";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -34,7 +35,6 @@ export default async function SpeiseplanDetailPage({ params }: Props) {
     prisma.mealPlan.findUnique({
       where: { id },
       include: {
-        owner: { select: { familyId: true } },
         entries: {
           include: {
             recipe: { select: { id: true, title: true, slug: true, servings: true } },
@@ -52,7 +52,7 @@ export default async function SpeiseplanDetailPage({ params }: Props) {
 
   if (!plan) notFound();
   const isOwner = plan.ownerId === session.user.id;
-  const canView = isOwner || (plan.familyShared && plan.owner.familyId === session.user.familyId);
+  const canView = await canViewMealPlan({ id: session.user.id, role: session.user.role }, plan);
   if (!canView) redirect("/speiseplan");
 
   // Dates aus der DB sind UTC. Lokale getDate/getDay würde je nach
@@ -95,7 +95,7 @@ export default async function SpeiseplanDetailPage({ params }: Props) {
                 type="submit"
                 className="bg-paper-200 font-written text-ink ring-paper-300 hover:bg-paper-300/60 rounded-sm px-3 py-1.5 text-sm ring-1"
               >
-                {plan.familyShared ? "🔗 Freigabe aufheben" : "Für Familie freigeben"}
+                {plan.familyShared ? "🔗 Freigabe aufheben" : "Mit Kochbuch-Sharing teilen"}
               </button>
             </form>
           ) : null}
