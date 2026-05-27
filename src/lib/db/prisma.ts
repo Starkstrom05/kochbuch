@@ -9,10 +9,29 @@ function createPrisma(): PrismaClient {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL ist nicht gesetzt");
   const adapter = new PrismaBetterSqlite3({ url });
-  return new PrismaClient({
+  const client = new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
+
+  // WAL erlaubt parallele Reads waehrend einzelne Writes laufen — entscheidend,
+  // weil Puppeteer-PDF-Renderer waehrend des Drucks selbst lesende Queries
+  // absetzt und sich sonst mit gleichzeitigen Saves um den DB-Lock prügelt
+  // (SQLITE_BUSY). busy_timeout gibt Wartenden ein paar Sekunden statt sofort
+  // zu scheitern; synchronous=NORMAL ist mit WAL crash-safe und ~10x schneller
+  // als FULL. PRAGMAs gelten pro Connection — better-sqlite3 hat eine, daher
+  // ist das ein einmaliger Setup-Call.
+  client
+    .$executeRawUnsafe("PRAGMA journal_mode = WAL")
+    .catch((e) => console.warn("PRAGMA journal_mode=WAL failed:", e));
+  client
+    .$executeRawUnsafe("PRAGMA busy_timeout = 5000")
+    .catch((e) => console.warn("PRAGMA busy_timeout failed:", e));
+  client
+    .$executeRawUnsafe("PRAGMA synchronous = NORMAL")
+    .catch((e) => console.warn("PRAGMA synchronous=NORMAL failed:", e));
+
+  return client;
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrisma();
