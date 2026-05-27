@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { deleteUserAction, assignUserFamilyAction } from "./actions";
+import { useOmaConfirm } from "@/components/oma/useConfirm";
 
 type AdminUser = {
   id: string;
@@ -27,9 +28,16 @@ const ROLE_LABEL: Record<string, string> = {
 export function UserList({ users, currentUserId, families }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const { confirm, dialog } = useOmaConfirm();
 
-  function handleDelete(id: string, name: string) {
-    if (!confirm(`„${name}" wirklich löschen?`)) return;
+  async function handleDelete(id: string, name: string) {
+    const ok = await confirm({
+      title: "Benutzer löschen?",
+      message: `„${name}" wird unwiderruflich gelöscht.`,
+      confirmLabel: "Löschen",
+      variant: "danger",
+    });
+    if (!ok) return;
     setError(null);
     startTransition(async () => {
       try {
@@ -53,27 +61,25 @@ export function UserList({ users, currentUserId, families }: Props) {
 
   return (
     <section className="paper-card p-6">
-      <h2 className="mb-4 font-hand text-3xl text-ink">Familienmitglieder</h2>
+      <h2 className="font-hand text-ink mb-4 text-3xl">Familienmitglieder</h2>
       {error ? (
-        <p className="mb-3 font-written text-sm text-ribbon" role="alert">
+        <p className="font-written text-ribbon mb-3 text-sm" role="alert">
           {error}
         </p>
       ) : null}
-      <ul className="divide-y divide-paper-200">
+      <ul className="divide-paper-200 divide-y">
         {users.map((u) => {
           const isSelf = u.id === currentUserId;
           return (
             <li key={u.id} className="flex items-center justify-between gap-4 py-3">
               <div className="min-w-0">
-                <p className="font-written text-lg text-ink">
+                <p className="font-written text-ink text-lg">
                   {u.name}
                   {isSelf ? (
-                    <span className="ml-2 font-written text-xs text-ink-faded">
-                      (du)
-                    </span>
+                    <span className="font-written text-ink-faded ml-2 text-xs">(du)</span>
                   ) : null}
                 </p>
-                <p className="truncate font-written text-xs text-ink-faded">
+                <p className="font-written text-ink-faded truncate text-xs">
                   {u.email} · {ROLE_LABEL[u.role] ?? u.role}
                 </p>
               </div>
@@ -83,7 +89,7 @@ export function UserList({ users, currentUserId, families }: Props) {
                   onChange={(e) => handleAssign(u.id, e.target.value)}
                   disabled={pending}
                   aria-label="Familie zuordnen"
-                  className="border-b border-dotted border-ink-light bg-transparent font-written text-xs text-ink outline-none"
+                  className="border-ink-light font-written text-ink border-b border-dotted bg-transparent text-xs outline-none"
                 >
                   <option value="">(keine Familie)</option>
                   {families.map((f) => (
@@ -97,7 +103,7 @@ export function UserList({ users, currentUserId, families }: Props) {
                     type="button"
                     onClick={() => handleDelete(u.id, u.name)}
                     disabled={pending}
-                    className="font-written text-sm text-ribbon underline underline-offset-4 disabled:opacity-40"
+                    className="font-written text-ribbon text-sm underline underline-offset-4 disabled:opacity-40"
                   >
                     löschen
                   </button>
@@ -107,6 +113,7 @@ export function UserList({ users, currentUserId, families }: Props) {
           );
         })}
       </ul>
+      {dialog}
     </section>
   );
 }

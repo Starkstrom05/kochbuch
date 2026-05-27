@@ -9,6 +9,7 @@ import {
   deleteMealPlanAction,
 } from "@/app/(app)/speiseplan/actions";
 import { RecipePicker } from "./RecipePicker";
+import { useOmaConfirm } from "@/components/oma/useConfirm";
 
 type DayLabel = { short: string; long: string; date: string };
 
@@ -46,6 +47,7 @@ export function WeekView({
   const [isPending, startTransition] = useTransition();
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [pickerDay, setPickerDay] = useState<number | null>(null);
+  const { confirm, dialog: confirmDialog } = useOmaConfirm();
 
   function toggleCheck(id: string) {
     setCheckedIds((prev) => {
@@ -90,13 +92,17 @@ export function WeekView({
   }
 
   function handleExport() {
-    startTransition(() =>
-      exportToShoppingListAction(planId, planName, Array.from(checkedIds)),
-    );
+    startTransition(() => exportToShoppingListAction(planId, planName, Array.from(checkedIds)));
   }
 
-  function handleDelete() {
-    if (!confirm(`Plan „${planName}" wirklich löschen?`)) return;
+  async function handleDelete() {
+    const ok = await confirm({
+      title: "Plan löschen?",
+      message: `„${planName}" und alle Einträge werden unwiderruflich gelöscht.`,
+      confirmLabel: "Löschen",
+      variant: "danger",
+    });
+    if (!ok) return;
     startTransition(() => deleteMealPlanAction(planId));
   }
 
@@ -111,19 +117,19 @@ export function WeekView({
                 <button
                   onClick={handleExport}
                   disabled={isPending}
-                  className="rounded-sm bg-ribbon px-4 py-2 font-hand text-lg text-paper-50 shadow-card hover:opacity-90 disabled:opacity-50"
+                  className="bg-ribbon font-hand text-paper-50 shadow-card rounded-sm px-4 py-2 text-lg hover:opacity-90 disabled:opacity-50"
                 >
                   🛒 Zur Einkaufsliste ({checkedIds.size})
                 </button>
                 <button
                   onClick={() => setCheckedIds(new Set())}
-                  className="font-written text-sm text-ink-faded underline underline-offset-4"
+                  className="font-written text-ink-faded text-sm underline underline-offset-4"
                 >
                   Auswahl aufheben
                 </button>
               </>
             ) : (
-              <p className="font-written text-sm text-ink-faded">
+              <p className="font-written text-ink-faded text-sm">
                 Mahlzeiten anhaken → Einkaufsliste erstellen
               </p>
             )}
@@ -131,15 +137,13 @@ export function WeekView({
           <button
             onClick={handleDelete}
             disabled={isPending}
-            className="font-written text-sm text-ink-faded hover:text-ribbon"
+            className="font-written text-ink-faded hover:text-ribbon text-sm"
           >
             Plan löschen
           </button>
         </div>
       ) : (
-        <p className="font-written text-sm text-ink-faded">
-          Geteilter Plan — nur Ansicht.
-        </p>
+        <p className="font-written text-ink-faded text-sm">Geteilter Plan — nur Ansicht.</p>
       )}
 
       {/* Week grid */}
@@ -149,8 +153,7 @@ export function WeekView({
             const dayEntries = entries
               .filter((e) => e.dayIndex === dayIndex)
               .sort(
-                (a, b) =>
-                  MEAL_TYPE_ORDER.indexOf(a.mealType) - MEAL_TYPE_ORDER.indexOf(b.mealType),
+                (a, b) => MEAL_TYPE_ORDER.indexOf(a.mealType) - MEAL_TYPE_ORDER.indexOf(b.mealType),
               );
             const ids = dayEntries.map((e) => e.id);
             const allDayChecked = ids.length > 0 && ids.every((id) => checkedIds.has(id));
@@ -166,8 +169,8 @@ export function WeekView({
                   <div
                     className={`rounded-sm px-1 py-0.5 transition-colors ${allDayChecked ? "bg-ribbon/20" : ""}`}
                   >
-                    <p className="font-hand text-lg text-ink leading-tight">{label.long}</p>
-                    <p className="font-written text-xs text-ink-faded">{label.date}</p>
+                    <p className="font-hand text-ink text-lg leading-tight">{label.long}</p>
+                    <p className="font-written text-ink-faded text-xs">{label.date}</p>
                   </div>
                 </button>
 
@@ -188,20 +191,20 @@ export function WeekView({
                             type="checkbox"
                             checked={checkedIds.has(entry.id)}
                             onChange={() => toggleCheck(entry.id)}
-                            className="mt-0.5 accent-ribbon"
+                            className="accent-ribbon mt-0.5"
                           />
                         ) : null}
                         <div className="min-w-0 flex-1">
-                          <p className="mb-0.5 font-written text-xs leading-none text-ink-faded">
+                          <p className="font-written text-ink-faded mb-0.5 text-xs leading-none">
                             {entry.mealType}
                           </p>
                           <a
                             href={`/rezepte/${entry.recipe.slug}`}
-                            className="line-clamp-2 font-written text-sm leading-tight text-ink hover:text-ribbon"
+                            className="font-written text-ink hover:text-ribbon line-clamp-2 text-sm leading-tight"
                           >
                             {entry.recipe.title}
                           </a>
-                          <p className="font-written text-xs text-ink-faded">
+                          <p className="font-written text-ink-faded text-xs">
                             {entry.servings} Port.
                           </p>
                         </div>
@@ -209,7 +212,7 @@ export function WeekView({
                           <button
                             onClick={() => handleRemove(entry.id)}
                             disabled={isPending}
-                            className="flex-shrink-0 font-written text-xs text-ink-faded hover:text-ribbon"
+                            className="font-written text-ink-faded hover:text-ribbon flex-shrink-0 text-xs"
                             aria-label="Entfernen"
                           >
                             ✕
@@ -223,7 +226,7 @@ export function WeekView({
                 {canEdit ? (
                   <button
                     onClick={() => setPickerDay(dayIndex)}
-                    className="mt-auto rounded-sm border border-dashed border-paper-400 py-1.5 font-written text-xs text-ink-faded hover:border-ribbon hover:text-ribbon"
+                    className="border-paper-400 font-written text-ink-faded hover:border-ribbon hover:text-ribbon mt-auto rounded-sm border border-dashed py-1.5 text-xs"
                   >
                     + Hinzufügen
                   </button>
@@ -245,6 +248,7 @@ export function WeekView({
           onCancel={() => setPickerDay(null)}
         />
       )}
+      {confirmDialog}
     </div>
   );
 }

@@ -14,10 +14,7 @@ import {
   updateCookbookBranding,
   type CookbookBrandingInput,
 } from "@/lib/cookbooks/server";
-
-function actor(session: { user: { id: string; role: string } }) {
-  return { id: session.user.id, role: session.user.role as "ADMIN" | "MEMBER" | "CHILD" };
-}
+import { actorFromSession as actor } from "@/lib/auth/helpers";
 
 export async function setActiveCookbookAction(cookbookId: string) {
   const session = await auth();
