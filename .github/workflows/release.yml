@@ -55,8 +55,12 @@ jobs:
             ${{ env.REGISTRY }}/${{ steps.img.outputs.name }}:latest
           build-args: |
             KOCHBUCH_VERSION=${{ steps.ver.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha
+            type=registry,ref=${{ env.REGISTRY }}/${{ steps.img.outputs.name }}:buildcache
+          cache-to: |
+            type=gha,mode=max
+            type=registry,ref=${{ env.REGISTRY }}/${{ steps.img.outputs.name }}:buildcache,mode=max
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
