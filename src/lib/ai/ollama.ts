@@ -1,8 +1,7 @@
 import { z } from "zod";
 
 const BASE_URL = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
-export const OLLAMA_MODEL =
-  process.env.OLLAMA_MODEL ?? "phi3:3.8b-mini-4k-instruct-q4_K_M";
+export const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "phi3:3.8b-mini-4k-instruct-q4_K_M";
 const TIMEOUT_MS = 90_000;
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
@@ -99,8 +98,9 @@ async function ollamaChat(
   }
 }
 
-// phi3 sometimes wraps JSON in markdown code blocks
-function extractJson(text: string): string {
+// phi3 sometimes wraps JSON in markdown code blocks. Exported so the parser
+// behavior can be unit-tested without spinning up Ollama.
+export function extractJson(text: string): string {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenced) return fenced[1].trim();
   const start = text.indexOf("{");
