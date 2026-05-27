@@ -64,39 +64,23 @@ export function ShareToggle({ recipeId, initialPublic, initialToken }: Props) {
           type="button"
           onClick={onToggle}
           disabled={isPending}
-          className="inline-flex min-h-[36px] items-center rounded-sm bg-paper-200 px-3 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60 disabled:opacity-60"
+          className="bg-paper-200 font-written text-ink ring-paper-300 hover:bg-paper-300/60 inline-flex min-h-[36px] items-center rounded-sm px-3 text-sm ring-1 disabled:opacity-60"
         >
-          {isPending
-            ? "…"
-            : isPublic
-              ? "Share-Link deaktivieren"
-              : "Share-Link erzeugen"}
+          {isPending ? "…" : isPublic ? "Share-Link deaktivieren" : "Share-Link erzeugen"}
         </button>
 
         {isPublic && shareUrl ? (
           <button
             type="button"
             onClick={copy}
-            className="font-written text-sm text-ribbon underline underline-offset-4"
+            className="font-written text-ribbon text-sm underline underline-offset-4"
           >
             {copied ? "kopiert ✓" : "🔗 Link kopieren"}
           </button>
         ) : null}
       </div>
 
-      {isPublic && shareUrl ? (
-        <input
-          type="text"
-          readOnly
-          value={shareUrl}
-          onFocus={(e) => e.currentTarget.select()}
-          className="w-full max-w-md select-all rounded-sm bg-paper-100 px-2 py-1 font-written text-xs text-ink-faded ring-1 ring-paper-200"
-        />
-      ) : null}
-
-      {error ? (
-        <span className="font-written text-xs text-ribbon">{error}</span>
-      ) : null}
+      {error ? <span className="font-written text-ribbon text-xs">{error}</span> : null}
     </div>
   );
 }

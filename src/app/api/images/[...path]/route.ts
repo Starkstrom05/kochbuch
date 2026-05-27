@@ -3,6 +3,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
+import { canReadRecipe } from "@/lib/cookbooks/permissions";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "./uploads";
 
@@ -24,11 +25,11 @@ function forbidden() {
 
 // Erlaubte Pfad-Pattern: /recipes/<recipeId>/<file>. Alles andere wird abgewiesen.
 //
-// Sichtbarkeitsmodell (Multi-Family): öffentlich geteilte Rezepte (isPublic)
-// sehen alle. Eingeloggte sehen zusätzlich SHARED-Rezepte (gemeinsamer Pool)
-// und die ihrer eigenen Familie. FAMILY-private Bilder fremder Familien sind
-// verborgen. Puppeteer-Renderer schickt x-internal-token und überspringt
-// diesen Pfad schon in der Middleware.
+// Sichtbarkeitsmodell (Cookbook): öffentlich geteilte Rezepte (isPublic) sehen
+// alle. Eingeloggte User sehen Bilder eines Rezepts, wenn sie das zugehörige
+// Cookbook lesen dürfen (Owner, eingeladener Viewer oder ADMIN).
+// Puppeteer-Renderer schickt x-internal-token und überspringt diesen Pfad
+// schon in der Middleware.
 async function authorizeRecipeImage(
   segments: string[],
 ): Promise<{ ok: true } | { ok: false; status: 403 | 404 }> {
@@ -38,17 +39,15 @@ async function authorizeRecipeImage(
 
   const recipe = await prisma.recipe.findUnique({
     where: { id: segments[1] },
-    select: { isPublic: true, visibility: true, familyId: true },
+    select: { isPublic: true, cookbookId: true },
   });
   if (!recipe) return { ok: false, status: 404 };
   if (recipe.isPublic) return { ok: true };
 
   const session = await auth();
   if (!session?.user) return { ok: false, status: 403 };
-  if (recipe.visibility === "SHARED" || recipe.familyId === session.user.familyId) {
-    return { ok: true };
-  }
-  return { ok: false, status: 403 };
+  const allowed = await canReadRecipe({ id: session.user.id, role: session.user.role }, recipe);
+  return allowed ? { ok: true } : { ok: false, status: 403 };
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ path: string[] }> }) {

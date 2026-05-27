@@ -13,6 +13,10 @@ export default async function RezepteBuchPage({ searchParams }: { searchParams: 
   const session = await auth();
   const { q, categoryId } = await searchParams;
   if (!session?.user?.activeCookbookId) redirect("/rezepte");
+  const activeCookbook = await prisma.cookbook.findUnique({
+    where: { id: session.user.activeCookbookId },
+    select: { name: true },
+  });
   const matches = await searchRecipes({
     q,
     categoryId,
@@ -73,7 +77,11 @@ export default async function RezepteBuchPage({ searchParams }: { searchParams: 
       style={{ background: "linear-gradient(160deg, #2a1d12 0%, #1a120a 100%)" }}
     >
       <InkFilters />
-      <RecipeBook recipes={recipes} title={await getAppName()} subtitle={subtitle} />
+      <RecipeBook
+        recipes={recipes}
+        title={activeCookbook?.name ?? (await getAppName())}
+        subtitle={subtitle}
+      />
     </main>
   );
 }
