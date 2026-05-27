@@ -31,10 +31,7 @@ function parseServings(value: unknown): number {
 const UNITS =
   "ml|cl|dl|l|mg|g|kg|EL|TL|Tl|Pkg\\.?|Pkt\\.?|Bund|Bd\\.?|Stk\\.?|Stück|Prise|Msp\\.?|Dose[n]?|Scheibe[n]?|Zehe[n]?";
 
-const ING_RE = new RegExp(
-  `^([\\d.,]+(?:\\s*/\\s*[\\d.,]+)?)\\s*(${UNITS})\\s+(.+)$`,
-  "i",
-);
+const ING_RE = new RegExp(`^([\\d.,]+(?:\\s*/\\s*[\\d.,]+)?)\\s*(${UNITS})\\s+(.+)$`, "i");
 
 function parseFraction(s: string): number {
   const parts = s.split("/").map((p) => parseFloat(p.trim().replace(",", ".")));
@@ -178,7 +175,12 @@ class UpstreamNeedsBrowserError extends Error {
 
 // ── HTML fetcher ─────────────────────────────────────────────────────────────
 
-async function fetchHtml(url: string, externalSignal?: AbortSignal): Promise<string> {
+const MAX_REDIRECT_HOPS = 5;
+
+async function fetchHtml(url: string, externalSignal?: AbortSignal, depth = 0): Promise<string> {
+  if (depth > MAX_REDIRECT_HOPS) {
+    throw new Error(`Mehr als ${MAX_REDIRECT_HOPS} Redirects beim Import — Abbruch`);
+  }
   const check = await assertPublicUrl(url);
   if (!check.ok) throw new Error(`URL abgelehnt: ${check.reason}`);
 
@@ -201,8 +203,8 @@ async function fetchHtml(url: string, externalSignal?: AbortSignal): Promise<str
       const loc = res.headers.get("location");
       if (!loc) throw new Error(`Redirect ohne Location-Header von ${url}`);
       const next = new URL(loc, url).toString();
-      // Re-check target (SSRF protection across redirects); cap at 5 hops via depth.
-      return fetchHtml(next, externalSignal);
+      // Re-check target (SSRF protection across redirects); hop counter caps at MAX_REDIRECT_HOPS.
+      return fetchHtml(next, externalSignal, depth + 1);
     }
     // Cloudflare/Akamai antworten bei Bot-Erkennung mit 403/503 — das ist genau
     // der Fall, für den der Puppeteer-Fallback existiert. Sentinel hochwerfen
@@ -225,10 +227,7 @@ async function fetchHtml(url: string, externalSignal?: AbortSignal): Promise<str
 const PUPPETEER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36";
 
-async function fetchHtmlViaPuppeteer(
-  url: string,
-  externalSignal?: AbortSignal,
-): Promise<string> {
+async function fetchHtmlViaPuppeteer(url: string, externalSignal?: AbortSignal): Promise<string> {
   const check = await assertPublicUrl(url);
   if (!check.ok) throw new Error(`URL abgelehnt: ${check.reason}`);
 
@@ -332,9 +331,7 @@ export function parseRecipeFromHtml(html: string, url: string): WebImportResult 
         if (recipe.instructions.length <= 20) {
           const fromDom = getDomSteps();
           if (fromDom.length > 0) {
-            recipe.instructions = fromDom
-              .map((s, i) => `${i + 1}. ${s}`)
-              .join("\n");
+            recipe.instructions = fromDom.map((s, i) => `${i + 1}. ${s}`).join("\n");
           }
         }
 

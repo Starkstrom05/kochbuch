@@ -133,6 +133,20 @@ Jede Ausnahme von „keine externen Cloud-Calls zur Laufzeit" muss hier explizit
 gelistet werden — sonst veraltet die Ausnahme zur stillen Regel. Eintragsform:
 Modulname, Datum, Datenfluss (was geht raus, wohin, warum), Opt-In-Mechanismus.
 
+- **GitHub-Releases-Update-Check** (seit 2026-05-27):
+  - Modul: `src/app/api/version/route.ts`
+  - Datenfluss: Einmal pro 24 h pro Instanz schickt der Server eine
+    anonyme GET-Anfrage an `api.github.com/repos/Starkstrom05/kochbuch/releases/latest`,
+    um den neuesten Tag zu erfahren und einen Update-Banner zu setzen.
+    Anfrage enthaelt nur den User-Agent `kochbuch-app`, keine User-IDs,
+    keine Telemetrie.
+  - Opt-In: implizit (jede Instanz checkt automatisch). Update-Banner
+    laesst sich im UI dismissen; bei Bedarf via Reverse-Proxy oder
+    Firewall blockieren.
+  - Begruendung: Familien-Admin will wissen, wann eine neue Version
+    bereitsteht, ohne Release-Page-Polling. GitHub-API ist
+    unauthentifiziert und ratenbegrenzt — kein Account-Leak.
+
 - **OurGroceries-Bruecke** (seit 2026-05-26):
   - Modul: `src/lib/integrations/ourgroceries/` + `/api/shopping-list/[id]/export/ourgroceries`
   - Datenfluss: Auf User-Auslosung schickt der NAS-Container Einkaufslisten-Items

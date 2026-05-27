@@ -31,6 +31,9 @@ export async function GET(req: Request) {
       "User-Agent": FETCH_UA,
       Accept: "image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8",
     },
+    // SSRF-Hardening: ohne manual-redirect würde fetch einer 30x-Antwort auf
+    // eine interne IP folgen, an der `assertPublicUrl` nicht mehr greift.
+    redirect: "manual",
     signal: AbortSignal.timeout(15_000),
   }).catch((err: unknown) => {
     return new Response(
@@ -39,6 +42,9 @@ export async function GET(req: Request) {
     );
   });
 
+  if (upstream.status >= 300 && upstream.status < 400) {
+    return new Response("Redirect von Upstream nicht erlaubt", { status: 502 });
+  }
   if (!upstream.ok) {
     return new Response(`upstream HTTP ${upstream.status}`, { status: 502 });
   }
