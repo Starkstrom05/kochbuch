@@ -3,9 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { canReadRecipe } from "@/lib/cookbooks/permissions";
+import { requireUser } from "@/lib/auth/helpers";
 
 const manualItemSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -14,12 +14,6 @@ const manualItemSchema = z.object({
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-async function requireUser() {
-  const session = await auth();
-  if (!session?.user) throw new Error("Nicht angemeldet");
-  return session.user;
-}
 
 async function getOrCreateList(userId: string) {
   const existing = await prisma.shoppingList.findFirst({

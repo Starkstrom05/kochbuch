@@ -3,9 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { canReadRecipe } from "@/lib/cookbooks/permissions";
+import { requireUser } from "@/lib/auth/helpers";
 import { buildShoppingItemsForEntries } from "@/lib/speiseplan/shopping-export";
 
 const idSchema = z.string().min(1).max(64);
@@ -30,12 +30,6 @@ const exportSchema = z.object({
   planName: z.string().trim().min(1).max(100),
   entryIds: z.array(idSchema).min(1).max(500),
 });
-
-async function requireUser() {
-  const session = await auth();
-  if (!session?.user) throw new Error("Nicht angemeldet");
-  return session.user;
-}
 
 async function requirePlanOwner(planId: string, userId: string) {
   const plan = await prisma.mealPlan.findUnique({ where: { id: planId } });
