@@ -52,10 +52,11 @@ ENV NODE_ENV=production \
     PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Chromium fuer Puppeteer + openssl fuer Prisma + Build-Tools
+# Chromium fuer Puppeteer + openssl fuer Prisma + Build-Tools + sqlite3 fuer
+# das konsistente .backup im Entrypoint (cp ist mit WAL nicht atomar).
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium fonts-liberation fonts-noto-color-emoji \
-    openssl ca-certificates dumb-init wget \
+    openssl ca-certificates dumb-init wget sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --system --gid 1001 nodejs && \
@@ -93,7 +94,10 @@ RUN chmod +x /app/entrypoint.sh
 USER nextjs
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+# start-period auf 60s, weil prisma migrate deploy auf dem Celeron-NAS
+# kalt 30-45s laufen kann (jede Migration einzelne SQLite-Transaktion);
+# 20s war zu eng → der Container wurde unhealthy markiert bevor er fertig war.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD wget -qO- http://localhost:3000/api/health || exit 1
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--", "/app/entrypoint.sh"]
