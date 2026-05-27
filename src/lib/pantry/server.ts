@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import type { Ingredient, PantryItem } from "@prisma/client";
 import { visibleInCookbook } from "@/lib/cookbooks/visibility";
@@ -29,12 +30,19 @@ export async function addPantryItem(
   const name = rawName.trim();
   if (!name) throw new Error("Zutatenname fehlt");
 
-  // Ingredient.name ist @unique aber case-sensitive — wir normalisieren auf
-  // den ersten Eintrag, der case-insensitive matched, oder legen einen mit
-  // dem original-cased Namen an.
-  const existing = await prisma.ingredient.findFirst({
-    where: { name: { equals: name } },
-  });
+  // Ingredient.name ist @unique, SQLite vergleicht aber default case-sensitive
+  // — "Tomate" und "tomate" waeren zwei verschiedene Eintraege. Prisma's
+  // `mode: "insensitive"` ist auf SQLite nicht unterstuetzt, also gehen wir
+  // ueber einen LOWER()-Roundtrip in raw-SQL. Auf gefundene id folgt der
+  // normale Prisma-Lookup, damit der Rest dieser Funktion mit dem regulaeren
+  // Ingredient-Type weiterarbeitet.
+  const lowered = name.toLowerCase();
+  const hits = await prisma.$queryRaw<{ id: string }[]>(
+    Prisma.sql`SELECT id FROM "Ingredient" WHERE LOWER(name) = ${lowered} LIMIT 1`,
+  );
+  const existing = hits[0]
+    ? await prisma.ingredient.findUnique({ where: { id: hits[0].id } })
+    : null;
   const ingredient =
     existing ??
     (await prisma.ingredient.create({
