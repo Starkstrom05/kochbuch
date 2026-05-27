@@ -97,6 +97,7 @@ model Account {
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
@@ -105,6 +106,8 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model VerificationToken {
@@ -276,6 +279,10 @@ model Rating {
   user      User     @relation(fields: [userId], references: [id])
 
   @@unique([recipeId, userId])
+  // recipeId-only Lookups (z. B. `GROUP BY recipeId` im Search-Path) profitieren
+  // vom Composite-Unique-Prefix; userId-only („alle Bewertungen eines Users")
+  // braucht einen eigenen Index.
+  @@index([userId])
 }
 
 model ShoppingList {
