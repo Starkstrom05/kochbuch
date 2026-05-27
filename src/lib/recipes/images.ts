@@ -66,8 +66,14 @@ export async function addImageFromUrl(
       "User-Agent": FETCH_UA,
       Accept: "image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8",
     },
+    redirect: "manual",
     signal: AbortSignal.timeout(20_000),
   });
+  // Redirect-Follow zugelassener Server kann auf interne IPs umlenken — wir
+  // weisen 3xx hier ab; legitimes Bild-Hosting liefert 200 direkt.
+  if (res.status >= 300 && res.status < 400) {
+    throw new Error(`Redirect (HTTP ${res.status}) nicht erlaubt für Bild-Import`);
+  }
   if (!res.ok) throw new Error(`HTTP ${res.status} beim Laden des Bilds`);
 
   const ct = res.headers.get("content-type") ?? "";
@@ -75,7 +81,31 @@ export async function addImageFromUrl(
     throw new Error(`Antwort kein Bild (Content-Type: ${ct || "leer"})`);
   }
 
-  const buf = Buffer.from(await res.arrayBuffer());
+  // Content-Length-Header *vor* dem Download prüfen — sonst zieht ein
+  // ehrlicher 500-MB-Server den Buffer komplett in den RAM, bevor unser
+  // Size-Limit in addImageFromBuffer greift.
+  const declared = Number(res.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > MAX_UPLOAD_BYTES) {
+    throw new Error(`Bild zu groß laut Content-Length (${declared} Bytes)`);
+  }
+
+  // Manuelles Streaming mit Cap, falls der Server lügt oder keinen Header
+  // schickt. Bricht ab, sobald MAX_UPLOAD_BYTES überschritten wäre.
+  if (!res.body) throw new Error("Antwort ohne Body");
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const reader = res.body.getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_UPLOAD_BYTES) {
+      await reader.cancel().catch(() => undefined);
+      throw new Error(`Bild zu groß (>${MAX_UPLOAD_BYTES} Bytes)`);
+    }
+    chunks.push(value);
+  }
+  const buf = Buffer.concat(chunks.map((c) => Buffer.from(c)));
   return addImageFromBuffer(recipeId, buf, opts);
 }
 
@@ -99,10 +129,7 @@ export async function clearAllImages(recipeId: string): Promise<void> {
  * Setzt die Reihenfolge der existierenden Bilder neu (0-basiert) und
  * loescht alle Bilder, die nicht in `orderedIds` vorkommen.
  */
-export async function reconcileImages(
-  recipeId: string,
-  orderedIds: string[],
-): Promise<void> {
+export async function reconcileImages(recipeId: string, orderedIds: string[]): Promise<void> {
   const existing = await prisma.recipeImage.findMany({
     where: { recipeId },
     select: { id: true, path: true },
