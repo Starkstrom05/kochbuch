@@ -2,10 +2,34 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { canReadRecipe } from "@/lib/cookbooks/permissions";
 import { buildShoppingItemsForEntries } from "@/lib/speiseplan/shopping-export";
+
+const idSchema = z.string().min(1).max(64);
+const MEAL_TYPES = ["Frühstück", "Mittagessen", "Abendessen", "Snack"] as const;
+
+const createMealPlanSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  firstDay: z.number().int().min(1).max(7),
+  weekStart: z.date(),
+});
+
+const mealEntrySchema = z.object({
+  planId: idSchema,
+  recipeId: idSchema,
+  dayIndex: z.number().int().min(0).max(6),
+  mealType: z.enum(MEAL_TYPES),
+  servings: z.number().int().min(1).max(99),
+});
+
+const exportSchema = z.object({
+  planId: idSchema,
+  planName: z.string().trim().min(1).max(100),
+  entryIds: z.array(idSchema).min(1).max(500),
+});
 
 async function requireUser() {
   const session = await auth();
@@ -33,14 +57,19 @@ export async function togglePlanShareAction(planId: string) {
 
 export async function createMealPlanAction(formData: FormData) {
   const user = await requireUser();
-  const name = String(formData.get("name") ?? "").trim();
-  if (!name) throw new Error("Name darf nicht leer sein");
-  const firstDay = Number(formData.get("firstDay") ?? 1);
-  const weekStart = new Date(String(formData.get("weekStart") ?? ""));
-  if (isNaN(weekStart.getTime())) throw new Error("Ungültiges Datum");
+  const parsed = createMealPlanSchema.parse({
+    name: String(formData.get("name") ?? ""),
+    firstDay: Number(formData.get("firstDay") ?? 1),
+    weekStart: new Date(String(formData.get("weekStart") ?? "")),
+  });
 
   const plan = await prisma.mealPlan.create({
-    data: { name, ownerId: user.id, firstDay, weekStart },
+    data: {
+      name: parsed.name,
+      ownerId: user.id,
+      firstDay: parsed.firstDay,
+      weekStart: parsed.weekStart,
+    },
   });
 
   revalidatePath("/speiseplan");
@@ -55,23 +84,33 @@ export async function addMealEntryAction(
   servings: number,
 ) {
   const user = await requireUser();
-  await requirePlanOwner(planId, user.id);
+  const parsed = mealEntrySchema.parse({ planId, recipeId, dayIndex, mealType, servings });
+  await requirePlanOwner(parsed.planId, user.id);
 
   const recipe = await prisma.recipe.findUnique({
-    where: { id: recipeId },
+    where: { id: parsed.recipeId },
     select: { cookbookId: true },
   });
   if (!recipe) throw new Error("Rezept nicht gefunden");
   const allowed = await canReadRecipe({ id: user.id, role: user.role }, recipe);
   if (!allowed) throw new Error("Keine Berechtigung");
 
-  const existingCount = await prisma.mealPlanEntry.count({ where: { planId, dayIndex } });
-
-  await prisma.mealPlanEntry.create({
-    data: { planId, recipeId, dayIndex, mealType, servings, order: existingCount },
+  const existingCount = await prisma.mealPlanEntry.count({
+    where: { planId: parsed.planId, dayIndex: parsed.dayIndex },
   });
 
-  revalidatePath(`/speiseplan/${planId}`);
+  await prisma.mealPlanEntry.create({
+    data: {
+      planId: parsed.planId,
+      recipeId: parsed.recipeId,
+      dayIndex: parsed.dayIndex,
+      mealType: parsed.mealType,
+      servings: parsed.servings,
+      order: existingCount,
+    },
+  });
+
+  revalidatePath(`/speiseplan/${parsed.planId}`);
 }
 
 export async function removeMealEntryAction(planId: string, entryId: string) {
@@ -87,14 +126,14 @@ export async function exportToShoppingListAction(
   entryIds: string[],
 ) {
   const user = await requireUser();
-  await requirePlanOwner(planId, user.id);
-  if (entryIds.length === 0) throw new Error("Keine Mahlzeiten ausgewählt");
+  const parsed = exportSchema.parse({ planId, planName, entryIds });
+  await requirePlanOwner(parsed.planId, user.id);
 
-  const rawItems = await buildShoppingItemsForEntries(entryIds);
+  const rawItems = await buildShoppingItemsForEntries(parsed.entryIds);
 
   const list = await prisma.shoppingList.create({
     data: {
-      name: planName,
+      name: parsed.planName,
       ownerId: user.id,
       items: {
         createMany: {

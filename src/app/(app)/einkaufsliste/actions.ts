@@ -2,9 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { canReadRecipe } from "@/lib/cookbooks/permissions";
+
+const manualItemSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  amount: z.number().finite().min(0).max(99999).nullable(),
+  unit: z.string().trim().max(30).nullable(),
+});
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -109,14 +116,20 @@ export async function addManualItemAction(listId: string, formData: FormData) {
   const list = await prisma.shoppingList.findUnique({ where: { id: listId } });
   if (!list || list.ownerId !== user.id) throw new Error("Nicht gefunden");
 
-  const name = String(formData.get("name") ?? "").trim();
-  if (!name) return;
+  const nameRaw = String(formData.get("name") ?? "").trim();
+  if (!nameRaw) return;
   const amountRaw = String(formData.get("amount") ?? "");
-  const amount = amountRaw ? Number(amountRaw.replace(",", ".")) : null;
-  const unit = String(formData.get("unit") ?? "").trim() || null;
+  const amountParsed = amountRaw ? Number(amountRaw.replace(",", ".")) : null;
+  const unitRaw = String(formData.get("unit") ?? "").trim() || null;
+
+  const parsed = manualItemSchema.parse({
+    name: nameRaw,
+    amount: Number.isFinite(amountParsed as number) ? amountParsed : null,
+    unit: unitRaw,
+  });
 
   await prisma.shoppingItem.create({
-    data: { listId, name, amount: Number.isFinite(amount!) ? amount : null, unit },
+    data: { listId, name: parsed.name, amount: parsed.amount, unit: parsed.unit },
   });
   revalidatePath("/einkaufsliste");
   revalidatePath(`/einkaufsliste/${listId}`);

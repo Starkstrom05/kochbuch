@@ -7,6 +7,7 @@ import { type Actor, canReadCookbook, canWriteCookbook } from "@/lib/cookbooks/p
 type Tx = Prisma.TransactionClient;
 
 const COOKBOOK_NAME_MAX = 80;
+const COOKBOOK_QUOTA_PER_USER = 20;
 
 function ensureName(name: string): string {
   const trimmed = name.trim();
@@ -18,6 +19,9 @@ function ensureName(name: string): string {
 
 export async function createCookbook(actor: Actor, name: string) {
   const cleanName = ensureName(name);
+  const owned = await prisma.cookbook.count({ where: { ownerId: actor.id } });
+  if (owned >= COOKBOOK_QUOTA_PER_USER)
+    throw new Error(`Maximal ${COOKBOOK_QUOTA_PER_USER} eigene Kochbuecher erlaubt`);
   return prisma.cookbook.create({
     data: { ownerId: actor.id, name: cleanName },
   });
