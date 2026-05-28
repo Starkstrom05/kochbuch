@@ -49,6 +49,12 @@ export default async function EinkaufslistePage() {
         </div>
         <div className="flex items-center gap-4">
           <Link
+            href="/einkaufsliste/uebersicht"
+            className="font-written text-ink-faded text-sm underline underline-offset-4"
+          >
+            Alle Listen
+          </Link>
+          <Link
             href="/vorraete"
             className="font-written text-ribbon text-sm underline underline-offset-4"
           >

@@ -8,6 +8,7 @@ import { getFrequentItems } from "@/lib/shopping/frequent";
 import { selectMasterListItems } from "@/lib/shopping/master-list";
 import { canAccessShoppingList } from "@/lib/shopping/permissions";
 import { actorFromSession } from "@/lib/auth/helpers";
+import { ShoppingListShareManager } from "@/app/(app)/einkaufsliste/ShoppingListShareManager";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -19,11 +20,23 @@ export default async function EinkaufslisteDetailPage({ params }: Props) {
 
   const list = await prisma.shoppingList.findUnique({
     where: { id },
-    include: { items: { orderBy: { id: "asc" } } },
+    include: {
+      items: { orderBy: { id: "asc" } },
+      accesses: { include: { user: { select: { id: true, name: true } } } },
+    },
   });
 
   if (!list) notFound();
   if (!(await canAccessShoppingList(actorFromSession(session), id))) redirect("/einkaufsliste");
+
+  const isManager = list.ownerId === session.user.id || session.user.role === "ADMIN";
+  const candidateUsers = isManager
+    ? await prisma.user.findMany({
+        where: { id: { not: list.ownerId } },
+        select: { id: true, name: true, email: true },
+        orderBy: { name: "asc" },
+      })
+    : [];
 
   const enriched = await attachCategories(
     list.items.map((i) => ({
@@ -61,7 +74,7 @@ export default async function EinkaufslisteDetailPage({ params }: Props) {
             ← Speiseplan
           </Link>
           <Link
-            href="/einkaufsliste"
+            href="/einkaufsliste/uebersicht"
             className="font-written text-ink-faded text-sm underline underline-offset-4"
           >
             Alle Listen
@@ -75,6 +88,15 @@ export default async function EinkaufslisteDetailPage({ params }: Props) {
         items={enriched}
         frequentItems={masterList}
       />
+
+      {isManager && (
+        <ShoppingListShareManager
+          listId={list.id}
+          listName={list.name}
+          accesses={list.accesses.map((a) => ({ userId: a.user.id, userName: a.user.name }))}
+          candidateUsers={candidateUsers}
+        />
+      )}
     </main>
   );
 }
