@@ -305,6 +305,7 @@ model ShoppingItem {
   unit      String?
   checked   Boolean      @default(false)
   recipeRef String?
+  note      String?
   list      ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
 
   @@index([listId])

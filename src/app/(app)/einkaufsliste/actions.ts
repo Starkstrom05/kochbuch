@@ -76,6 +76,25 @@ export async function toggleItemAction(itemId: string) {
   revalidatePath(`/einkaufsliste/${item.list.id}`);
 }
 
+const noteSchema = z.string().trim().max(200);
+
+export async function setItemNoteAction(itemId: string, note: string) {
+  const user = await requireUser();
+  const item = await prisma.shoppingItem.findUnique({
+    where: { id: itemId },
+    include: { list: true },
+  });
+  if (!item || item.list.ownerId !== user.id) throw new Error("Nicht gefunden");
+
+  const trimmed = noteSchema.parse(note);
+  await prisma.shoppingItem.update({
+    where: { id: itemId },
+    data: { note: trimmed || null },
+  });
+  revalidatePath("/einkaufsliste");
+  revalidatePath(`/einkaufsliste/${item.listId}`);
+}
+
 export async function checkAllInGroupAction(listId: string, itemIds: string[]) {
   const user = await requireUser();
   const list = await prisma.shoppingList.findUnique({ where: { id: listId } });
@@ -143,6 +162,7 @@ async function addItemToList(
       unit: row.unit,
       recipeRef: row.recipeRef,
       checked: row.checked,
+      note: row.note,
     },
   ]);
 

@@ -31,6 +31,7 @@ export default async function EinkaufslisteDetailPage({ params }: Props) {
       unit: i.unit,
       recipeRef: i.recipeRef,
       checked: i.checked,
+      note: i.note,
     })),
   );
   const frequent = await getFrequentItems(session.user.id);
