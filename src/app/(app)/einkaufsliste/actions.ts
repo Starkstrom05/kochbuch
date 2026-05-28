@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db/prisma";
 import { canReadRecipe } from "@/lib/cookbooks/permissions";
 import { requireUser } from "@/lib/auth/helpers";
 import { planManualMerge } from "@/lib/shopping/merge";
+import { attachCategories } from "@/lib/shopping/category-lookup";
 
 const manualItemSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -132,18 +133,32 @@ export async function addManualItemAction(listId: string, formData: FormData) {
   });
   const plan = planManualMerge(open, parsed);
 
-  if (plan.kind === "merge") {
-    await prisma.shoppingItem.update({
-      where: { id: plan.targetId },
-      data: { amount: plan.amount, unit: plan.unit },
-    });
-  } else {
-    await prisma.shoppingItem.create({
-      data: { listId, name: parsed.name, amount: parsed.amount, unit: parsed.unit },
-    });
-  }
+  const row =
+    plan.kind === "merge"
+      ? await prisma.shoppingItem.update({
+          where: { id: plan.targetId },
+          data: { amount: plan.amount, unit: plan.unit },
+        })
+      : await prisma.shoppingItem.create({
+          data: { listId, name: parsed.name, amount: parsed.amount, unit: parsed.unit },
+        });
+
+  // Kategorie für den fertigen Datensatz auflösen, damit der Client das Item
+  // sofort im richtigen Gang einsortieren kann (statt erst nach Reload).
+  const [item] = await attachCategories([
+    {
+      id: row.id,
+      name: row.name,
+      amount: row.amount,
+      unit: row.unit,
+      recipeRef: row.recipeRef,
+      checked: row.checked,
+    },
+  ]);
+
   revalidatePath("/einkaufsliste");
   revalidatePath(`/einkaufsliste/${listId}`);
+  return { merged: plan.kind === "merge", item };
 }
 
 const suggestQuerySchema = z.string().trim().min(2).max(50);

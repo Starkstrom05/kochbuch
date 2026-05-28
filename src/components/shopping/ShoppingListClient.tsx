@@ -55,6 +55,17 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
     startTransition(() => clearListAction(listId));
   }
 
+  // Upsert per ID: ein neu angelegtes Item wird angehängt, ein gemergtes
+  // (gleiche ID, neue Gesamtmenge) ersetzt das bestehende. Der Server liefert
+  // das Item inkl. Kategorie, daher landet es sofort im richtigen Gang.
+  function upsertItem(item: RawItem) {
+    setItems((prev) => {
+      const exists = prev.some((i) => i.id === item.id);
+      return exists ? prev.map((i) => (i.id === item.id ? item : i)) : [...prev, item];
+    });
+    setShowManual(false);
+  }
+
   if (items.length === 0) {
     return (
       <>
@@ -74,10 +85,7 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
         {showManual && (
           <ManualAddForm
             listId={listId}
-            onAdded={(item) => {
-              setItems((p) => [...p, item]);
-              setShowManual(false);
-            }}
+            onUpsert={upsertItem}
             onCancel={() => setShowManual(false)}
           />
         )}
@@ -122,10 +130,7 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
       {showManual && (
         <ManualAddForm
           listId={listId}
-          onAdded={(item) => {
-            setItems((p) => [...p, item]);
-            setShowManual(false);
-          }}
+          onUpsert={upsertItem}
           onCancel={() => setShowManual(false)}
         />
       )}
@@ -539,11 +544,11 @@ function ShareFallback({ text, onClose }: { text: string; onClose: () => void })
 
 function ManualAddForm({
   listId,
-  onAdded,
+  onUpsert,
   onCancel,
 }: {
   listId: string;
-  onAdded: (item: RawItem) => void;
+  onUpsert: (item: RawItem) => void;
   onCancel: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -570,18 +575,10 @@ function ManualAddForm({
     const fd = new FormData(e.currentTarget);
     const name = String(fd.get("name") ?? "").trim();
     if (!name) return;
-    const amount = fd.get("amount") ? Number(String(fd.get("amount")).replace(",", ".")) : null;
-    const unit = String(fd.get("unit") ?? "").trim() || null;
-    const tempId = `temp-${Date.now()}`;
-    onAdded({
-      id: tempId,
-      name,
-      amount: Number.isFinite(amount!) ? amount : null,
-      unit,
-      recipeRef: null,
-      checked: false,
+    startTransition(async () => {
+      const res = await addManualItemAction(listId, fd);
+      if (res) onUpsert(res.item);
     });
-    startTransition(() => addManualItemAction(listId, fd));
   }
 
   return (
