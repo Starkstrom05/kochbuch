@@ -12,6 +12,8 @@ import {
   OurGroceriesClient,
 } from "@/lib/integrations/ourgroceries/client";
 import { loadExportItemsForList } from "@/lib/integrations/ourgroceries/service";
+import { canAccessShoppingList } from "@/lib/shopping/permissions";
+import { actorFromSession } from "@/lib/auth/helpers";
 
 export const maxDuration = 60;
 
@@ -32,8 +34,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   }
 
   const { id } = await ctx.params;
-  const list = await prisma.shoppingList.findUnique({ where: { id } });
-  if (!list || list.ownerId !== session.user.id) {
+  if (!(await canAccessShoppingList(actorFromSession(session), id))) {
     return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
   }
 

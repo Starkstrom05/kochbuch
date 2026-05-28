@@ -23,6 +23,8 @@ model User {
   mealPlans     MealPlan[]
   pantry        PantryItem[]
   frequentItems FrequentItem[]
+  shoppingListAccesses ShoppingListAccess[] @relation("ShoppingListMember")
+  shoppingListGrants   ShoppingListAccess[] @relation("ShoppingListGranter")
   sessions      Session[]
   accounts      Account[]
   ourGroceries  UserOurGroceriesCredentials?
@@ -287,14 +289,32 @@ model Rating {
 }
 
 model ShoppingList {
-  id        String         @id @default(cuid())
+  id        String               @id @default(cuid())
   name      String
   ownerId   String
-  owner     User           @relation(fields: [ownerId], references: [id])
+  owner     User                 @relation(fields: [ownerId], references: [id])
   items     ShoppingItem[]
-  createdAt DateTime       @default(now())
+  accesses  ShoppingListAccess[]
+  createdAt DateTime             @default(now())
 
   @@index([ownerId])
+}
+
+// Freigabe einer Einkaufsliste an ein weiteres Mitglied (analog CookbookAccess).
+// Anders als bei Cookbooks haben Mitglieder VOLLE Bearbeitung (Items hinzufuegen/
+// abhaken/notieren); nur Owner/Admin verwalten Freigaben und loeschen die Liste.
+model ShoppingListAccess {
+  id          String       @id @default(cuid())
+  listId      String
+  userId      String
+  grantedById String
+  grantedAt   DateTime     @default(now())
+  list        ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  user        User         @relation("ShoppingListMember", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy   User         @relation("ShoppingListGranter", fields: [grantedById], references: [id])
+
+  @@unique([listId, userId])
+  @@index([userId])
 }
 
 model ShoppingItem {

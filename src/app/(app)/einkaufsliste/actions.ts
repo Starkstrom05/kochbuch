@@ -10,6 +10,7 @@ import { requireUser } from "@/lib/auth/helpers";
 import { planManualMerge } from "@/lib/shopping/merge";
 import { attachCategories } from "@/lib/shopping/category-lookup";
 import { recordFrequentItem } from "@/lib/shopping/frequent";
+import { canAccessShoppingList } from "@/lib/shopping/permissions";
 
 const manualItemSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -66,7 +67,9 @@ export async function toggleItemAction(itemId: string) {
     where: { id: itemId },
     include: { list: true },
   });
-  if (!item || item.list.ownerId !== user.id) throw new Error("Nicht gefunden");
+  if (!item) throw new Error("Nicht gefunden");
+  if (!(await canAccessShoppingList({ id: user.id, role: user.role }, item.listId)))
+    throw new Error("Nicht gefunden");
 
   await prisma.shoppingItem.update({
     where: { id: itemId },
@@ -84,7 +87,9 @@ export async function setItemNoteAction(itemId: string, note: string) {
     where: { id: itemId },
     include: { list: true },
   });
-  if (!item || item.list.ownerId !== user.id) throw new Error("Nicht gefunden");
+  if (!item) throw new Error("Nicht gefunden");
+  if (!(await canAccessShoppingList({ id: user.id, role: user.role }, item.listId)))
+    throw new Error("Nicht gefunden");
 
   const trimmed = noteSchema.parse(note);
   await prisma.shoppingItem.update({
@@ -97,8 +102,8 @@ export async function setItemNoteAction(itemId: string, note: string) {
 
 export async function checkAllInGroupAction(listId: string, itemIds: string[]) {
   const user = await requireUser();
-  const list = await prisma.shoppingList.findUnique({ where: { id: listId } });
-  if (!list || list.ownerId !== user.id) throw new Error("Nicht gefunden");
+  if (!(await canAccessShoppingList({ id: user.id, role: user.role }, listId)))
+    throw new Error("Nicht gefunden");
 
   await prisma.shoppingItem.updateMany({
     where: { id: { in: itemIds }, listId },
@@ -110,8 +115,8 @@ export async function checkAllInGroupAction(listId: string, itemIds: string[]) {
 
 export async function clearCheckedAction(listId: string) {
   const user = await requireUser();
-  const list = await prisma.shoppingList.findUnique({ where: { id: listId } });
-  if (!list || list.ownerId !== user.id) throw new Error("Nicht gefunden");
+  if (!(await canAccessShoppingList({ id: user.id, role: user.role }, listId)))
+    throw new Error("Nicht gefunden");
 
   await prisma.shoppingItem.deleteMany({ where: { listId, checked: true } });
   revalidatePath("/einkaufsliste");
@@ -120,8 +125,8 @@ export async function clearCheckedAction(listId: string) {
 
 export async function clearListAction(listId: string) {
   const user = await requireUser();
-  const list = await prisma.shoppingList.findUnique({ where: { id: listId } });
-  if (!list || list.ownerId !== user.id) throw new Error("Nicht gefunden");
+  if (!(await canAccessShoppingList({ id: user.id, role: user.role }, listId)))
+    throw new Error("Nicht gefunden");
 
   await prisma.shoppingItem.deleteMany({ where: { listId } });
   revalidatePath("/einkaufsliste");
@@ -171,8 +176,8 @@ async function addItemToList(
 
 export async function addManualItemAction(listId: string, formData: FormData) {
   const user = await requireUser();
-  const list = await prisma.shoppingList.findUnique({ where: { id: listId } });
-  if (!list || list.ownerId !== user.id) throw new Error("Nicht gefunden");
+  if (!(await canAccessShoppingList({ id: user.id, role: user.role }, listId)))
+    throw new Error("Nicht gefunden");
 
   const nameRaw = String(formData.get("name") ?? "").trim();
   if (!nameRaw) return;
@@ -203,8 +208,8 @@ const frequentNameSchema = z.string().trim().min(1).max(200);
  */
 export async function addFrequentItemAction(listId: string, name: string) {
   const user = await requireUser();
-  const list = await prisma.shoppingList.findUnique({ where: { id: listId } });
-  if (!list || list.ownerId !== user.id) throw new Error("Nicht gefunden");
+  if (!(await canAccessShoppingList({ id: user.id, role: user.role }, listId)))
+    throw new Error("Nicht gefunden");
 
   const parsed = frequentNameSchema.parse(name);
   const result = await addItemToList(listId, { name: parsed, amount: null, unit: null });
