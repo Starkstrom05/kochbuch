@@ -7,6 +7,7 @@ import {
   clearCheckedAction,
   clearListAction,
   addManualItemAction,
+  addFrequentItemAction,
   suggestIngredientsAction,
 } from "@/app/(app)/einkaufsliste/actions";
 import {
@@ -16,16 +17,24 @@ import {
   type ConsolidatedGroup,
 } from "@/lib/shopping/consolidate";
 import { groupByAisle } from "@/lib/shopping/aisles";
+import type { FrequentEntry } from "@/lib/shopping/master-list";
 import { EmptyState } from "@/components/oma/EmptyState";
 
 type Props = {
   listId: string;
   items: RawItem[];
   listName?: string;
+  frequentItems?: FrequentEntry[];
 };
 
-export function ShoppingListClient({ listId, items: initialItems, listName }: Props) {
+export function ShoppingListClient({
+  listId,
+  items: initialItems,
+  listName,
+  frequentItems = [],
+}: Props) {
   const [items, setItems] = useState<RawItem[]>(initialItems);
+  const [masterItems, setMasterItems] = useState<FrequentEntry[]>(frequentItems);
   const [isPending, startTransition] = useTransition();
   const [showManual, setShowManual] = useState(false);
 
@@ -66,6 +75,17 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
     setShowManual(false);
   }
 
+  // 1-Tap aus „Häufig gekauft": Chip optimistisch entfernen, Item in die Liste
+  // upserten, sobald der Server den fertigen Datensatz (inkl. Gang) liefert.
+  function addFromMaster(name: string) {
+    const key = name.toLowerCase().trim();
+    setMasterItems((prev) => prev.filter((f) => f.name.toLowerCase().trim() !== key));
+    startTransition(async () => {
+      const res = await addFrequentItemAction(listId, name);
+      if (res) upsertItem(res.item);
+    });
+  }
+
   if (items.length === 0) {
     return (
       <>
@@ -89,6 +109,7 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
             onCancel={() => setShowManual(false)}
           />
         )}
+        <MasterListPanel items={masterItems} onAdd={addFromMaster} disabled={isPending} />
       </>
     );
   }
@@ -134,6 +155,8 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
           onCancel={() => setShowManual(false)}
         />
       )}
+
+      <MasterListPanel items={masterItems} onAdd={addFromMaster} disabled={isPending} />
 
       {/* Nach Gang gruppiert */}
       <div className="space-y-6">
@@ -537,6 +560,38 @@ function ShareFallback({ text, onClose }: { text: string; onClose: () => void })
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Master list ("Häufig gekauft") ──────────────────────────────────────────────
+
+function MasterListPanel({
+  items,
+  onAdd,
+  disabled,
+}: {
+  items: FrequentEntry[];
+  onAdd: (name: string) => void;
+  disabled: boolean;
+}) {
+  if (items.length === 0) return null;
+
+  return (
+    <section aria-label="Häufig gekauft">
+      <h2 className="font-hand text-ink-faded mb-2 text-xl">Häufig gekauft</h2>
+      <div className="flex flex-wrap gap-2">
+        {items.map((f) => (
+          <button
+            key={f.name}
+            onClick={() => onAdd(f.name)}
+            disabled={disabled}
+            className="bg-paper-100 font-written text-ink ring-paper-300 hover:bg-paper-200 rounded-full px-3 py-1.5 text-sm ring-1 disabled:opacity-50"
+          >
+            + {f.name}
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 

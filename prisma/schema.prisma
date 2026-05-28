@@ -22,6 +22,7 @@ model User {
   shoppingLists ShoppingList[]
   mealPlans     MealPlan[]
   pantry        PantryItem[]
+  frequentItems FrequentItem[]
   sessions      Session[]
   accounts      Account[]
   ourGroceries  UserOurGroceriesCredentials?
@@ -307,6 +308,22 @@ model ShoppingItem {
   list      ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
 
   @@index([listId])
+}
+
+// "Haeufig gekauft": pro User aggregierte Historie manuell hinzugefuegter
+// Items. count + lastUsedAt treiben das Ranking der Master-List; unit merkt
+// sich die zuletzt genutzte Einheit fuer 1-Tap-Wiederhinzufuegen.
+model FrequentItem {
+  id         String   @id @default(cuid())
+  ownerId    String
+  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name       String
+  unit       String?
+  count      Int      @default(1)
+  lastUsedAt DateTime @default(now())
+
+  @@unique([ownerId, name])
+  @@index([ownerId])
 }
 
 model MealPlan {
