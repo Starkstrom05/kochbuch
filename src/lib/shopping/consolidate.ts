@@ -8,6 +8,8 @@ export type RawItem = {
   unit: string | null;
   recipeRef: string | null;
   checked: boolean;
+  /** Gang/Aisle aus Ingredient.category, zur Lesezeit angereichert. */
+  category?: string | null;
 };
 
 export type ConsolidatedGroup = {
@@ -21,6 +23,8 @@ export type ConsolidatedGroup = {
   items: RawItem[];
   allChecked: boolean;
   someChecked: boolean;
+  /** Gang/Aisle (erstes Item mit Kategorie gewinnt), null = ohne Kategorie. */
+  category: string | null;
 };
 
 export function consolidateList(items: RawItem[]): ConsolidatedGroup[] {
@@ -65,12 +69,7 @@ export function consolidateList(items: RawItem[]): ConsolidatedGroup[] {
     const totalAmount = canSum ? acc.amount : null;
     const unit = canSum ? acc.unit : null;
 
-    const totalLabel = buildLabel(
-      canSum ? totalAmount : null,
-      unit,
-      groupItems,
-      canSum,
-    );
+    const totalLabel = buildLabel(canSum ? totalAmount : null, unit, groupItems, canSum);
 
     return {
       name: groupItems[0].name,
@@ -80,6 +79,7 @@ export function consolidateList(items: RawItem[]): ConsolidatedGroup[] {
       items: groupItems,
       allChecked: groupItems.every((i) => i.checked),
       someChecked: groupItems.some((i) => i.checked),
+      category: groupItems.find((i) => i.category)?.category ?? null,
     };
   });
 }
@@ -101,9 +101,7 @@ function buildLabel(
   if (!canSum) {
     // Show each part individually
     return groupItems
-      .map((i) =>
-        i.amount != null ? `${formatAmount(i.amount)} ${i.unit ?? ""}`.trim() : "",
-      )
+      .map((i) => (i.amount != null ? `${formatAmount(i.amount)} ${i.unit ?? ""}`.trim() : ""))
       .filter(Boolean)
       .join(" + ");
   }

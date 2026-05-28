@@ -15,6 +15,7 @@ import {
   type RawItem,
   type ConsolidatedGroup,
 } from "@/lib/shopping/consolidate";
+import { groupByAisle } from "@/lib/shopping/aisles";
 import { EmptyState } from "@/components/oma/EmptyState";
 
 type Props = {
@@ -28,7 +29,9 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
   const [isPending, startTransition] = useTransition();
   const [showManual, setShowManual] = useState(false);
 
-  const groups = sortConsolidatedGroups(consolidateList(items));
+  const consolidated = consolidateList(items);
+  const groups = sortConsolidatedGroups(consolidated);
+  const sections = groupByAisle(consolidated);
   const checkedCount = items.filter((i) => i.checked).length;
 
   function optimisticToggle(id: string) {
@@ -127,17 +130,26 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
         />
       )}
 
-      {/* Consolidated groups */}
-      <ul className="divide-paper-200 divide-y">
-        {groups.map((group) => (
-          <GroupRow
-            key={group.name.toLowerCase()}
-            group={group}
-            onToggleItem={optimisticToggle}
-            onCheckAll={optimisticCheckGroup}
-          />
+      {/* Nach Gang gruppiert */}
+      <div className="space-y-6">
+        {sections.map((section) => (
+          <section key={section.label}>
+            <h2 className="font-hand text-ribbon border-paper-200 mb-1 border-b pb-0.5 text-2xl">
+              {section.label}
+            </h2>
+            <ul className="divide-paper-200 divide-y">
+              {section.groups.map((group) => (
+                <GroupRow
+                  key={group.name.toLowerCase()}
+                  group={group}
+                  onToggleItem={optimisticToggle}
+                  onCheckAll={optimisticCheckGroup}
+                />
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }
