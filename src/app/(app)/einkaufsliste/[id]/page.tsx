@@ -6,6 +6,8 @@ import { ShoppingListClient } from "@/components/shopping/ShoppingListClient";
 import { attachCategories } from "@/lib/shopping/category-lookup";
 import { getFrequentItems } from "@/lib/shopping/frequent";
 import { selectMasterListItems } from "@/lib/shopping/master-list";
+import { canAccessShoppingList } from "@/lib/shopping/permissions";
+import { actorFromSession } from "@/lib/auth/helpers";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -21,7 +23,7 @@ export default async function EinkaufslisteDetailPage({ params }: Props) {
   });
 
   if (!list) notFound();
-  if (list.ownerId !== session.user.id) redirect("/einkaufsliste");
+  if (!(await canAccessShoppingList(actorFromSession(session), id))) redirect("/einkaufsliste");
 
   const enriched = await attachCategories(
     list.items.map((i) => ({
