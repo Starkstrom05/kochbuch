@@ -8,6 +8,7 @@ import {
   clearListAction,
   addManualItemAction,
   addFrequentItemAction,
+  setItemNoteAction,
   suggestIngredientsAction,
 } from "@/app/(app)/einkaufsliste/actions";
 import {
@@ -248,6 +249,15 @@ function GroupRow({
             <p className="font-written text-ink-faded text-xs">{group.items[0].recipeRef}</p>
           )}
 
+          {/* Single-source note */}
+          {!multiSource && (
+            <NoteEditor
+              key={group.items[0].id}
+              itemId={group.items[0].id}
+              note={group.items[0].note ?? null}
+            />
+          )}
+
           {/* Expanded individual items */}
           {multiSource && expanded && (
             <ul className="mt-2 space-y-1">
@@ -269,6 +279,9 @@ function GroupRow({
                       <span className="text-ink-faded">({item.recipeRef ?? "manuell"})</span>
                     </span>
                   </label>
+                  <div className="ml-8">
+                    <NoteEditor itemId={item.id} note={item.note ?? null} />
+                  </div>
                 </li>
               ))}
             </ul>
@@ -560,6 +573,80 @@ function ShareFallback({ text, onClose }: { text: string; onClose: () => void })
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Note editor ───────────────────────────────────────────────────────────────
+
+function NoteEditor({ itemId, note }: { itemId: string; note: string | null }) {
+  const [editing, setEditing] = useState(false);
+  const [current, setCurrent] = useState(note ?? "");
+  const [draft, setDraft] = useState(note ?? "");
+  const [, startTransition] = useTransition();
+
+  function save() {
+    const trimmed = draft.trim();
+    setCurrent(trimmed);
+    setEditing(false);
+    startTransition(() => setItemNoteAction(itemId, trimmed));
+  }
+
+  function startEdit() {
+    setDraft(current);
+    setEditing(true);
+  }
+
+  if (editing) {
+    return (
+      <div className="mt-1 flex items-center gap-2">
+        <input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save();
+            if (e.key === "Escape") setEditing(false);
+          }}
+          placeholder="z. B. welche Marke"
+          maxLength={200}
+          className="border-ink-light font-written text-ink min-w-0 flex-1 border-b border-dotted bg-transparent text-sm outline-none"
+        />
+        <button
+          onClick={save}
+          className="font-written text-ribbon text-xs"
+          aria-label="Notiz speichern"
+        >
+          ✓
+        </button>
+        <button
+          onClick={() => setEditing(false)}
+          className="font-written text-ink-faded text-xs"
+          aria-label="Abbrechen"
+        >
+          ✕
+        </button>
+      </div>
+    );
+  }
+
+  if (current) {
+    return (
+      <button
+        onClick={startEdit}
+        className="font-written text-ink-faded hover:text-ribbon mt-0.5 block text-left text-xs italic"
+      >
+        📝 {current}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={startEdit}
+      className="font-written text-ink-faded hover:text-ribbon mt-0.5 text-xs underline underline-offset-2"
+    >
+      + Notiz
+    </button>
   );
 }
 

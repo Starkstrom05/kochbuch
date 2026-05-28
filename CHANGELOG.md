@@ -7,6 +7,16 @@ Versionsschema [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.25.0] — 2026-05-28
+
+### Hinzugefuegt
+
+- **Item-Notizen** in der Einkaufsliste — pro Eintrag eine optionale Freitext-
+  Notiz („welche Marke" o. Ä.), inline anzeig- und editierbar. Bei Einzelquell-
+  Items direkt unter dem Namen, bei aus mehreren Rezepten zusammengefuehrten
+  Gruppen je Eintrag in der aufgeklappten Ansicht. Additive Migration
+  (`ShoppingItem.note`).
+
 ## [0.24.0] — 2026-05-28
 
 ### Hinzugefuegt

@@ -10,6 +10,8 @@ export type RawItem = {
   checked: boolean;
   /** Gang/Aisle aus Ingredient.category, zur Lesezeit angereichert. */
   category?: string | null;
+  /** Freitext-Notiz pro Item (z. B. „welche Marke"). */
+  note?: string | null;
 };
 
 export type ConsolidatedGroup = {
