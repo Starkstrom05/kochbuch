@@ -7,6 +7,17 @@ Versionsschema [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.27.0] — 2026-05-28
+
+### Hinzugefuegt
+
+- **Einkaufslisten teilen** — Owner (oder Admin) können eine Liste direkt auf
+  der Listenseite für Familienmitglieder freigeben (anzeigen/vergeben/entziehen,
+  Liste löschen). Freigegebene Mitglieder haben **volle Bearbeitung**.
+- **Listen-Übersicht** unter „Alle Listen" (`/einkaufsliste/uebersicht`): eigene
+  und mit einem geteilte Listen mit Eintrags-Anzahl — behebt den bisher ins
+  Leere führenden „Alle Listen"-Link.
+
 ## [0.26.0] — 2026-05-28
 
 ### Geaendert (Fundament fuer geteilte Einkaufslisten)
