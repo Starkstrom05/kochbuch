@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition, useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   toggleItemAction,
   checkAllInGroupAction,
@@ -26,18 +27,78 @@ type Props = {
   items: RawItem[];
   listName?: string;
   frequentItems?: FrequentEntry[];
+  initialVersion?: number;
 };
+
+const POLL_INTERVAL_MS = 15000;
 
 export function ShoppingListClient({
   listId,
   items: initialItems,
   listName,
   frequentItems = [],
+  initialVersion = 0,
 }: Props) {
+  const router = useRouter();
   const [items, setItems] = useState<RawItem[]>(initialItems);
   const [masterItems, setMasterItems] = useState<FrequentEntry[]>(frequentItems);
   const [isPending, startTransition] = useTransition();
   const [showManual, setShowManual] = useState(false);
+  const knownVersion = useRef(initialVersion);
+
+  // Resync des lokalen States auf frische Server-Props (nach Polling-refresh oder
+  // revalidate) per Render-Phase-Sync — aber nie während einer eigenen Pending-
+  // Edit, sonst würde ein gerade abgeschicktes optimistisches Update kurz
+  // zurückspringen. (React-Pattern „adjust state while rendering" via prev-State.)
+  const [syncedItems, setSyncedItems] = useState(initialItems);
+  if (initialItems !== syncedItems && !isPending) {
+    setSyncedItems(initialItems);
+    setItems(initialItems);
+    setMasterItems(frequentItems);
+  }
+
+  // Live-Update: pollt den leichten Versionsstempel und refresht die Seite nur,
+  // wenn sich serverseitig etwas geändert hat. Pausiert im Hintergrund-Tab,
+  // bricht überlappende Requests ab, leitet bei Zugriffsverlust (404) um.
+  useEffect(() => {
+    if (!listId) return;
+    let controller: AbortController | null = null;
+
+    async function poll() {
+      if (typeof document !== "undefined" && document.hidden) return;
+      controller?.abort();
+      controller = new AbortController();
+      try {
+        const res = await fetch(`/api/shopping-list/${listId}/version`, {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        if (res.status === 404) {
+          router.replace("/einkaufsliste");
+          return;
+        }
+        if (!res.ok) return;
+        const data = (await res.json()) as { v?: number };
+        if (typeof data.v === "number" && data.v > knownVersion.current) {
+          knownVersion.current = data.v;
+          router.refresh();
+        }
+      } catch {
+        // Netzwerk/Abbruch ignorieren — nächster Tick versucht es erneut.
+      }
+    }
+
+    const iv = setInterval(poll, POLL_INTERVAL_MS);
+    const onVisible = () => {
+      if (!document.hidden) poll();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(iv);
+      document.removeEventListener("visibilitychange", onVisible);
+      controller?.abort();
+    };
+  }, [listId, router]);
 
   const consolidated = consolidateList(items);
   const groups = sortConsolidatedGroups(consolidated);

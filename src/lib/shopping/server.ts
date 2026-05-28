@@ -3,6 +3,18 @@ import type { Actor } from "@/lib/shopping/permissions";
 import { canManageShoppingList, canDeleteShoppingList } from "@/lib/shopping/permissions";
 
 /**
+ * Hebt ShoppingList.updatedAt an. Item-Mutationen (shoppingItem.*) triggern den
+ * @updatedAt-Stempel der Liste nicht selbst — daher nach jeder Inhaltsänderung
+ * explizit aufrufen. Treibt das Live-Update-Polling (Versionsstempel).
+ */
+export async function touchList(listId: string): Promise<void> {
+  await prisma.shoppingList.update({
+    where: { id: listId },
+    data: { updatedAt: new Date() },
+  });
+}
+
+/**
  * Gibt eine Einkaufsliste für ein weiteres Mitglied frei. Nur Owner/Admin
  * (canManage). Mitglieder erhalten volle Inhalts-Bearbeitung. Idempotent.
  */

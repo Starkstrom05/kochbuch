@@ -87,6 +87,7 @@ export default async function EinkaufslisteDetailPage({ params }: Props) {
         listName={list.name}
         items={enriched}
         frequentItems={masterList}
+        initialVersion={list.updatedAt.getTime()}
       />
 
       {isManager && (

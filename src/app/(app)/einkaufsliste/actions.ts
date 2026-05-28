@@ -11,6 +11,7 @@ import { planManualMerge } from "@/lib/shopping/merge";
 import { attachCategories } from "@/lib/shopping/category-lookup";
 import { recordFrequentItem } from "@/lib/shopping/frequent";
 import { canAccessShoppingList } from "@/lib/shopping/permissions";
+import { touchList } from "@/lib/shopping/server";
 
 const manualItemSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -57,6 +58,7 @@ export async function addRecipeToListAction(recipeId: string, targetServings?: n
     })),
   });
 
+  await touchList(list.id);
   revalidatePath("/einkaufsliste");
   redirect("/einkaufsliste");
 }
@@ -75,6 +77,7 @@ export async function toggleItemAction(itemId: string) {
     where: { id: itemId },
     data: { checked: !item.checked },
   });
+  await touchList(item.listId);
   revalidatePath("/einkaufsliste");
   revalidatePath(`/einkaufsliste/${item.list.id}`);
 }
@@ -96,6 +99,7 @@ export async function setItemNoteAction(itemId: string, note: string) {
     where: { id: itemId },
     data: { note: trimmed || null },
   });
+  await touchList(item.listId);
   revalidatePath("/einkaufsliste");
   revalidatePath(`/einkaufsliste/${item.listId}`);
 }
@@ -109,6 +113,7 @@ export async function checkAllInGroupAction(listId: string, itemIds: string[]) {
     where: { id: { in: itemIds }, listId },
     data: { checked: true },
   });
+  await touchList(listId);
   revalidatePath("/einkaufsliste");
   revalidatePath(`/einkaufsliste/${listId}`);
 }
@@ -119,6 +124,7 @@ export async function clearCheckedAction(listId: string) {
     throw new Error("Nicht gefunden");
 
   await prisma.shoppingItem.deleteMany({ where: { listId, checked: true } });
+  await touchList(listId);
   revalidatePath("/einkaufsliste");
   revalidatePath(`/einkaufsliste/${listId}`);
 }
@@ -129,6 +135,7 @@ export async function clearListAction(listId: string) {
     throw new Error("Nicht gefunden");
 
   await prisma.shoppingItem.deleteMany({ where: { listId } });
+  await touchList(listId);
   revalidatePath("/einkaufsliste");
   revalidatePath(`/einkaufsliste/${listId}`);
 }
@@ -171,6 +178,7 @@ async function addItemToList(
     },
   ]);
 
+  await touchList(listId);
   return { merged: plan.kind === "merge", item };
 }
 

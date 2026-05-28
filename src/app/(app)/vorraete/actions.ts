@@ -13,6 +13,7 @@ import {
   matchesPantry,
   removePantryItem,
 } from "@/lib/pantry/server";
+import { touchList } from "@/lib/shopping/server";
 
 const pantryItemSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -99,6 +100,7 @@ export async function addMissingToListAction(recipeId: string) {
       recipeRef: recipe.title,
     })),
   });
+  await touchList(list.id);
   revalidatePath("/einkaufsliste");
   redirect("/einkaufsliste");
 }
