@@ -1,11 +1,11 @@
 # Kochbuch — Session-Status
 
-**Stand:** Mai 2026, v0.22.11 (Familienprojekt auf TrueNAS Scale).
+**Stand:** Mai 2026, v0.28.0 (Familienprojekt auf TrueNAS Scale).
 
 ## Wo es läuft
 
 - Repo öffentlich: https://github.com/Starkstrom05/kochbuch
-- Image in GHCR: `ghcr.io/starkstrom05/kochbuch:latest` (Tag `v0.22.11`)
+- Image in GHCR: `ghcr.io/starkstrom05/kochbuch:latest` (Tag `v0.28.0`)
 - TrueNAS Scale auf TerraMaster F4-423 (Celeron N5095, 31 GiB RAM, keine GPU)
 - LAN-Erreichbarkeit `http://<nas-ip>:3000`, HTTPS-Setup via Tailscale optional
   (siehe `docs/HTTPS-SETUP.md` — behebt den Secure-Context für Teilen/Clipboard)
@@ -35,8 +35,28 @@
   (jszip), Admin-UI im Profil — Datensicherung unabhängig vom NAS-Snapshot.
 - **Speiseplan**: Wochenpläne mit Mahlzeit-Slots, PDF-Export A4 quer,
   Übernahme in Einkaufsliste; optional familien-geteilt (v0.15.0).
-- **Einkaufsliste**: pro User, Konsolidierung über Rezepte, Abhaken
-  (Erledigte sortieren nach unten), Drucken/Teilen mit Insecure-Context-Fallback.
+- **Einkaufsliste**: Konsolidierung über Rezepte, Abhaken (Erledigte sortieren
+  nach unten), Drucken/Teilen mit Insecure-Context-Fallback. Stark ausgebaut in
+  v0.23–v0.28 (OurGroceries-inspiriert):
+  - **Gang-Sortierung** (v0.23.0): Items nach `Ingredient.category` gruppiert
+    (Supermarkt-Laufreihenfolge, „Sonstiges" unten); Kategorie zur Lesezeit per
+    Namens-Lookup, keine Migration.
+  - **Auto-Complete + Mengen-Merge** (v0.23.0): Zutat-Vorschläge aus der
+    Stammdaten-Tabelle; gleiche, offene Items werden mengenmäßig zusammengeführt
+    (`planManualMerge`, reuse `addAmounts`) statt dupliziert.
+  - **Master-List „Häufig gekauft"** (v0.24.0): pro User aggregierte Historie
+    (`FrequentItem`), häufigste als 1-Tap-Chips, schon Gelistetes ausgeblendet.
+  - **Item-Notizen** (v0.25.0): `ShoppingItem.note`, inline editierbar.
+  - **Geteilte Listen** (v0.26.0–v0.27.0): eigenständig pro Liste freigebbar
+    (`ShoppingListAccess`, analog `CookbookAccess`). Mitglieder haben **volle
+    Bearbeitung**, nur Owner/Admin verwalten Freigaben + löschen
+    (`canAccessShoppingList`/`canManageShoppingList` in `src/lib/shopping/permissions.ts`).
+    Inline-ShareManager auf der Listenseite + Übersicht `/einkaufsliste/uebersicht`
+    (eigene + geteilte).
+  - **Live-Update** (v0.28.0): NAS-schonendes 15s-Polling eines Versionsstempels
+    (`ShoppingList.updatedAt` via `touchList`, Endpoint `/api/shopping-list/[id]/version`);
+    pausiert bei `document.hidden`, lädt nur bei Änderung neu, 404→redirect,
+    Render-Phase-Resync ohne optimistische Edits zu zerstören.
 - **OurGroceries-Brücke** (v0.19.0): Opt-In-Direkt-Export der Einkaufsliste in
   die OurGroceries-App. Per-User-Credentials AES-256-GCM-verschlüsselt (Key aus
   `OURGROCERIES_ENCRYPTION_KEY`); Modul ist ohne Key deaktiviert. Teilen-Menü
@@ -113,9 +133,11 @@ Aus dem Review-Pass v0.22.3 – v0.22.11 (Sicherheits-/Performance-Sweep):
 
 ### Testabdeckung
 
-- **222 Unit-Tests** (vorher 182): u. a. `extractJson`/`aiRecipeSchema`/`scale`,
-  `decideViewMealPlan`, `buildFtsQuery`.
-- **13 E2E** (Playwright) unveraendert.
+- **253 Unit-Tests** (vorher 222): zusätzlich Einkaufslisten-Logik
+  (`consolidate`/`merge`/`aisles`/`master-list`) und Shopping-Permissions
+  (`decideAccessShoppingList`/`decideManageShoppingList`).
+- **13 E2E** (Playwright) unveraendert. Sharing + Live-Update wurden manuell per
+  Playwright-Skript verifiziert (zwei User/Kontexte), keine festen E2E-Specs dafür.
 
 ## Entwicklung / CI
 
@@ -132,9 +154,13 @@ Aus dem Review-Pass v0.22.3 – v0.22.11 (Sicherheits-/Performance-Sweep):
 - `next.config.ts` `images.remotePatterns: []` — wir nutzen `<img>` direkt
   statt `next/image` für externe URLs (Akamai-CDN-Embed-Politik). Der
   Image-Proxy unter `/api/image-proxy` löst das deterministisch.
-- **Dep-Upgrades vertagt:** ESLint 9→10 ist extern blockiert (eslint-plugin-react
-  unterstützt nur eslint ≤9.7); Prisma 6→7 verlangt einen Driver-Adapter-Umbau
-  (better-sqlite3 + `prisma.config.ts` + Docker native-build) — eigener Schritt.
+- **Dep-Upgrades:** Prisma 6→7 erledigt (7.8.0, better-sqlite3-Adapter +
+  `prisma.config.ts`). ESLint 9→10 weiterhin extern blockiert (eslint-plugin-react
+  unterstützt nur eslint ≤9.7).
+- **Einkaufslisten-Sharing (bewusste Grenzen):** „Rezept/Fehlende → Liste"
+  schreibt immer in die _eigene_ (ggf. neu angelegte) Liste, nicht in eine
+  geteilte (kein Ziel-Listen-Selektor). `FrequentItem` bleibt pro User — die
+  „Häufig gekauft"-Vorschläge unterscheiden sich also je Betrachter.
 - **Puppeteer-Sidecar**: `docker-compose.truenas-sidecar.yml` vorbereitet (lagert
   Chromium-RAM aus), aber noch nicht auf dem NAS ausgerollt. Siehe
   `docs/PUPPETEER-SIDECAR.md`.
