@@ -1,12 +1,13 @@
 "use client";
 
-import { useTransition, useState, useRef } from "react";
+import { useTransition, useState, useRef, useEffect } from "react";
 import {
   toggleItemAction,
   checkAllInGroupAction,
   clearCheckedAction,
   clearListAction,
   addManualItemAction,
+  suggestIngredientsAction,
 } from "@/app/(app)/einkaufsliste/actions";
 import {
   consolidateList,
@@ -14,6 +15,7 @@ import {
   type RawItem,
   type ConsolidatedGroup,
 } from "@/lib/shopping/consolidate";
+import { groupByAisle } from "@/lib/shopping/aisles";
 import { EmptyState } from "@/components/oma/EmptyState";
 
 type Props = {
@@ -27,7 +29,9 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
   const [isPending, startTransition] = useTransition();
   const [showManual, setShowManual] = useState(false);
 
-  const groups = sortConsolidatedGroups(consolidateList(items));
+  const consolidated = consolidateList(items);
+  const groups = sortConsolidatedGroups(consolidated);
+  const sections = groupByAisle(consolidated);
   const checkedCount = items.filter((i) => i.checked).length;
 
   function optimisticToggle(id: string) {
@@ -51,6 +55,17 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
     startTransition(() => clearListAction(listId));
   }
 
+  // Upsert per ID: ein neu angelegtes Item wird angehängt, ein gemergtes
+  // (gleiche ID, neue Gesamtmenge) ersetzt das bestehende. Der Server liefert
+  // das Item inkl. Kategorie, daher landet es sofort im richtigen Gang.
+  function upsertItem(item: RawItem) {
+    setItems((prev) => {
+      const exists = prev.some((i) => i.id === item.id);
+      return exists ? prev.map((i) => (i.id === item.id ? item : i)) : [...prev, item];
+    });
+    setShowManual(false);
+  }
+
   if (items.length === 0) {
     return (
       <>
@@ -70,10 +85,7 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
         {showManual && (
           <ManualAddForm
             listId={listId}
-            onAdded={(item) => {
-              setItems((p) => [...p, item]);
-              setShowManual(false);
-            }}
+            onUpsert={upsertItem}
             onCancel={() => setShowManual(false)}
           />
         )}
@@ -118,25 +130,31 @@ export function ShoppingListClient({ listId, items: initialItems, listName }: Pr
       {showManual && (
         <ManualAddForm
           listId={listId}
-          onAdded={(item) => {
-            setItems((p) => [...p, item]);
-            setShowManual(false);
-          }}
+          onUpsert={upsertItem}
           onCancel={() => setShowManual(false)}
         />
       )}
 
-      {/* Consolidated groups */}
-      <ul className="divide-paper-200 divide-y">
-        {groups.map((group) => (
-          <GroupRow
-            key={group.name.toLowerCase()}
-            group={group}
-            onToggleItem={optimisticToggle}
-            onCheckAll={optimisticCheckGroup}
-          />
+      {/* Nach Gang gruppiert */}
+      <div className="space-y-6">
+        {sections.map((section) => (
+          <section key={section.label}>
+            <h2 className="font-hand text-ribbon border-paper-200 mb-1 border-b pb-0.5 text-2xl">
+              {section.label}
+            </h2>
+            <ul className="divide-paper-200 divide-y">
+              {section.groups.map((group) => (
+                <GroupRow
+                  key={group.name.toLowerCase()}
+                  group={group}
+                  onToggleItem={optimisticToggle}
+                  onCheckAll={optimisticCheckGroup}
+                />
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }
@@ -526,32 +544,41 @@ function ShareFallback({ text, onClose }: { text: string; onClose: () => void })
 
 function ManualAddForm({
   listId,
-  onAdded,
+  onUpsert,
   onCancel,
 }: {
   listId: string;
-  onAdded: (item: RawItem) => void;
+  onUpsert: (item: RawItem) => void;
   onCancel: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
+  const [nameQuery, setNameQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+
+  // Zutaten-Vorschläge aus der Stammdaten-Tabelle, debounced gegen Tipp-Last.
+  useEffect(() => {
+    const q = nameQuery.trim();
+    const handle = setTimeout(() => {
+      if (q.length < 2) {
+        setSuggestions([]);
+        return;
+      }
+      suggestIngredientsAction(q)
+        .then(setSuggestions)
+        .catch(() => setSuggestions([]));
+    }, 200);
+    return () => clearTimeout(handle);
+  }, [nameQuery]);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const name = String(fd.get("name") ?? "").trim();
     if (!name) return;
-    const amount = fd.get("amount") ? Number(String(fd.get("amount")).replace(",", ".")) : null;
-    const unit = String(fd.get("unit") ?? "").trim() || null;
-    const tempId = `temp-${Date.now()}`;
-    onAdded({
-      id: tempId,
-      name,
-      amount: Number.isFinite(amount!) ? amount : null,
-      unit,
-      recipeRef: null,
-      checked: false,
+    startTransition(async () => {
+      const res = await addManualItemAction(listId, fd);
+      if (res) onUpsert(res.item);
     });
-    startTransition(() => addManualItemAction(listId, fd));
   }
 
   return (
@@ -566,8 +593,17 @@ function ManualAddForm({
           required
           autoFocus
           placeholder="Milch"
+          list="ingredient-suggest"
+          autoComplete="off"
+          value={nameQuery}
+          onChange={(e) => setNameQuery(e.target.value)}
           className="border-ink-light font-written text-ink mt-1 w-full border-b border-dotted bg-transparent outline-none"
         />
+        <datalist id="ingredient-suggest">
+          {suggestions.map((s) => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
       </label>
       <label className="w-20">
         <span className="font-written text-ink-faded text-xs">Menge</span>

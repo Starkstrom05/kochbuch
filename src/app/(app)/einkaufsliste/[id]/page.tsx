@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { ShoppingListClient } from "@/components/shopping/ShoppingListClient";
+import { attachCategories } from "@/lib/shopping/category-lookup";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -20,13 +21,24 @@ export default async function EinkaufslisteDetailPage({ params }: Props) {
   if (!list) notFound();
   if (list.ownerId !== session.user.id) redirect("/einkaufsliste");
 
+  const enriched = await attachCategories(
+    list.items.map((i) => ({
+      id: i.id,
+      name: i.name,
+      amount: i.amount,
+      unit: i.unit,
+      recipeRef: i.recipeRef,
+      checked: i.checked,
+    })),
+  );
+
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-10 pt-6 pt-safe px-safe pb-safe sm:px-6 sm:py-10">
+    <main className="pt-safe px-safe pb-safe mx-auto max-w-2xl px-4 pt-6 pb-10 sm:px-6 sm:py-10">
       <header className="mb-8 flex flex-wrap items-baseline justify-between gap-4">
         <div>
-          <h1 className="font-hand text-5xl text-ink ink-text">{list.name}</h1>
+          <h1 className="font-hand text-ink ink-text text-5xl">{list.name}</h1>
           {list.items.length > 0 && (
-            <p className="font-written text-sm text-ink-faded">
+            <p className="font-written text-ink-faded text-sm">
               {list.items.filter((i) => !i.checked).length} noch zu kaufen
             </p>
           )}
@@ -34,31 +46,20 @@ export default async function EinkaufslisteDetailPage({ params }: Props) {
         <div className="flex items-center gap-4">
           <Link
             href="/speiseplan"
-            className="font-written text-sm text-ink-faded underline underline-offset-4"
+            className="font-written text-ink-faded text-sm underline underline-offset-4"
           >
             ← Speiseplan
           </Link>
           <Link
             href="/einkaufsliste"
-            className="font-written text-sm text-ink-faded underline underline-offset-4"
+            className="font-written text-ink-faded text-sm underline underline-offset-4"
           >
             Alle Listen
           </Link>
         </div>
       </header>
 
-      <ShoppingListClient
-        listId={list.id}
-        listName={list.name}
-        items={list.items.map((i) => ({
-          id: i.id,
-          name: i.name,
-          amount: i.amount,
-          unit: i.unit,
-          recipeRef: i.recipeRef,
-          checked: i.checked,
-        }))}
-      />
+      <ShoppingListClient listId={list.id} listName={list.name} items={enriched} />
     </main>
   );
 }

@@ -11,6 +11,7 @@ function grp(over: Partial<ConsolidatedGroup>): ConsolidatedGroup {
     items: [],
     allChecked: false,
     someChecked: false,
+    category: null,
     ...over,
   };
 }

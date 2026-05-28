@@ -2,10 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { canReadRecipe } from "@/lib/cookbooks/permissions";
 import { requireUser } from "@/lib/auth/helpers";
+import { planManualMerge } from "@/lib/shopping/merge";
+import { attachCategories } from "@/lib/shopping/category-lookup";
 
 const manualItemSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -122,9 +125,66 @@ export async function addManualItemAction(listId: string, formData: FormData) {
     unit: unitRaw,
   });
 
-  await prisma.shoppingItem.create({
-    data: { listId, name: parsed.name, amount: parsed.amount, unit: parsed.unit },
+  // Merge in ein bestehendes, noch nicht abgehaktes Item gleichen Namens statt
+  // ein Duplikat anzulegen (consolidate.ts gruppiert sonst nur in der Anzeige).
+  const open = await prisma.shoppingItem.findMany({
+    where: { listId, checked: false },
+    select: { id: true, name: true, amount: true, unit: true, checked: true },
   });
+  const plan = planManualMerge(open, parsed);
+
+  const row =
+    plan.kind === "merge"
+      ? await prisma.shoppingItem.update({
+          where: { id: plan.targetId },
+          data: { amount: plan.amount, unit: plan.unit },
+        })
+      : await prisma.shoppingItem.create({
+          data: { listId, name: parsed.name, amount: parsed.amount, unit: parsed.unit },
+        });
+
+  // Kategorie für den fertigen Datensatz auflösen, damit der Client das Item
+  // sofort im richtigen Gang einsortieren kann (statt erst nach Reload).
+  const [item] = await attachCategories([
+    {
+      id: row.id,
+      name: row.name,
+      amount: row.amount,
+      unit: row.unit,
+      recipeRef: row.recipeRef,
+      checked: row.checked,
+    },
+  ]);
+
   revalidatePath("/einkaufsliste");
   revalidatePath(`/einkaufsliste/${listId}`);
+  return { merged: plan.kind === "merge", item };
+}
+
+const suggestQuerySchema = z.string().trim().min(2).max(50);
+
+/**
+ * Liefert bis zu 8 Zutaten-Namen für das Auto-Complete im manuellen Hinzufügen.
+ * Case-insensitive (SQLite vergleicht default case-sensitive → LOWER-Roundtrip,
+ * vgl. lib/pantry/server.ts). Präfix-Treffer vor Substring-Treffern, dann
+ * alphabetisch. Nur lesend, keine Cookbook-Grenze nötig — Ingredient ist eine
+ * globale, normalisierte Stammdaten-Tabelle ohne nutzerspezifische Inhalte.
+ */
+export async function suggestIngredientsAction(query: string): Promise<string[]> {
+  await requireUser();
+  const parsed = suggestQuerySchema.safeParse(query);
+  if (!parsed.success) return [];
+
+  const q = parsed.data.toLowerCase();
+  const like = `%${q}%`;
+  const prefix = `${q}%`;
+  const rows = await prisma.$queryRaw<{ name: string }[]>(
+    Prisma.sql`
+      SELECT name FROM "Ingredient"
+      WHERE LOWER(name) LIKE ${like}
+      ORDER BY (LOWER(name) LIKE ${prefix}) DESC, name COLLATE NOCASE ASC
+      LIMIT 8
+    `,
+  );
+  return rows.map((r) => r.name);
 }
