@@ -69,7 +69,12 @@ export default async function EinkaufslistePage() {
         </div>
       </header>
 
-      <ShoppingListClient listId={list?.id ?? ""} items={enriched} frequentItems={masterList} />
+      <ShoppingListClient
+        listId={list?.id ?? ""}
+        items={enriched}
+        frequentItems={masterList}
+        initialVersion={list?.updatedAt.getTime() ?? 0}
+      />
     </main>
   );
 }
