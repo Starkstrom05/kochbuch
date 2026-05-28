@@ -7,6 +7,16 @@ Versionsschema [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.28.0] — 2026-05-29
+
+### Hinzugefuegt
+
+- **Live-Update geteilter Einkaufslisten** — Änderungen anderer Mitglieder
+  erscheinen automatisch (~15 s), ohne manuelles Neuladen. Umgesetzt als
+  NAS-schonendes Polling eines leichten Versionsstempels (`ShoppingList.updatedAt`):
+  pausiert im Hintergrund-Tab, lädt nur bei tatsächlicher Änderung neu, und
+  zerstört laufende eigene Eingaben nicht. Additive Migration.
+
 ## [0.27.0] — 2026-05-28
 
 ### Hinzugefuegt
