@@ -7,6 +7,18 @@ Versionsschema [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.26.0] — 2026-05-28
+
+### Geaendert (Fundament fuer geteilte Einkaufslisten)
+
+- **Berechtigungsmodell der Einkaufsliste** auf ein Sharing-faehiges Fundament
+  umgestellt: neue Tabelle `ShoppingListAccess` (analog `CookbookAccess`) und
+  zentrale Permission-Helper (`canAccessShoppingList`/`canManageShoppingList`).
+  Alle Listen-Actions und Export-Routes pruefen jetzt Zugriff statt nur
+  Owner-Identitaet. **Verhaltensneutral** — ohne vergebene Freigaben bleibt
+  alles wie bisher; die Freigabe-UI folgt in der naechsten Version. Additive
+  Migration.
+
 ## [0.25.0] — 2026-05-28
 
 ### Hinzugefuegt
