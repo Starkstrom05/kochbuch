@@ -7,6 +7,17 @@ Versionsschema [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.24.0] — 2026-05-28
+
+### Hinzugefuegt
+
+- **„Häufig gekauft"-Liste (Master-List)** in der Einkaufsliste — manuell
+  hinzugefuegte Items werden pro User aggregiert (Anzahl + Aktualitaet) und als
+  1-Tap-Chips angeboten. Schon auf der Liste stehende Items werden ausgeblendet;
+  Tappen nutzt denselben Merge-/Gang-Pfad wie das manuelle Hinzufuegen. Neue
+  Tabelle `FrequentItem` (additive Migration). Rezept-Zutaten zaehlen bewusst
+  nicht mit, damit die Liste auf manuelle Staples fokussiert bleibt.
+
 ## [0.23.0] — 2026-05-28
 
 ### Hinzugefuegt

@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { ShoppingListClient } from "@/components/shopping/ShoppingListClient";
 import { attachCategories } from "@/lib/shopping/category-lookup";
+import { getFrequentItems } from "@/lib/shopping/frequent";
+import { selectMasterListItems } from "@/lib/shopping/master-list";
 
 export default async function EinkaufslistePage() {
   const session = await auth();
@@ -26,6 +28,11 @@ export default async function EinkaufslistePage() {
       recipeRef: i.recipeRef,
       checked: i.checked,
     })),
+  );
+  const frequent = await getFrequentItems(session.user.id);
+  const masterList = selectMasterListItems(
+    frequent,
+    enriched.map((i) => i.name),
   );
 
   return (
@@ -55,7 +62,7 @@ export default async function EinkaufslistePage() {
         </div>
       </header>
 
-      <ShoppingListClient listId={list?.id ?? ""} items={enriched} />
+      <ShoppingListClient listId={list?.id ?? ""} items={enriched} frequentItems={masterList} />
     </main>
   );
 }

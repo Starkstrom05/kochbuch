@@ -9,6 +9,7 @@ import { canReadRecipe } from "@/lib/cookbooks/permissions";
 import { requireUser } from "@/lib/auth/helpers";
 import { planManualMerge } from "@/lib/shopping/merge";
 import { attachCategories } from "@/lib/shopping/category-lookup";
+import { recordFrequentItem } from "@/lib/shopping/frequent";
 
 const manualItemSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -108,6 +109,46 @@ export async function clearListAction(listId: string) {
   revalidatePath(`/einkaufsliste/${listId}`);
 }
 
+/**
+ * Legt ein Item in der Liste an — mit Merge in ein bestehendes, noch nicht
+ * abgehaktes Item gleichen Namens (consolidate.ts gruppiert sonst nur in der
+ * Anzeige) und mit aufgelöster Gang-Kategorie, damit der Client es sofort
+ * richtig einsortiert. Gemeinsamer Pfad für manuelles + Master-List-Hinzufügen.
+ */
+async function addItemToList(
+  listId: string,
+  input: { name: string; amount: number | null; unit: string | null },
+) {
+  const open = await prisma.shoppingItem.findMany({
+    where: { listId, checked: false },
+    select: { id: true, name: true, amount: true, unit: true, checked: true },
+  });
+  const plan = planManualMerge(open, input);
+
+  const row =
+    plan.kind === "merge"
+      ? await prisma.shoppingItem.update({
+          where: { id: plan.targetId },
+          data: { amount: plan.amount, unit: plan.unit },
+        })
+      : await prisma.shoppingItem.create({
+          data: { listId, name: input.name, amount: input.amount, unit: input.unit },
+        });
+
+  const [item] = await attachCategories([
+    {
+      id: row.id,
+      name: row.name,
+      amount: row.amount,
+      unit: row.unit,
+      recipeRef: row.recipeRef,
+      checked: row.checked,
+    },
+  ]);
+
+  return { merged: plan.kind === "merge", item };
+}
+
 export async function addManualItemAction(listId: string, formData: FormData) {
   const user = await requireUser();
   const list = await prisma.shoppingList.findUnique({ where: { id: listId } });
@@ -125,40 +166,33 @@ export async function addManualItemAction(listId: string, formData: FormData) {
     unit: unitRaw,
   });
 
-  // Merge in ein bestehendes, noch nicht abgehaktes Item gleichen Namens statt
-  // ein Duplikat anzulegen (consolidate.ts gruppiert sonst nur in der Anzeige).
-  const open = await prisma.shoppingItem.findMany({
-    where: { listId, checked: false },
-    select: { id: true, name: true, amount: true, unit: true, checked: true },
-  });
-  const plan = planManualMerge(open, parsed);
-
-  const row =
-    plan.kind === "merge"
-      ? await prisma.shoppingItem.update({
-          where: { id: plan.targetId },
-          data: { amount: plan.amount, unit: plan.unit },
-        })
-      : await prisma.shoppingItem.create({
-          data: { listId, name: parsed.name, amount: parsed.amount, unit: parsed.unit },
-        });
-
-  // Kategorie für den fertigen Datensatz auflösen, damit der Client das Item
-  // sofort im richtigen Gang einsortieren kann (statt erst nach Reload).
-  const [item] = await attachCategories([
-    {
-      id: row.id,
-      name: row.name,
-      amount: row.amount,
-      unit: row.unit,
-      recipeRef: row.recipeRef,
-      checked: row.checked,
-    },
-  ]);
+  const result = await addItemToList(listId, parsed);
+  await recordFrequentItem(user.id, parsed.name, parsed.unit);
 
   revalidatePath("/einkaufsliste");
   revalidatePath(`/einkaufsliste/${listId}`);
-  return { merged: plan.kind === "merge", item };
+  return result;
+}
+
+const frequentNameSchema = z.string().trim().min(1).max(200);
+
+/**
+ * 1-Tap aus der „Häufig gekauft"-Liste: fügt den Namen (ohne Menge) zur Liste
+ * hinzu und zählt ihn erneut in die Historie. Nutzt denselben Merge-/Kategorie-
+ * Pfad wie das manuelle Hinzufügen.
+ */
+export async function addFrequentItemAction(listId: string, name: string) {
+  const user = await requireUser();
+  const list = await prisma.shoppingList.findUnique({ where: { id: listId } });
+  if (!list || list.ownerId !== user.id) throw new Error("Nicht gefunden");
+
+  const parsed = frequentNameSchema.parse(name);
+  const result = await addItemToList(listId, { name: parsed, amount: null, unit: null });
+  await recordFrequentItem(user.id, parsed, null);
+
+  revalidatePath("/einkaufsliste");
+  revalidatePath(`/einkaufsliste/${listId}`);
+  return result;
 }
 
 const suggestQuerySchema = z.string().trim().min(2).max(50);
