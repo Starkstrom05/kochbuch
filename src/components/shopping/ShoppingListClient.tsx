@@ -1,12 +1,13 @@
 "use client";
 
-import { useTransition, useState, useRef } from "react";
+import { useTransition, useState, useRef, useEffect } from "react";
 import {
   toggleItemAction,
   checkAllInGroupAction,
   clearCheckedAction,
   clearListAction,
   addManualItemAction,
+  suggestIngredientsAction,
 } from "@/app/(app)/einkaufsliste/actions";
 import {
   consolidateList,
@@ -534,6 +535,23 @@ function ManualAddForm({
   onCancel: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
+  const [nameQuery, setNameQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+
+  // Zutaten-Vorschläge aus der Stammdaten-Tabelle, debounced gegen Tipp-Last.
+  useEffect(() => {
+    const q = nameQuery.trim();
+    const handle = setTimeout(() => {
+      if (q.length < 2) {
+        setSuggestions([]);
+        return;
+      }
+      suggestIngredientsAction(q)
+        .then(setSuggestions)
+        .catch(() => setSuggestions([]));
+    }, 200);
+    return () => clearTimeout(handle);
+  }, [nameQuery]);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -566,8 +584,17 @@ function ManualAddForm({
           required
           autoFocus
           placeholder="Milch"
+          list="ingredient-suggest"
+          autoComplete="off"
+          value={nameQuery}
+          onChange={(e) => setNameQuery(e.target.value)}
           className="border-ink-light font-written text-ink mt-1 w-full border-b border-dotted bg-transparent outline-none"
         />
+        <datalist id="ingredient-suggest">
+          {suggestions.map((s) => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
       </label>
       <label className="w-20">
         <span className="font-written text-ink-faded text-xs">Menge</span>
