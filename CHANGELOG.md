@@ -7,6 +7,21 @@ Versionsschema [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.23.0] — 2026-05-28
+
+### Hinzugefuegt
+
+- **Gang-Sortierung der Einkaufsliste** — Items werden nach Supermarkt-Gang
+  gruppiert (Gemuese, Kuehlregal, Trockenwaren, …) statt flach gelistet. Die
+  Kategorie kommt zur Lesezeit per Namens-Abgleich gegen `Ingredient.category`
+  (keine Migration). Bekannte Gaenge in Laufreihenfolge, Unbekanntes als
+  „Sonstiges" am Ende; abgehakte Eintraege sinken je Gang nach unten.
+- **Zutaten-Auto-Complete** beim manuellen Hinzufuegen — Vorschlaege aus der
+  Zutaten-Stammdatentabelle (debounced), vereinheitlicht Schreibweisen.
+- **Mengen-Merge** — gleichnamige, noch nicht abgehakte Eintraege werden beim
+  manuellen Hinzufuegen zusammengefuehrt (`500 ml + 250 ml → 750 ml`) statt als
+  Duplikat angelegt. Neu hinzugefuegte Eintraege landen sofort im richtigen Gang.
+
 ## [0.22.11] — 2026-05-27
 
 ### Performance
