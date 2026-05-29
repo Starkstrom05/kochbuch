@@ -52,11 +52,19 @@ ENV NODE_ENV=production \
     PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Chromium fuer Puppeteer + openssl fuer Prisma + Build-Tools + sqlite3 fuer
-# das konsistente .backup im Entrypoint (cp ist mit WAL nicht atomar).
+# openssl fuer Prisma, sqlite3 fuer das konsistente .backup im Entrypoint
+# (cp ist mit WAL nicht atomar), dumb-init/wget fuer Entrypoint + Healthcheck —
+# diese immer. Chromium + Fonts nur im Standard-Image: INCLUDE_CHROMIUM=false
+# (Sidecar-Variante, :*-slim-Tags) laesst sie weg und spart ~250 MB (642→393 MB);
+# Puppeteer verbindet sich dann per PUPPETEER_WS_URL mit Browserless statt lokal
+# zu launchen.
+ARG INCLUDE_CHROMIUM=true
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    chromium fonts-liberation fonts-noto-color-emoji \
     openssl ca-certificates dumb-init wget sqlite3 \
+    && if [ "$INCLUDE_CHROMIUM" = "true" ]; then \
+         apt-get install -y --no-install-recommends \
+           chromium fonts-liberation fonts-noto-color-emoji; \
+       fi \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --system --gid 1001 nodejs && \
