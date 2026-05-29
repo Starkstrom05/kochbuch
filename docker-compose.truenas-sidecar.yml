@@ -45,6 +45,11 @@ services:
   # Migration + Seed laufen einmal vor dem App-Start im selben Image.
   app-init:
     image: ghcr.io/starkstrom05/kochbuch:latest-slim
+    # Bei gleichem Tag (:latest-slim) zieht Docker beim Start sonst KEIN neues
+    # Image → ein gecachtes Alt-Image würde gegen die bereits migrierte DB laufen
+    # (Code/DB-Mismatch, Seed-Crash). `always` holt vor jedem Start das aktuelle
+    # Image. Spart den manuellen `docker pull`.
+    pull_policy: always
     container_name: kochbuch-app-init
     restart: "no"
     environment:
@@ -62,6 +67,7 @@ services:
 
   app:
     image: ghcr.io/starkstrom05/kochbuch:latest-slim
+    pull_policy: always
     container_name: kochbuch-app
     restart: unless-stopped
     environment:
