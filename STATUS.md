@@ -1,11 +1,13 @@
 # Kochbuch — Session-Status
 
-**Stand:** Mai 2026, v0.28.0 (Familienprojekt auf TrueNAS Scale).
+**Stand:** Mai 2026, v0.30.0 (Familienprojekt auf TrueNAS Scale).
 
 ## Wo es läuft
 
 - Repo öffentlich: https://github.com/Starkstrom05/kochbuch
-- Image in GHCR: `ghcr.io/starkstrom05/kochbuch:latest` (Tag `v0.28.0`)
+- Image in GHCR: zwei Varianten je Release — `:latest`/`:vX.Y.Z` (mit Chromium,
+  642 MB) und `:latest-slim`/`:vX.Y.Z-slim` (ohne Chromium, 393 MB, für Sidecar).
+  Aktueller Tag `v0.30.0`. NAS läuft auf `:latest-slim` + Browserless-Sidecar.
 - TrueNAS Scale auf TerraMaster F4-423 (Celeron N5095, 31 GiB RAM, keine GPU)
 - LAN-Erreichbarkeit `http://<nas-ip>:3000`, HTTPS-Setup via Tailscale optional
   (siehe `docs/HTTPS-SETUP.md` — behebt den Secure-Context für Teilen/Clipboard)
@@ -57,6 +59,12 @@
     (`ShoppingList.updatedAt` via `touchList`, Endpoint `/api/shopping-list/[id]/version`);
     pausiert bei `document.hidden`, lädt nur bei Änderung neu, 404→redirect,
     Render-Phase-Resync ohne optimistische Edits zu zerstören.
+  - **Ziel-Listen-Selektor** (v0.30.0): „Rezept → Einkaufsliste" und „Fehlende →
+    Liste" (Vorräte) schreiben in eine wählbare (auch geteilte) Liste statt immer
+    in die eigene. ≤1 zugängliche Liste → Ein-Klick wie bisher; ab 2 → Dialog mit
+    Radio-Auswahl (`AddToShoppingListButton`, eigene zuerst, geteilte mit
+    Owner-Hinweis). Permission-gated via `resolveWriteTargetList`
+    (`lib/shopping/server.ts`); pure Selektor-Logik in `lib/shopping/target.ts`.
 - **OurGroceries-Brücke** (v0.19.0): Opt-In-Direkt-Export der Einkaufsliste in
   die OurGroceries-App. Per-User-Credentials AES-256-GCM-verschlüsselt (Key aus
   `OURGROCERIES_ENCRYPTION_KEY`); Modul ist ohne Key deaktiviert. Teilen-Menü
@@ -133,11 +141,13 @@ Aus dem Review-Pass v0.22.3 – v0.22.11 (Sicherheits-/Performance-Sweep):
 
 ### Testabdeckung
 
-- **253 Unit-Tests** (vorher 222): zusätzlich Einkaufslisten-Logik
-  (`consolidate`/`merge`/`aisles`/`master-list`) und Shopping-Permissions
+- **260 Unit-Tests** (vorher 253): zusätzlich `lib/shopping/target` (Ziel-Listen-
+  Selektor-Logik); davor Einkaufslisten-Logik (`consolidate`/`merge`/`aisles`/
+  `master-list`) und Shopping-Permissions
   (`decideAccessShoppingList`/`decideManageShoppingList`).
-- **13 E2E** (Playwright) unveraendert. Sharing + Live-Update wurden manuell per
-  Playwright-Skript verifiziert (zwei User/Kontexte), keine festen E2E-Specs dafür.
+- **13 E2E** (Playwright) unveraendert. Sharing, Live-Update + Ziel-Listen-Selektor
+  wurden manuell per Playwright-Skript verifiziert (zwei User/Kontexte), keine
+  festen E2E-Specs dafür.
 
 ## Entwicklung / CI
 
@@ -157,13 +167,13 @@ Aus dem Review-Pass v0.22.3 – v0.22.11 (Sicherheits-/Performance-Sweep):
 - **Dep-Upgrades:** Prisma 6→7 erledigt (7.8.0, better-sqlite3-Adapter +
   `prisma.config.ts`). ESLint 9→10 weiterhin extern blockiert (eslint-plugin-react
   unterstützt nur eslint ≤9.7).
-- **Einkaufslisten-Sharing (bewusste Grenzen):** „Rezept/Fehlende → Liste"
-  schreibt immer in die _eigene_ (ggf. neu angelegte) Liste, nicht in eine
-  geteilte (kein Ziel-Listen-Selektor). `FrequentItem` bleibt pro User — die
-  „Häufig gekauft"-Vorschläge unterscheiden sich also je Betrachter.
-- **Puppeteer-Sidecar**: `docker-compose.truenas-sidecar.yml` vorbereitet (lagert
-  Chromium-RAM aus), aber noch nicht auf dem NAS ausgerollt. Siehe
-  `docs/PUPPETEER-SIDECAR.md`.
+- **Einkaufslisten-Sharing (bewusste Grenze):** `FrequentItem` bleibt pro User —
+  die „Häufig gekauft"-Vorschläge unterscheiden sich also je Betrachter einer
+  geteilten Liste. (Die frühere Grenze „→ Liste schreibt immer in die eigene"
+  ist mit dem Ziel-Listen-Selektor in v0.30.0 aufgehoben.)
+- **Puppeteer-Sidecar**: seit v0.29.0 auf dem NAS ausgerollt — Browserless-
+  Container (`docker-compose.truenas-sidecar.yml`), App läuft auf dem schlanken
+  `:*-slim`-Image ohne eigenes Chromium. Siehe `docs/PUPPETEER-SIDECAR.md`.
 - `STATUS.md` (diese Datei) wird gelegentlich nachgezogen, ist aber keine
   Wahrheitsquelle für Versionsstand — `package.json` ist's.
 
