@@ -38,11 +38,14 @@ test.describe.serial("Happy path — Rezept anlegen und ansehen", () => {
     await expect(page.getByText("Testmehl").first()).toBeVisible();
   });
 
-  test("PDF-Link ist vorhanden", async ({ page }) => {
+  test("PDF-Export-Button ist vorhanden", async ({ page }) => {
     await page.goto(recipeUrl || "/rezepte");
-    const pdfLink = page.getByRole("link", { name: /PDF/i });
-    await expect(pdfLink).toBeVisible();
-    await expect(pdfLink).toHaveAttribute("href", /\/api\/recipes\/.+\/pdf/);
+    // Seit v0.33 ist der PDF-Export ein Button (SaveFileButton: Web Share auf
+    // iOS/Android, Download auf Desktop) statt eines <a download> — letzteres
+    // funktioniert auf iOS Safari nicht. Die Ziel-URL liegt daher nicht mehr im
+    // Markup, sondern wird beim Klick geholt.
+    const pdfButton = page.getByRole("button", { name: /PDF/i });
+    await expect(pdfButton).toBeVisible();
   });
 
   test("Rezept zur Einkaufsliste hinzufügen", async ({ page }) => {
