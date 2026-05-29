@@ -30,7 +30,7 @@ export default async function EinkaufslistePage() {
       note: i.note,
     })),
   );
-  const frequent = await getFrequentItems(session.user.id);
+  const frequent = list ? await getFrequentItems(list.id) : [];
   const masterList = selectMasterListItems(
     frequent,
     enriched.map((i) => i.name),

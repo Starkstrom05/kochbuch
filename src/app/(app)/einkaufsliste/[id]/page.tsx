@@ -49,7 +49,7 @@ export default async function EinkaufslisteDetailPage({ params }: Props) {
       note: i.note,
     })),
   );
-  const frequent = await getFrequentItems(session.user.id);
+  const frequent = await getFrequentItems(list.id);
   const masterList = selectMasterListItems(
     frequent,
     enriched.map((i) => i.name),

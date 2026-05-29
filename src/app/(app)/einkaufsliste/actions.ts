@@ -192,7 +192,7 @@ export async function addManualItemAction(listId: string, formData: FormData) {
   });
 
   const result = await addItemToList(listId, parsed);
-  await recordFrequentItem(user.id, parsed.name, parsed.unit);
+  await recordFrequentItem(listId, parsed.name, parsed.unit);
 
   revalidatePath("/einkaufsliste");
   revalidatePath(`/einkaufsliste/${listId}`);
@@ -213,7 +213,7 @@ export async function addFrequentItemAction(listId: string, name: string) {
 
   const parsed = frequentNameSchema.parse(name);
   const result = await addItemToList(listId, { name: parsed, amount: null, unit: null });
-  await recordFrequentItem(user.id, parsed, null);
+  await recordFrequentItem(listId, parsed, null);
 
   revalidatePath("/einkaufsliste");
   revalidatePath(`/einkaufsliste/${listId}`);
