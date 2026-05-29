@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth/auth";
 import { signOutAction } from "@/lib/auth/actions";
 import { prisma } from "@/lib/db/prisma";
 import { searchRecipes } from "@/lib/recipes/search";
-import { categoryVisibleToFamily } from "@/lib/recipes/visibility";
+import { categoryVisibleToCookbook } from "@/lib/recipes/visibility";
 import { HandwrittenStars } from "@/components/oma/HandwrittenStars";
 import { EmptyState } from "@/components/oma/EmptyState";
 import { MobileMenu } from "@/components/layout/MobileMenu";
@@ -38,7 +38,7 @@ export default async function RezeptePage({ searchParams }: { searchParams: Sear
         })
       : Promise.resolve([] as Awaited<ReturnType<typeof searchRecipes>>),
     prisma.category.findMany({
-      where: categoryVisibleToFamily(session?.user?.familyId),
+      where: categoryVisibleToCookbook(session?.user?.activeCookbookId),
       orderBy: { name: "asc" },
     }),
   ]);
