@@ -23,6 +23,11 @@ body {
   background-color: theme("colors.paper.50");
   color: theme("colors.ink.DEFAULT");
   font-family: var(--font-lora), Georgia, "Times New Roman", serif;
+  /* Das leicht gedrehte PaperSheet (Oma-Design) ragt mit seiner Bounding-Box ein
+     paar Pixel über den Viewport — sonst horizontales Wackel-Scrollen am Handy.
+     `clip` kappt den unsichtbaren Überhang, ohne (anders als overflow:hidden)
+     den sticky Header zu brechen. Auf html (Scroll-Element) UND body. */
+  overflow-x: clip;
 }
 
 body {
