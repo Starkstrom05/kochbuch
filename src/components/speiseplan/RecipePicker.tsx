@@ -55,6 +55,11 @@ export function RecipePicker({ dayLabel, allRecipes, onAdd, onCancel }: Props) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Rezept suchen…"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            enterKeyHint="search"
             className="border-ink-light font-written text-ink placeholder:text-ink-light w-full border-b border-dotted bg-transparent outline-none"
           />
           <ul className="divide-paper-200 max-h-64 divide-y overflow-y-auto">

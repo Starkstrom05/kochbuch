@@ -347,6 +347,9 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
               name="title"
               required
               defaultValue={initial?.title ?? ""}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="sentences"
               className="font-hand text-ink placeholder:text-ink-light/60 mt-1 w-full bg-transparent text-4xl outline-none"
               placeholder="z.B. Merys Kartoffelsalat"
             />
@@ -465,6 +468,8 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                 onChange={(e) => updateIng(i, { name: e.target.value })}
                 placeholder="Mehl"
                 aria-label={`Name fuer Zutat ${i + 1}`}
+                autoCapitalize="words"
+                autoCorrect="off"
                 className="font-written text-ink placeholder:text-ink-light/40 col-span-5 bg-transparent text-lg outline-none"
               />
               <input

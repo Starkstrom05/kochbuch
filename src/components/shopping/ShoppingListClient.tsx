@@ -799,6 +799,8 @@ function ManualAddForm({
           placeholder="Milch"
           list="ingredient-suggest"
           autoComplete="off"
+          autoCapitalize="words"
+          autoCorrect="off"
           value={nameQuery}
           onChange={(e) => setNameQuery(e.target.value)}
           className="border-ink-light font-written text-ink mt-1 w-full border-b border-dotted bg-transparent outline-none"
