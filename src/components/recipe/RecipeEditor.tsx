@@ -239,7 +239,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                     Cover
                   </span>
                 ) : null}
-                <div className="absolute inset-x-1 bottom-1 flex justify-between gap-1 opacity-0 transition group-hover:opacity-100">
+                <div className="absolute inset-x-1 bottom-1 flex justify-between gap-1 opacity-0 transition group-hover:opacity-100 [@media(hover:none)]:opacity-100">
                   <div className="flex gap-1">
                     <button
                       type="button"
@@ -288,7 +288,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                 <button
                   type="button"
                   onClick={() => removeNew(img.localId)}
-                  className="bg-paper-50/90 font-hand text-ribbon absolute right-1 bottom-1 inline-flex h-11 w-11 items-center justify-center rounded-sm text-base opacity-0 shadow transition group-hover:opacity-100"
+                  className="bg-paper-50/90 font-hand text-ribbon absolute right-1 bottom-1 inline-flex h-11 w-11 items-center justify-center rounded-sm text-base opacity-0 shadow transition group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                   aria-label="Bild entfernen"
                 >
                   ✕
@@ -316,7 +316,7 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
                 <button
                   type="button"
                   onClick={() => removeImportedUrl(url)}
-                  className="bg-paper-50/90 font-hand text-ribbon absolute right-1 bottom-1 inline-flex h-11 w-11 items-center justify-center rounded-sm text-base opacity-0 shadow transition group-hover:opacity-100"
+                  className="bg-paper-50/90 font-hand text-ribbon absolute right-1 bottom-1 inline-flex h-11 w-11 items-center justify-center rounded-sm text-base opacity-0 shadow transition group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                   aria-label="Bild entfernen"
                 >
                   ✕

@@ -22,7 +22,7 @@ export async function AppHeader() {
   }));
 
   return (
-    <div className="bg-paper-100/80 ring-paper-300/60 border-paper-300/40 sticky top-0 z-40 border-b backdrop-blur-sm">
+    <div className="bg-paper-100/80 ring-paper-300/60 border-paper-300/40 pt-safe px-safe sticky top-0 z-40 border-b backdrop-blur-sm">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-2 sm:px-6">
         <div className="min-w-0">
           <Link href="/rezepte" className="font-hand text-ink ink-text block text-3xl leading-none">
