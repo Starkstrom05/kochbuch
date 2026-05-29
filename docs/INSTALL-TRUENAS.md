@@ -87,11 +87,18 @@ einfachste Weg ohne Domain).
 
 ## Update auf neue Version
 
-TrueNAS-UI → **Apps → Installed → Kochbuch → Edit** → Image-Tag z.B. von
-`:latest` auf `:v0.2.2` ändern (oder umgekehrt einfach Re-Pull von
-`:latest`) → **Save**.
+Die Compose-Dateien setzen `pull_policy: always` auf `app`/`app-init` → der NAS
+zieht das aktuelle `:latest` (bzw. `:latest-slim`) bei jedem Start automatisch.
+**Update genügt daher: TrueNAS-UI → Apps → Installed → Kochbuch → Stop → Start.**
 
 Backup + Migration laufen beim Container-Restart automatisch.
+
+> **Wichtig — kein manuelles Tag-Jonglieren:** Vor `pull_policy: always` musste
+> man `sudo docker pull …:latest` manuell ausführen, sonst lief ein **gecachtes
+> Alt-Image** gegen die bereits migrierte DB (Seed-Crash `column … does not exist`,
+> `[EFAULT] Failed 'up'`). Beim **Wechsel der Image-Variante** (`:latest` ↔
+> `:latest-slim`) gilt weiterhin: `:latest-slim` braucht den Browserless-Sidecar,
+> ohne Sidecar `:latest` (mit Chromium) nutzen.
 
 ## Troubleshooting
 
