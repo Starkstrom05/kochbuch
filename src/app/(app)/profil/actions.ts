@@ -224,7 +224,7 @@ export async function createCategoryAction(formData: FormData) {
   if (!name) throw new Error("Name fehlt");
   try {
     await prisma.category.create({
-      data: { name, icon, familyId: session.user.familyId ?? null },
+      data: { name, icon, cookbookId: session.user.activeCookbookId ?? null },
     });
   } catch {
     // Name ist global eindeutig — Kollision freundlich melden.

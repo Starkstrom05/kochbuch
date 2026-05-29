@@ -51,6 +51,7 @@ model Cookbook {
   updatedAt      DateTime         @updatedAt
   recipes        Recipe[]
   accesses       CookbookAccess[]
+  categories     Category[]
   activeViewers  User[]           @relation("UserActiveCookbook")
 
   @@index([ownerId])
@@ -80,7 +81,6 @@ model Family {
   paperColor     String?
   createdAt      DateTime @default(now())
   members        User[]
-  categories     Category[]
 }
 
 model Account {
@@ -249,15 +249,15 @@ model RecipeIngredient {
 }
 
 model Category {
-  id       String             @id @default(cuid())
-  name     String             @unique
-  icon     String?
-  // null = global (für alle Familien sichtbar); sonst nur für die eigene Familie
-  familyId String?
-  family   Family?            @relation(fields: [familyId], references: [id])
-  recipes  CategoryOnRecipe[]
+  id         String             @id @default(cuid())
+  name       String             @unique
+  icon       String?
+  // null = global (in jedem Cookbook sichtbar); sonst nur im zugehörigen Cookbook
+  cookbookId String?
+  cookbook   Cookbook?          @relation(fields: [cookbookId], references: [id], onDelete: SetNull)
+  recipes    CategoryOnRecipe[]
 
-  @@index([familyId])
+  @@index([cookbookId])
 }
 
 model CategoryOnRecipe {

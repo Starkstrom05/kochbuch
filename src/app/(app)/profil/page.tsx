@@ -42,9 +42,9 @@ export default async function ProfilPage() {
             orderBy: { name: "asc" },
           })
         : Promise.resolve([]),
-      isAdmin && session.user.familyId
+      isAdmin && session.user.activeCookbookId
         ? prisma.category.findMany({
-            where: { familyId: session.user.familyId },
+            where: { cookbookId: session.user.activeCookbookId },
             select: { id: true, name: true, icon: true },
             orderBy: { name: "asc" },
           })
