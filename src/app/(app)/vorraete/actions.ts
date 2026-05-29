@@ -13,24 +13,13 @@ import {
   matchesPantry,
   removePantryItem,
 } from "@/lib/pantry/server";
-import { touchList } from "@/lib/shopping/server";
+import { resolveWriteTargetList, touchList } from "@/lib/shopping/server";
 
 const pantryItemSchema = z.object({
   name: z.string().trim().min(1).max(200),
   amount: z.number().finite().min(0).max(99999).nullable(),
   unit: z.string().trim().max(30).nullable(),
 });
-
-async function getOrCreateList(userId: string) {
-  const existing = await prisma.shoppingList.findFirst({
-    where: { ownerId: userId },
-    orderBy: { createdAt: "desc" },
-  });
-  if (existing) return existing;
-  return prisma.shoppingList.create({
-    data: { name: "Einkaufsliste", ownerId: userId },
-  });
-}
 
 export async function addPantryItemAction(formData: FormData) {
   const user = await requireUser();
@@ -66,7 +55,7 @@ export async function clearPantryAction() {
  * Übernimmt die fehlenden Zutaten eines Rezepts (also alles, was nicht im
  * Vorrat ist) in die aktive Einkaufsliste — und leitet auf die Liste um.
  */
-export async function addMissingToListAction(recipeId: string) {
+export async function addMissingToListAction(recipeId: string, listId?: string) {
   const user = await requireUser();
 
   const recipe = await prisma.recipe.findUnique({
@@ -87,10 +76,10 @@ export async function addMissingToListAction(recipeId: string) {
   const missing = recipe.ingredients.filter((ri) => !matchesPantry(matcher, ri));
   if (missing.length === 0) {
     revalidatePath("/vorraete");
-    redirect("/einkaufsliste");
+    redirect(listId ? `/einkaufsliste/${listId}` : "/einkaufsliste");
   }
 
-  const list = await getOrCreateList(user.id);
+  const list = await resolveWriteTargetList({ id: user.id, role: user.role }, listId);
   await prisma.shoppingItem.createMany({
     data: missing.map((ri) => ({
       listId: list.id,
@@ -102,5 +91,6 @@ export async function addMissingToListAction(recipeId: string) {
   });
   await touchList(list.id);
   revalidatePath("/einkaufsliste");
-  redirect("/einkaufsliste");
+  revalidatePath(`/einkaufsliste/${list.id}`);
+  redirect(listId ? `/einkaufsliste/${list.id}` : "/einkaufsliste");
 }

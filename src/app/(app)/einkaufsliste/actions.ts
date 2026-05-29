@@ -11,7 +11,7 @@ import { planManualMerge } from "@/lib/shopping/merge";
 import { attachCategories } from "@/lib/shopping/category-lookup";
 import { recordFrequentItem } from "@/lib/shopping/frequent";
 import { canAccessShoppingList } from "@/lib/shopping/permissions";
-import { touchList } from "@/lib/shopping/server";
+import { resolveWriteTargetList, touchList } from "@/lib/shopping/server";
 
 const manualItemSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -19,22 +19,13 @@ const manualItemSchema = z.object({
   unit: z.string().trim().max(30).nullable(),
 });
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-async function getOrCreateList(userId: string) {
-  const existing = await prisma.shoppingList.findFirst({
-    where: { ownerId: userId },
-    orderBy: { createdAt: "desc" },
-  });
-  if (existing) return existing;
-  return prisma.shoppingList.create({
-    data: { name: "Einkaufsliste", ownerId: userId },
-  });
-}
-
 // ── Actions ───────────────────────────────────────────────────────────────────
 
-export async function addRecipeToListAction(recipeId: string, targetServings?: number) {
+export async function addRecipeToListAction(
+  recipeId: string,
+  listId?: string,
+  targetServings?: number,
+) {
   const user = await requireUser();
 
   const recipe = await prisma.recipe.findUnique({
@@ -45,7 +36,7 @@ export async function addRecipeToListAction(recipeId: string, targetServings?: n
   const allowed = await canReadRecipe({ id: user.id, role: user.role }, recipe);
   if (!allowed) throw new Error("Keine Berechtigung");
 
-  const list = await getOrCreateList(user.id);
+  const list = await resolveWriteTargetList({ id: user.id, role: user.role }, listId);
   const scale = targetServings && targetServings > 0 ? targetServings / recipe.servings : 1;
 
   await prisma.shoppingItem.createMany({
@@ -60,7 +51,8 @@ export async function addRecipeToListAction(recipeId: string, targetServings?: n
 
   await touchList(list.id);
   revalidatePath("/einkaufsliste");
-  redirect("/einkaufsliste");
+  revalidatePath(`/einkaufsliste/${list.id}`);
+  redirect(listId ? `/einkaufsliste/${list.id}` : "/einkaufsliste");
 }
 
 export async function toggleItemAction(itemId: string) {
