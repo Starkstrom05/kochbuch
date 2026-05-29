@@ -1,6 +1,45 @@
 import { prisma } from "@/lib/db/prisma";
 import type { Actor } from "@/lib/shopping/permissions";
-import { canManageShoppingList, canDeleteShoppingList } from "@/lib/shopping/permissions";
+import {
+  canAccessShoppingList,
+  canManageShoppingList,
+  canDeleteShoppingList,
+} from "@/lib/shopping/permissions";
+import { targetListIdSchema } from "@/lib/shopping/target";
+
+/**
+ * Die neueste eigene Liste des Users oder eine frisch angelegte „Einkaufsliste".
+ * Gemeinsamer Fallback für „→ Einkaufsliste" ohne explizites Ziel.
+ */
+export async function getOrCreateOwnList(userId: string) {
+  const existing = await prisma.shoppingList.findFirst({
+    where: { ownerId: userId },
+    orderBy: { createdAt: "desc" },
+  });
+  if (existing) return existing;
+  return prisma.shoppingList.create({
+    data: { name: "Einkaufsliste", ownerId: userId },
+  });
+}
+
+/**
+ * Löst die Ziel-Liste für „Rezept/Fehlende → Einkaufsliste" auf. Mit `listId`
+ * muss die Liste zugänglich sein (Owner, Mitglied oder ADMIN) — sonst Fehler,
+ * statt still in eine andere Liste zu schreiben. Ohne `listId`: neueste eigene
+ * oder neu. Mitglieder geteilter Listen haben Vollzugriff, dürfen also auch dort
+ * Items ergänzen.
+ */
+export async function resolveWriteTargetList(actor: Actor, listId?: string) {
+  const parsed = listId ? targetListIdSchema.safeParse(listId) : null;
+  if (parsed?.success) {
+    if (!(await canAccessShoppingList(actor, parsed.data)))
+      throw new Error("Keine Berechtigung für diese Liste");
+    const list = await prisma.shoppingList.findUnique({ where: { id: parsed.data } });
+    if (!list) throw new Error("Liste nicht gefunden");
+    return list;
+  }
+  return getOrCreateOwnList(actor.id);
+}
 
 /**
  * Hebt ShoppingList.updatedAt an. Item-Mutationen (shoppingItem.*) triggern den

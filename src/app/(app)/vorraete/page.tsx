@@ -9,15 +9,24 @@ import {
   removePantryItemAction,
   addMissingToListAction,
 } from "./actions";
+import { AddToShoppingListButton } from "@/components/shopping/AddToShoppingListButton";
+import { listAccessibleLists } from "@/lib/shopping/permissions";
 
 export default async function VorraetePage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const [pantry, matches] = await Promise.all([
+  const [pantry, matches, accessibleLists] = await Promise.all([
     getPantryForUser(session.user.id),
     matchRecipesForUser(session.user.id, session.user.activeCookbookId, 15),
+    listAccessibleLists({ id: session.user.id, role: session.user.role }),
   ]);
+  const shoppingLists = accessibleLists.map((l) => ({
+    id: l.id,
+    name: l.name,
+    isOwn: l.isOwn,
+    ownerName: l.owner.name,
+  }));
 
   return (
     <main className="pt-safe px-safe pb-safe mx-auto max-w-3xl px-4 pt-6 pb-10 sm:px-6 sm:py-10">
@@ -191,14 +200,14 @@ export default async function VorraetePage() {
                     </div>
                   </div>
                   {m.missing.length > 0 ? (
-                    <form action={addMissing} className="mt-3">
-                      <button
-                        type="submit"
-                        className="bg-paper-200 font-hand text-ink ring-paper-300 hover:bg-paper-300/60 inline-flex min-h-[44px] items-center rounded-sm px-4 text-base ring-1"
-                      >
-                        🛒 Fehlende auf Einkaufsliste
-                      </button>
-                    </form>
+                    <div className="mt-3">
+                      <AddToShoppingListButton
+                        lists={shoppingLists}
+                        label="🛒 Fehlende auf Einkaufsliste"
+                        buttonClassName="bg-paper-200 font-hand text-ink ring-paper-300 hover:bg-paper-300/60 inline-flex min-h-[44px] items-center rounded-sm px-4 text-base ring-1"
+                        action={addMissing}
+                      />
+                    </div>
                   ) : null}
                 </li>
               );

@@ -17,6 +17,8 @@ import { decideWriteRecipe } from "@/lib/cookbooks/permissions";
 import packageJson from "../../../../../package.json";
 import { addRecipeToListAction } from "../../einkaufsliste/actions";
 import { AddToMealPlanButton } from "@/components/speiseplan/AddToMealPlanButton";
+import { AddToShoppingListButton } from "@/components/shopping/AddToShoppingListButton";
+import { listAccessibleLists } from "@/lib/shopping/permissions";
 import { prisma } from "@/lib/db/prisma";
 import { computeRecipeNutrition, resolveNutrition } from "@/lib/nutrition/compute";
 
@@ -77,6 +79,15 @@ export default async function RecipeDetailPage({
         select: { id: true, name: true, weekStart: true },
         orderBy: { createdAt: "desc" },
       })
+    : [];
+
+  const shoppingLists = session?.user
+    ? (await listAccessibleLists({ id: session.user.id, role: session.user.role })).map((l) => ({
+        id: l.id,
+        name: l.name,
+        isOwn: l.isOwn,
+        ownerName: l.owner.name,
+      }))
     : [];
 
   const planOptions = mealPlans.map((plan) => {
@@ -234,19 +245,14 @@ export default async function RecipeDetailPage({
                 initialToken={recipe.shareToken}
               />
             ) : null}
-            <form
-              action={async () => {
+            <AddToShoppingListButton
+              lists={shoppingLists}
+              label="🛒 Zur Einkaufsliste"
+              action={async (listId) => {
                 "use server";
-                await addRecipeToListAction(recipe.id);
+                await addRecipeToListAction(recipe.id, listId);
               }}
-            >
-              <button
-                type="submit"
-                className="bg-paper-200 font-written text-ink ring-paper-300 hover:bg-paper-300/60 rounded-sm px-3 py-1 text-sm ring-1"
-              >
-                🛒 Zur Einkaufsliste
-              </button>
-            </form>
+            />
             <AddToMealPlanButton
               recipeId={recipe.id}
               defaultServings={recipe.servings}
