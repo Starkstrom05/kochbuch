@@ -149,11 +149,6 @@ export default async function RezeptePage({ searchParams }: { searchParams: Sear
               name="q"
               defaultValue={q ?? ""}
               placeholder="Titel, Zutat, Tag..."
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              enterKeyHint="search"
               className="border-ink-light text-ink mt-1 w-full border-b border-dotted bg-transparent font-serif outline-none"
             />
           </label>

@@ -56,9 +56,6 @@ export default async function VorraetePage() {
               name="name"
               required
               placeholder="z.B. Tomaten"
-              autoComplete="off"
-              autoCapitalize="words"
-              autoCorrect="off"
               className="border-ink-light text-ink mt-1 w-full border-b border-dotted bg-transparent font-serif outline-none"
             />
           </label>
