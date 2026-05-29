@@ -103,8 +103,10 @@ export function OmaDialog({
   return (
     <div
       className="bg-ink/40 px-safe pb-safe pt-safe fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center"
+      // Backdrop-Klick schließt (redundant zu Escape + Focus-Trap). KEIN
+      // aria-hidden hier: das Attribut würde auch das role="dialog"-Kind aus
+      // dem Accessibility-Tree nehmen — der Dialog wäre für Screenreader unsichtbar.
       onClick={closeOnBackdrop ? onClose : undefined}
-      aria-hidden="true"
     >
       <div
         ref={dialogRef}
