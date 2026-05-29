@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { SaveFileButton } from "@/components/common/SaveFileButton";
 
 type Summary = { imported: number; skipped: number; images: number; errors: string[] };
 
@@ -39,33 +40,35 @@ export function BackupSection() {
 
   return (
     <section className="paper-card space-y-4 p-6">
-      <h2 className="font-hand text-3xl text-ink ink-text">Backup</h2>
-      <p className="font-written text-sm text-ink-faded">
+      <h2 className="font-hand text-ink ink-text text-3xl">Backup</h2>
+      <p className="font-written text-ink-faded text-sm">
         Alle Rezepte inkl. Bilder als ZIP sichern oder wieder einspielen — komplett lokal,
         unabhängig vom NAS-Snapshot.
       </p>
 
       <div>
-        <a
-          href="/api/backup/export"
-          className="inline-block rounded-sm bg-ribbon px-4 py-1.5 font-hand text-lg text-paper-50 shadow-card"
+        <SaveFileButton
+          url="/api/backup/export"
+          filename="kochbuch-backup.zip"
+          busyLabel="⏳ Erstelle Backup…"
+          className="bg-ribbon font-hand text-paper-50 shadow-card inline-block rounded-sm px-4 py-1.5 text-lg disabled:opacity-60"
         >
           ⬇ Backup herunterladen (.zip)
-        </a>
+        </SaveFileButton>
       </div>
 
       <form
         onSubmit={handleImport}
-        className="space-y-3 border-t border-dotted border-ink-light/40 pt-4"
+        className="border-ink-light/40 space-y-3 border-t border-dotted pt-4"
       >
-        <h3 className="font-hand text-xl text-ink">Backup einspielen</h3>
+        <h3 className="font-hand text-ink text-xl">Backup einspielen</h3>
         <input
           type="file"
           name="file"
           accept=".zip,application/zip"
-          className="block w-full font-written text-sm text-ink file:mr-3 file:rounded-sm file:border-0 file:bg-paper-200 file:px-3 file:py-1.5 file:font-hand file:text-ink"
+          className="font-written text-ink file:bg-paper-200 file:font-hand file:text-ink block w-full text-sm file:mr-3 file:rounded-sm file:border-0 file:px-3 file:py-1.5"
         />
-        <fieldset className="flex flex-wrap gap-4 font-written text-sm text-ink">
+        <fieldset className="font-written text-ink flex flex-wrap gap-4 text-sm">
           <label className="inline-flex items-center gap-2">
             <input type="radio" name="mode" value="skip" defaultChecked className="accent-ribbon" />
             Vorhandene überspringen
@@ -78,20 +81,21 @@ export function BackupSection() {
         <button
           type="submit"
           disabled={busy}
-          className="rounded-sm bg-paper-200 px-4 py-1.5 font-hand text-lg text-ink ring-1 ring-paper-300 hover:bg-paper-300/60 disabled:opacity-50"
+          className="bg-paper-200 font-hand text-ink ring-paper-300 hover:bg-paper-300/60 rounded-sm px-4 py-1.5 text-lg ring-1 disabled:opacity-50"
         >
           {busy ? "Importiere…" : "Importieren"}
         </button>
 
-        {error ? <p className="font-written text-sm text-ribbon">{error}</p> : null}
+        {error ? <p className="font-written text-ribbon text-sm">{error}</p> : null}
         {result ? (
-          <div className="font-written text-sm text-ink-faded">
+          <div className="font-written text-ink-faded text-sm">
             <p>
-              ✓ {result.imported} importiert · {result.skipped} übersprungen · {result.images} Bilder
+              ✓ {result.imported} importiert · {result.skipped} übersprungen · {result.images}{" "}
+              Bilder
             </p>
             {result.errors.length > 0 ? (
               <details className="mt-1">
-                <summary className="cursor-pointer text-ribbon">
+                <summary className="text-ribbon cursor-pointer">
                   {result.errors.length} Hinweis(e)
                 </summary>
                 <ul className="mt-1 list-disc pl-5">

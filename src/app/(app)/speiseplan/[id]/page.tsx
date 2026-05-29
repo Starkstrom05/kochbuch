@@ -6,6 +6,7 @@ import { WeekView } from "@/components/speiseplan/WeekView";
 import { togglePlanShareAction } from "../actions";
 import { readableCookbookIds } from "@/lib/cookbooks/permissions";
 import { canViewMealPlan } from "@/lib/speiseplan/permissions";
+import { SaveFileButton } from "@/components/common/SaveFileButton";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -99,13 +100,14 @@ export default async function SpeiseplanDetailPage({ params }: Props) {
               </button>
             </form>
           ) : null}
-          <a
-            href={`/api/speiseplan/${plan.id}/pdf`}
-            download
-            className="bg-paper-200 font-written text-ink ring-paper-300 hover:bg-paper-300/60 rounded-sm px-3 py-1.5 text-sm ring-1"
+          <SaveFileButton
+            url={`/api/speiseplan/${plan.id}/pdf`}
+            filename="speiseplan.pdf"
+            busyLabel="⏳ PDF…"
+            className="bg-paper-200 font-written text-ink ring-paper-300 hover:bg-paper-300/60 rounded-sm px-3 py-1.5 text-sm ring-1 disabled:opacity-60"
           >
             📄 PDF
-          </a>
+          </SaveFileButton>
           <Link
             href="/speiseplan"
             className="font-written text-ink-faded text-sm underline underline-offset-4"

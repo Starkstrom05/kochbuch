@@ -95,7 +95,7 @@ function WhatsNewDialog({ releases, onClose }: { releases: Release[]; onClose: (
       open
       onClose={onClose}
       labelledBy="whats-new-title"
-      className="bg-paper-50 shadow-card ring-paper-300 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-sm p-6 ring-1"
+      className="bg-paper-50 shadow-card ring-paper-300 w-full max-w-2xl rounded-sm p-6 ring-1"
     >
       <header className="mb-4 flex items-baseline justify-between gap-4">
         <h2 id="whats-new-title" className="font-hand text-ink ink-text text-4xl">
@@ -103,7 +103,7 @@ function WhatsNewDialog({ releases, onClose }: { releases: Release[]; onClose: (
         </h2>
         <button
           onClick={onClose}
-          className="font-written text-ink-faded hover:text-ribbon text-sm"
+          className="font-written text-ink-faded hover:text-ribbon -mt-2 -mr-2 inline-flex h-11 w-11 items-center justify-center text-lg"
           aria-label="Schließen"
         >
           ✕

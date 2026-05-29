@@ -125,7 +125,7 @@ export function RecipePicker({ dayLabel, allRecipes, onAdd, onCancel }: Props) {
 
       <button
         onClick={onCancel}
-        className="font-written text-ink-faded hover:text-ribbon absolute top-4 right-4 text-lg"
+        className="font-written text-ink-faded hover:text-ribbon absolute top-2 right-2 inline-flex h-11 w-11 items-center justify-center text-lg"
         aria-label="Schließen"
       >
         ✕

@@ -67,7 +67,7 @@ export function AddToShoppingListButton({ lists, action, label, buttonClassName 
           </h2>
           <button
             onClick={() => setOpen(false)}
-            className="font-written text-ink-faded hover:text-ribbon text-lg"
+            className="font-written text-ink-faded hover:text-ribbon -mt-2 -mr-2 inline-flex h-11 w-11 items-center justify-center text-lg"
             aria-label="Schließen"
           >
             ✕

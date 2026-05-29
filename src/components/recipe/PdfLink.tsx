@@ -1,23 +1,27 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { SaveFileButton } from "@/components/common/SaveFileButton";
 
 type Props = {
   recipeId: string;
   baseServings: number;
+  /** Dateiname fürs Speichern/Teilen (z. B. "<slug>.pdf"). */
+  filename: string;
   className?: string;
   children: ReactNode;
 };
 
 /**
- * PDF-Download-Link, der die aktuell gewählte Portionszahl (von IngredientList
- * per ?servings in die URL gespiegelt) beim Klick an die PDF-Route weiterreicht.
- * Liest die URL erst im Klick-Handler, damit kein Server-Re-Render nötig ist.
+ * PDF-Export, der die aktuell gewählte Portionszahl (von IngredientList per
+ * ?servings in die URL gespiegelt) beim Klick an die PDF-Route weiterreicht.
+ * Nutzt SaveFileButton → Web Share auf iOS/Android, Download auf Desktop
+ * (`<a download>` funktioniert auf iOS Safari nicht).
  */
-export function PdfLink({ recipeId, baseServings, className, children }: Props) {
+export function PdfLink({ recipeId, baseServings, filename, className, children }: Props) {
   const base = `/api/recipes/${recipeId}/pdf`;
 
-  function hrefWithServings(): string {
+  function urlWithServings(): string {
     try {
       const s = new URLSearchParams(window.location.search).get("servings");
       const n = s ? Number(s) : NaN;
@@ -31,15 +35,13 @@ export function PdfLink({ recipeId, baseServings, className, children }: Props) 
   }
 
   return (
-    <a
-      href={base}
-      download
-      onClick={(e) => {
-        e.currentTarget.href = hrefWithServings();
-      }}
+    <SaveFileButton
+      url={urlWithServings}
+      filename={filename}
       className={className}
+      busyLabel="⏳ PDF…"
     >
       {children}
-    </a>
+    </SaveFileButton>
   );
 }

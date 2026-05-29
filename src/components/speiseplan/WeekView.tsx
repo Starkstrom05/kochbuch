@@ -212,7 +212,7 @@ export function WeekView({
                           <button
                             onClick={() => handleRemove(entry.id)}
                             disabled={isPending}
-                            className="font-written text-ink-faded hover:text-ribbon flex-shrink-0 text-xs"
+                            className="font-written text-ink-faded hover:text-ribbon -my-1 -mr-1 inline-flex h-9 w-9 flex-shrink-0 items-center justify-center text-sm"
                             aria-label="Entfernen"
                           >
                             ✕
