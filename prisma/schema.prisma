@@ -22,7 +22,6 @@ model User {
   shoppingLists ShoppingList[]
   mealPlans     MealPlan[]
   pantry        PantryItem[]
-  frequentItems FrequentItem[]
   shoppingListAccesses ShoppingListAccess[] @relation("ShoppingListMember")
   shoppingListGrants   ShoppingListAccess[] @relation("ShoppingListGranter")
   sessions      Session[]
@@ -295,6 +294,7 @@ model ShoppingList {
   owner     User                 @relation(fields: [ownerId], references: [id])
   items     ShoppingItem[]
   accesses  ShoppingListAccess[]
+  frequentItems FrequentItem[]
   createdAt DateTime             @default(now())
   updatedAt DateTime             @updatedAt
 
@@ -336,16 +336,16 @@ model ShoppingItem {
 // Items. count + lastUsedAt treiben das Ranking der Master-List; unit merkt
 // sich die zuletzt genutzte Einheit fuer 1-Tap-Wiederhinzufuegen.
 model FrequentItem {
-  id         String   @id @default(cuid())
-  ownerId    String
-  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  id         String       @id @default(cuid())
+  listId     String
+  list       ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
   name       String
   unit       String?
-  count      Int      @default(1)
-  lastUsedAt DateTime @default(now())
+  count      Int          @default(1)
+  lastUsedAt DateTime     @default(now())
 
-  @@unique([ownerId, name])
-  @@index([ownerId])
+  @@unique([listId, name])
+  @@index([listId])
 }
 
 model MealPlan {
