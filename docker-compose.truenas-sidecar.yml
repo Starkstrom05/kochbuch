@@ -44,7 +44,7 @@
 services:
   # Migration + Seed laufen einmal vor dem App-Start im selben Image.
   app-init:
-    image: ghcr.io/starkstrom05/kochbuch:latest
+    image: ghcr.io/starkstrom05/kochbuch:latest-slim
     container_name: kochbuch-app-init
     restart: "no"
     environment:
@@ -61,7 +61,7 @@ services:
         echo "Init fertig."
 
   app:
-    image: ghcr.io/starkstrom05/kochbuch:latest
+    image: ghcr.io/starkstrom05/kochbuch:latest-slim
     container_name: kochbuch-app
     restart: unless-stopped
     environment:

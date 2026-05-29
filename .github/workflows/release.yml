@@ -43,7 +43,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Build and push (Standard, mit Chromium)
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -55,12 +55,36 @@ jobs:
             ${{ env.REGISTRY }}/${{ steps.img.outputs.name }}:latest
           build-args: |
             KOCHBUCH_VERSION=${{ steps.ver.outputs.version }}
+            INCLUDE_CHROMIUM=true
           cache-from: |
-            type=gha
+            type=gha,scope=full
             type=registry,ref=${{ env.REGISTRY }}/${{ steps.img.outputs.name }}:buildcache
           cache-to: |
-            type=gha,mode=max
+            type=gha,mode=max,scope=full
             type=registry,ref=${{ env.REGISTRY }}/${{ steps.img.outputs.name }}:buildcache,mode=max
+
+      # Schlanke Variante fuer Sidecar-Deploys: kein Chromium im App-Container
+      # (~600 MB kleiner). Puppeteer verbindet sich per PUPPETEER_WS_URL mit
+      # Browserless. Eigener Cache-Scope, damit beide Builds sich nicht ueberschreiben.
+      - name: Build and push (Slim, ohne Chromium)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.img.outputs.name }}:v${{ steps.ver.outputs.version }}-slim
+            ${{ env.REGISTRY }}/${{ steps.img.outputs.name }}:${{ steps.ver.outputs.major_minor }}-slim
+            ${{ env.REGISTRY }}/${{ steps.img.outputs.name }}:latest-slim
+          build-args: |
+            KOCHBUCH_VERSION=${{ steps.ver.outputs.version }}
+            INCLUDE_CHROMIUM=false
+          cache-from: |
+            type=gha,scope=slim
+            type=registry,ref=${{ env.REGISTRY }}/${{ steps.img.outputs.name }}:buildcache-slim
+          cache-to: |
+            type=gha,mode=max,scope=slim
+            type=registry,ref=${{ env.REGISTRY }}/${{ steps.img.outputs.name }}:buildcache-slim,mode=max
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3

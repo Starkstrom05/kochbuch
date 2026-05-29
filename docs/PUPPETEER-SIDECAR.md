@@ -65,7 +65,9 @@ Nimm die fertige Datei **`docker-compose.truenas-sidecar.yml`** statt
 `docker-compose.truenas.yml` für die Custom App (Apps → Discover → Custom App →
 „Install via YAML"). Sie ist identisch zur Standard-TrueNAS-Datei, enthält aber
 zusätzlich den `browserless`-Service, `PUPPETEER_WS_URL`/`APP_URL` am `app`-Service
-und `depends_on: browserless`.
+und `depends_on: browserless`. Sie zieht das **schlanke `:latest-slim`-Image**
+(ohne Chromium, ~250 MB kleiner: 642→393 MB) — bei gesetzter `PUPPETEER_WS_URL`
+braucht der App-Container kein lokales Chromium mehr.
 
 Platzhalter ersetzen (zusätzlich zu `<POOL>`/`<NAS-IP>`/`<AUTH_SECRET>`):
 
@@ -80,24 +82,27 @@ openssl rand -hex 16   # → ersetzt <BROWSERLESS_TOKEN> (an allen Stellen)
 
 RAM-Budget der Sidecar-Variante: app 2 GB + ollama 7 GB + browserless 1 GB = 10 GB.
 
-## Image ohne Chromium bauen (späterer Schritt)
+## Schlankes Image ohne Chromium (`:*-slim`)
 
-Solange `PUPPETEER_WS_URL` immer gesetzt ist, kann der Runtime-Layer im
-`Dockerfile` ohne `chromium`-Paket auskommen:
+Seit v0.29.0 baut der Release-Workflow **zwei** Images aus demselben `Dockerfile`,
+gesteuert über das Build-Arg `INCLUDE_CHROMIUM`:
 
-```diff
-- RUN apt-get update && apt-get install -y --no-install-recommends \
--     chromium fonts-liberation fonts-noto-color-emoji \
--     openssl ca-certificates dumb-init wget \
--     && rm -rf /var/lib/apt/lists/*
-+ RUN apt-get update && apt-get install -y --no-install-recommends \
-+     fonts-noto-color-emoji \
-+     openssl ca-certificates dumb-init wget \
-+     && rm -rf /var/lib/apt/lists/*
+| Tag                                         | `INCLUDE_CHROMIUM` | Chromium im Image | Für                                         |
+| ------------------------------------------- | ------------------ | ----------------- | ------------------------------------------- |
+| `:latest`, `:vX.Y.Z`, `:X.Y`                | `true` (Default)   | ja                | Standard-Deploy ohne Sidecar                |
+| `:latest-slim`, `:vX.Y.Z-slim`, `:X.Y-slim` | `false`            | nein (642→393 MB) | Sidecar-Deploy (`PUPPETEER_WS_URL` gesetzt) |
+
+Das schlanke Image launcht **kein** lokales Chromium — ohne gesetzte
+`PUPPETEER_WS_URL` schlägt jeder PDF-/Import-Job fehl. Es ist daher **nur** in
+Kombination mit dem Browserless-Sidecar sinnvoll. Die Sidecar-Compose-Datei
+referenziert es bereits (`:latest-slim`).
+
+Standard-Deploys ohne Sidecar nutzen weiterhin das Default-`:latest` mit Chromium
+— **nicht-breaking**, der Wechsel ist rein additiv. Lokal selbst bauen:
+
+```bash
+docker build --build-arg INCLUDE_CHROMIUM=false -t kochbuch:slim .
 ```
-
-Aber: das ist **breaking** für alle, die ohne Sidecar deployen. Erst nach
-ausreichend Live-Test (am besten v0.2.0 mit Migrations-Doku).
 
 ## Fehlerbilder
 
