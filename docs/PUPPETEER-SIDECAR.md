@@ -1,9 +1,9 @@
 # Puppeteer als Sidecar-Container
 
-Standard-Setup hat Chromium direkt im App-Image (~1.2 GB Gesamt). Optional kannst
+Standard-Setup hat Chromium direkt im App-Image (~642 MB). Optional kannst
 du Chromium in einen eigenen **Browserless**-Container auslagern. Vorteile:
 
-- App-Image schrumpft auf ~600–700 MB (kein Chromium-Layer mehr nötig)
+- App-Image schrumpft auf ~393 MB (`:*-slim`-Tag, kein Chromium-Layer mehr nötig)
 - Browser-Pool wird sauberer verwaltet (kein OOM, kein zombie-runner)
 - Wenn Browserless hängt, crasht es allein und wird neu gestartet — die App bleibt online
 - PDF und Web-Import nutzen denselben Pool
