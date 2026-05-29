@@ -187,6 +187,7 @@ export default async function RecipeDetailPage({
                 <PdfLink
                   recipeId={recipe.id}
                   baseServings={recipe.servings}
+                  filename={`${slug}.pdf`}
                   className="text-ink-faded hover:text-ribbon underline underline-offset-4"
                 >
                   📄 PDF

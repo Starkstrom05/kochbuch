@@ -20,6 +20,7 @@ import {
 } from "@/lib/shopping/consolidate";
 import { groupByAisle } from "@/lib/shopping/aisles";
 import type { FrequentEntry } from "@/lib/shopping/master-list";
+import { saveOrShareFile } from "@/lib/client/save-file";
 import { EmptyState } from "@/components/oma/EmptyState";
 
 type Props = {
@@ -462,7 +463,7 @@ function ShareButton({
 
   function handleCsvDownload() {
     setMenuOpen(false);
-    window.location.href = `/api/shopping-list/${listId}/export/csv`;
+    void saveOrShareFile(`/api/shopping-list/${listId}/export/csv`, "einkaufsliste.csv");
   }
 
   return (
