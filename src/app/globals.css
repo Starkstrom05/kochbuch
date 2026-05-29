@@ -38,25 +38,49 @@ body {
     text-shadow: 0 0 0.3px currentColor;
   }
   .paper-card {
-    @apply rounded-md bg-paper-50/90 shadow-card ring-1 ring-paper-200;
+    @apply bg-paper-50/90 shadow-card ring-paper-200 rounded-md ring-1;
   }
 }
 
 @layer utilities {
-  .hand-tilt-1 { transform: rotate(-0.4deg); }
-  .hand-tilt-2 { transform: rotate(0.3deg); }
-  .hand-tilt-3 { transform: rotate(-0.2deg); }
+  .hand-tilt-1 {
+    transform: rotate(-0.4deg);
+  }
+  .hand-tilt-2 {
+    transform: rotate(0.3deg);
+  }
+  .hand-tilt-3 {
+    transform: rotate(-0.2deg);
+  }
 
   /* iOS Safe-Area: Notch / Dynamic Island oben, Home-Indicator unten.
      Liefert auf Geräten ohne Insets schlicht 0. */
-  .pt-safe { padding-top: max(env(safe-area-inset-top), 0px); }
-  .pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
+  .pt-safe {
+    padding-top: max(env(safe-area-inset-top), 0px);
+  }
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+  }
   .px-safe {
     padding-left: max(env(safe-area-inset-left), 0px);
     padding-right: max(env(safe-area-inset-right), 0px);
   }
 }
 
+/* iOS Safari zoomt beim Fokussieren in Formularfelder mit < 16px Schriftgröße
+   automatisch rein (störender Viewport-Sprung). Auf Touch-Geräten daher alle
+   Text-Eingaben auf mind. 16px heben — die kleineren Tailwind-Größen (text-sm/xs)
+   bleiben auf dem Desktop erhalten. Checkbox/Radio ausgenommen. */
+@media (hover: none) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 @media print {
-  body { background: white; }
+  body {
+    background: white;
+  }
 }

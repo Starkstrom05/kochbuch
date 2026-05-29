@@ -115,7 +115,11 @@ export function OmaDialog({
         aria-labelledby={labelledBy}
         aria-label={labelledBy ? undefined : label}
         tabIndex={-1}
-        className={className}
+        // Default: nie höher als der (dynamische) Viewport, Inhalt scrollt intern.
+        // Verhindert, dass bei langem Inhalt oder eingeblendeter iOS-Tastatur die
+        // unteren Buttons aus dem Bild rutschen. dvh statt vh berücksichtigt die
+        // Tastatur. Aufrufer-Klassen können es überschreiben.
+        className={`max-h-[90dvh] overflow-y-auto ${className ?? ""}`}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
