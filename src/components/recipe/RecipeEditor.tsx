@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { PaperSheet } from "@/components/oma/PaperSheet";
 
 type IngredientDraft = {
@@ -625,15 +626,27 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
             Füge mindestens einen Schritt mit Text hinzu, um das Rezept zu speichern.
           </p>
         )}
-        <button
-          type="submit"
-          disabled={!canSave}
-          className="bg-ribbon font-hand text-paper-50 shadow-card rounded-sm px-6 py-2 text-2xl hover:rotate-[-0.5deg] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:rotate-0"
-        >
-          {submitLabel}
-        </button>
+        <SaveButton canSave={canSave} label={submitLabel} />
       </div>
     </form>
+  );
+}
+
+// Doppel-Submit-Schutz: useFormStatus liefert den Pending-Zustand der Server
+// Action des umgebenden <form>. Waehrend des Speicherns ist der Button gesperrt
+// (verhindert die Mehrfach-Rezepte durch schnelles Doppeltippen) und zeigt
+// "Speichert…". `canSave` bleibt die Schritt-Pflicht aus v0.33.5.
+function SaveButton({ canSave, label }: { canSave: boolean; label: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={!canSave || pending}
+      aria-busy={pending}
+      className="bg-ribbon font-hand text-paper-50 shadow-card rounded-sm px-6 py-2 text-2xl hover:rotate-[-0.5deg] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:rotate-0"
+    >
+      {pending ? "Speichert…" : label}
+    </button>
   );
 }
 
