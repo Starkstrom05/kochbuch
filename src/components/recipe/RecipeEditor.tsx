@@ -92,6 +92,11 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
     .filter(Boolean)
     .join("\n");
 
+  // Ohne mindestens einen Schritt bleibt das versteckte instructions-Feld leer
+  // und die serverseitige Zod-Pflicht ("Anleitung fehlt") wirft — statt das als
+  // Absturz durchschlagen zu lassen, sperren wir hier den Speichern-Button.
+  const canSave = instructionsValue.trim().length > 0;
+
   function updateStep(idx: number, patch: Partial<StepDraft>) {
     setSteps((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
   }
@@ -614,10 +619,16 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
         </label>
       </PaperSheet>
 
-      <div className="flex items-center justify-end gap-4">
+      <div className="flex flex-col items-end gap-2">
+        {!canSave && (
+          <p role="status" className="font-written text-ribbon text-sm">
+            Füge mindestens einen Schritt mit Text hinzu, um das Rezept zu speichern.
+          </p>
+        )}
         <button
           type="submit"
-          className="bg-ribbon font-hand text-paper-50 shadow-card rounded-sm px-6 py-2 text-2xl hover:rotate-[-0.5deg]"
+          disabled={!canSave}
+          className="bg-ribbon font-hand text-paper-50 shadow-card rounded-sm px-6 py-2 text-2xl hover:rotate-[-0.5deg] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:rotate-0"
         >
           {submitLabel}
         </button>
