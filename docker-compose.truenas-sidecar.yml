@@ -143,6 +143,9 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
+    # 7g hier (vs. 8g im generischen docker-compose.yml): auf dem NAS selbst
+    # ist RAM knapper, weil dort typischerweise weitere Custom-Apps
+    # (Nextcloud & Co.) mitlaufen — bewusst 1g niedriger begrenzt.
     mem_limit: 7g
 
   ollama-pull:

@@ -17,6 +17,19 @@ describe("normaliseUnit", () => {
     expect(normaliseUnit(null)).toBe("");
     expect(normaliseUnit(undefined)).toBe("");
   });
+
+  it("normalisiert Kurz-Einheiten case-insensitiv", () => {
+    expect(normaliseUnit("G")).toBe("g");
+    expect(normaliseUnit("KG")).toBe("kg");
+    expect(normaliseUnit("ML")).toBe("ml");
+    expect(normaliseUnit("L")).toBe("l");
+    expect(normaliseUnit("Cl")).toBe("cl");
+    expect(normaliseUnit("EL")).toBe("EL");
+    expect(normaliseUnit("el")).toBe("EL");
+    expect(normaliseUnit("Tl")).toBe("TL");
+    expect(normaliseUnit("TASSE")).toBe("Tasse");
+    expect(normaliseUnit("PRISE")).toBe("Prise");
+  });
 });
 
 describe("classify", () => {
@@ -72,6 +85,55 @@ describe("addAmounts", () => {
     expect(addAmounts({ amount: 2, unit: "Glas" }, { amount: 1, unit: "Glas" })).toEqual({
       amount: 3,
       unit: "Glas",
+    });
+  });
+
+  it("behaelt Kuechen-Einheiten bei gleicher Einheit statt zu ml zu degradieren", () => {
+    expect(addAmounts({ amount: 2, unit: "EL" }, { amount: 1, unit: "EL" })).toEqual({
+      amount: 3,
+      unit: "EL",
+    });
+    expect(addAmounts({ amount: 1, unit: "TL" }, { amount: 1, unit: "TL" })).toEqual({
+      amount: 2,
+      unit: "TL",
+    });
+    expect(addAmounts({ amount: 1, unit: "Prise" }, { amount: 1, unit: "Prise" })).toEqual({
+      amount: 2,
+      unit: "Prise",
+    });
+    expect(addAmounts({ amount: 1, unit: "Tasse" }, { amount: 1, unit: "Tasse" })).toEqual({
+      amount: 2,
+      unit: "Tasse",
+    });
+  });
+
+  it("bleibt bei gleichen Basis-Einheiten korrekt (g/kg/ml/l)", () => {
+    expect(addAmounts({ amount: 500, unit: "g" }, { amount: 500, unit: "g" })).toEqual({
+      amount: 1,
+      unit: "kg",
+    });
+    expect(addAmounts({ amount: 1, unit: "kg" }, { amount: 1, unit: "kg" })).toEqual({
+      amount: 2,
+      unit: "kg",
+    });
+    expect(addAmounts({ amount: 600, unit: "ml" }, { amount: 600, unit: "ml" })).toEqual({
+      amount: 1.2,
+      unit: "l",
+    });
+    expect(addAmounts({ amount: 1, unit: "l" }, { amount: 1, unit: "l" })).toEqual({
+      amount: 2,
+      unit: "l",
+    });
+  });
+
+  it("merged gleiche Kurz-Einheiten unabhaengig von Gross-/Kleinschreibung", () => {
+    expect(addAmounts({ amount: 500, unit: "G" }, { amount: 500, unit: "g" })).toEqual({
+      amount: 1,
+      unit: "kg",
+    });
+    expect(addAmounts({ amount: 2, unit: "el" }, { amount: 1, unit: "EL" })).toEqual({
+      amount: 3,
+      unit: "EL",
     });
   });
 });

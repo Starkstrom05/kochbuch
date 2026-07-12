@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth/auth";
 import { signOutAction } from "@/lib/auth/actions";
 import { prisma } from "@/lib/db/prisma";
 import { searchRecipes } from "@/lib/recipes/search";
+import { resolveReadableCookbookId } from "@/lib/recipes/server";
 import { categoryVisibleToCookbook } from "@/lib/recipes/visibility";
 import { HandwrittenStars } from "@/components/oma/HandwrittenStars";
 import { EmptyState } from "@/components/oma/EmptyState";
@@ -27,7 +28,16 @@ export default async function RezeptePage({ searchParams }: { searchParams: Sear
   const { q, categoryId, minStars: minStarsRaw, view: viewRaw } = await searchParams;
   const minStars = minStarsRaw ? Number(minStarsRaw) : 0;
   const view = parseView(viewRaw);
-  const cookbookId = session?.user?.activeCookbookId;
+  // JWT-`activeCookbookId` kann stale sein (z.B. nach entzogener Freigabe) —
+  // `resolveReadableCookbookId` prueft das Leserecht neu und faellt sonst auf
+  // das eigene Cookbook des Users zurueck, statt stumpf weiter die Rezepte
+  // eines nicht mehr zugaenglichen Cookbooks zu zeigen.
+  const cookbookId = session?.user
+    ? await resolveReadableCookbookId(
+        { id: session.user.id, role: session.user.role },
+        session.user.activeCookbookId,
+      )
+    : null;
   const [recipes, categories] = await Promise.all([
     cookbookId
       ? searchRecipes({
@@ -38,7 +48,7 @@ export default async function RezeptePage({ searchParams }: { searchParams: Sear
         })
       : Promise.resolve([] as Awaited<ReturnType<typeof searchRecipes>>),
     prisma.category.findMany({
-      where: categoryVisibleToCookbook(session?.user?.activeCookbookId),
+      where: categoryVisibleToCookbook(cookbookId),
       orderBy: { name: "asc" },
     }),
   ]);

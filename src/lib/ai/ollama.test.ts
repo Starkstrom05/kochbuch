@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { extractJson, aiRecipeSchema } from "./ollama";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { extractJson, aiRecipeSchema, structureRecipeFromText } from "./ollama";
 
 describe("extractJson", () => {
   it("returns the body of a ```json``` fence", () => {
@@ -97,5 +97,165 @@ describe("aiRecipeSchema", () => {
         ingredients: [{ name: "Salz", amount: -1, unit: "g" }],
       }),
     ).toThrow();
+  });
+});
+
+// ── structureRecipeFromText: Ollama-Streaming + Retry (gemockter fetch) ──────
+//
+// ollamaChat() selbst ist nicht exportiert (bewusst — siehe Auftrag: ollama.ts
+// nicht aendern). Wir testen den NDJSON-Streaming-Parser und den Retry-Pfad
+// daher indirekt ueber die oeffentliche structureRecipeFromText()-Funktion mit
+// gemocktem globalThis.fetch.
+
+const VALID_RECIPE_JSON = JSON.stringify({
+  title: "Pfannkuchen",
+  description: "",
+  servings: 4,
+  prepTimeMinutes: 10,
+  cookTimeMinutes: 15,
+  ingredients: [{ name: "Mehl", amount: 200, unit: "g", note: "" }],
+  instructions: "1. Verrühren.\n2. Backen.",
+  tags: [],
+});
+
+function ndjsonChatResponse(lines: string[], splitMidLine = false): Response {
+  const encoder = new TextEncoder();
+  const full = lines.map((l) => `${l}\n`).join("");
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      if (splitMidLine) {
+        // Bewusst NICHT an einer "\n"-Grenze aufteilen — simuliert einen
+        // TCP-Chunk, der mitten in einer NDJSON-Zeile endet.
+        const mid = Math.floor(full.length / 2);
+        controller.enqueue(encoder.encode(full.slice(0, mid)));
+        controller.enqueue(encoder.encode(full.slice(mid)));
+      } else {
+        controller.enqueue(encoder.encode(full));
+      }
+      controller.close();
+    },
+  });
+  return new Response(stream, { status: 200 });
+}
+
+function chatLine(content: string, done = false): string {
+  return JSON.stringify({ message: { content }, done });
+}
+
+function healthResponse(): Response {
+  return new Response(null, { status: 200 });
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("structureRecipeFromText (NDJSON-Streaming-Parser via gemocktem fetch)", () => {
+  it("baut den Content aus mehreren NDJSON-Zeilen zusammen, inkl. done-Frame ohne message", async () => {
+    const third = Math.ceil(VALID_RECIPE_JSON.length / 3);
+    const part1 = VALID_RECIPE_JSON.slice(0, third);
+    const part2 = VALID_RECIPE_JSON.slice(third, third * 2);
+    const part3 = VALID_RECIPE_JSON.slice(third * 2);
+
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith("/api/tags")) return healthResponse();
+      if (url.endsWith("/api/chat")) {
+        return ndjsonChatResponse([
+          chatLine(part1),
+          chatLine(part2),
+          chatLine(part3),
+          JSON.stringify({ done: true }), // done-Frame ohne "message"-Feld
+        ]);
+      }
+      throw new Error(`unerwartete URL im Test: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const recipe = await structureRecipeFromText("irgendein Rezepttext");
+    expect(recipe.title).toBe("Pfannkuchen");
+    expect(recipe.ingredients).toHaveLength(1);
+    expect(recipe.instructions).toContain("Verrühren");
+  });
+
+  it("verarbeitet einen NDJSON-Chunk, der mitten in einer Zeile geteilt wird", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith("/api/tags")) return healthResponse();
+      if (url.endsWith("/api/chat")) {
+        return ndjsonChatResponse(
+          [chatLine(VALID_RECIPE_JSON), JSON.stringify({ done: true })],
+          true,
+        );
+      }
+      throw new Error(`unerwartete URL im Test: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const recipe = await structureRecipeFromText("irgendein Rezepttext");
+    expect(recipe.title).toBe("Pfannkuchen");
+  });
+
+  it("ignoriert eine kaputte NDJSON-Zeile, ohne den Rest zu verlieren", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith("/api/tags")) return healthResponse();
+      if (url.endsWith("/api/chat")) {
+        return ndjsonChatResponse([
+          chatLine(VALID_RECIPE_JSON.slice(0, 10)),
+          "{this is not valid json at all",
+          chatLine(VALID_RECIPE_JSON.slice(10)),
+          JSON.stringify({ done: true }),
+        ]);
+      }
+      throw new Error(`unerwartete URL im Test: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const recipe = await structureRecipeFromText("irgendein Rezepttext");
+    expect(recipe.title).toBe("Pfannkuchen");
+  });
+
+  it("wiederholt mit verschaerftem Prompt, wenn der erste Versuch kein valides JSON liefert", async () => {
+    let chatCalls = 0;
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/api/tags")) return healthResponse();
+      if (url.endsWith("/api/chat")) {
+        chatCalls++;
+        if (chatCalls === 1) {
+          // Erster Versuch: Modell antwortet mit Prosa statt JSON.
+          return ndjsonChatResponse([
+            chatLine("Entschuldigung, das kann ich nicht als JSON liefern."),
+            JSON.stringify({ done: true }),
+          ]);
+        }
+        // Zweiter Versuch: Body muss den verschaerften Retry-Prompt enthalten.
+        const body = JSON.parse(String(init?.body)) as {
+          messages: { role: string; content: string }[];
+        };
+        expect(body.messages.at(-1)?.content).toContain("WICHTIG");
+        return ndjsonChatResponse([chatLine(VALID_RECIPE_JSON), JSON.stringify({ done: true })]);
+      }
+      throw new Error(`unerwartete URL im Test: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const recipe = await structureRecipeFromText("irgendein Rezepttext");
+    expect(recipe.title).toBe("Pfannkuchen");
+    expect(chatCalls).toBe(2);
+  });
+
+  it("wirft nach zwei gescheiterten Versuchen den letzten Fehler", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith("/api/tags")) return healthResponse();
+      if (url.endsWith("/api/chat")) {
+        return ndjsonChatResponse([
+          chatLine("immer noch keine gueltige JSON-Antwort"),
+          JSON.stringify({ done: true }),
+        ]);
+      }
+      throw new Error(`unerwartete URL im Test: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(structureRecipeFromText("irgendein Rezepttext")).rejects.toThrow();
+    expect(fetchMock).toHaveBeenCalledTimes(3); // 1x health + 2x chat (Erstversuch + Retry)
   });
 });

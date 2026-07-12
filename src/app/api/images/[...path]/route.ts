@@ -39,10 +39,15 @@ async function authorizeRecipeImage(
 
   const recipe = await prisma.recipe.findUnique({
     where: { id: segments[1] },
-    select: { isPublic: true, cookbookId: true },
+    select: { isPublic: true, isActive: true, cookbookId: true },
   });
   if (!recipe) return { ok: false, status: 404 };
-  if (recipe.isPublic) return { ok: true };
+  // Nur aktive Rezepte bleiben ueber den oeffentlichen Share-Link erreichbar —
+  // ein deaktiviertes (archiviertes) Rezept darf seine Bilder nicht mehr ueber
+  // den alten isPublic-Pfad ausliefern. Fuer eingeloggte Viewer mit
+  // Cookbook-Leserecht (z.B. im Archiv) greift weiterhin `canReadRecipe`
+  // unten, unabhaengig von isActive.
+  if (recipe.isPublic && recipe.isActive) return { ok: true };
 
   const session = await auth();
   if (!session?.user) return { ok: false, status: 403 };

@@ -2,18 +2,23 @@ import * as cheerio from "cheerio";
 import type { AiRecipe } from "@/lib/ai/ollama";
 import { withBrowser } from "@/lib/puppeteer/browser";
 import { runOnPuppeteer } from "@/lib/puppeteer/queue";
-import { assertPublicUrl } from "./ssrf";
+import { assertPublicUrl, assertPublicUrlPinned, pinnedDispatcher } from "./ssrf";
+import type { Dispatcher } from "undici";
 
 // ── Duration parsing ─────────────────────────────────────────────────────────
 
 function parseDuration(value: unknown): number | null {
   if (!value) return null;
   const str = String(value);
-  const m = str.match(/PT(?:(\d+)H)?(?:(\d+)M)?/i);
+  // ISO-8601-Dauern koennen eine Tages-Komponente vor dem "T" tragen
+  // (z.B. "P0DT0H45M" von manchen Rezept-Plugins) — ohne optionales D
+  // scheitert der Match komplett und die Zeit geht verloren.
+  const m = str.match(/P(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?/i);
   if (!m) return null;
-  const h = parseInt(m[1] ?? "0", 10);
-  const min = parseInt(m[2] ?? "0", 10);
-  const total = h * 60 + min;
+  const d = parseInt(m[1] ?? "0", 10);
+  const h = parseInt(m[2] ?? "0", 10);
+  const min = parseInt(m[3] ?? "0", 10);
+  const total = d * 24 * 60 + h * 60 + min;
   return total > 0 ? total : null;
 }
 
@@ -31,19 +36,74 @@ function parseServings(value: unknown): number {
 const UNITS =
   "ml|cl|dl|l|mg|g|kg|EL|TL|Tl|Pkg\\.?|Pkt\\.?|Bund|Bd\\.?|Stk\\.?|Stück|Prise|Msp\\.?|Dose[n]?|Scheibe[n]?|Zehe[n]?";
 
-const ING_RE = new RegExp(`^([\\d.,]+(?:\\s*/\\s*[\\d.,]+)?)\\s*(${UNITS})\\s+(.+)$`, "i");
+// Unicode-Bruchzeichen, wie sie manche Rezept-Seiten statt "1/2" verwenden.
+const FRACTION_MAP: Record<string, number> = {
+  "½": 1 / 2,
+  "⅓": 1 / 3,
+  "⅔": 2 / 3,
+  "¼": 1 / 4,
+  "¾": 3 / 4,
+  "⅕": 1 / 5,
+  "⅖": 2 / 5,
+  "⅗": 3 / 5,
+  "⅘": 4 / 5,
+  "⅙": 1 / 6,
+  "⅚": 5 / 6,
+  "⅛": 1 / 8,
+  "⅜": 3 / 8,
+  "⅝": 5 / 8,
+  "⅞": 7 / 8,
+};
+const FRACTION_CHARS = Object.keys(FRACTION_MAP).join("");
+const NUM = "[\\d.,]+";
 
-function parseFraction(s: string): number {
-  const parts = s.split("/").map((p) => parseFloat(p.trim().replace(",", ".")));
-  if (parts.length === 2 && parts[1]) return parts[0] / parts[1];
-  return parseFloat(s.replace(",", "."));
+// Deckt ab: "200" | "1/2" | "1 1/2" (gemischte Zahl) | "½" | "1½" | "2-3"/"2–3" (Bereich → Mittelwert)
+const AMOUNT_TOKEN =
+  `(?:${NUM}\\s*[-–—]\\s*${NUM}` +
+  `|${NUM}\\s+\\d+\\s*/\\s*\\d+` +
+  `|${NUM}\\s*/\\s*${NUM}` +
+  `|\\d+\\s*[${FRACTION_CHARS}]` +
+  `|[${FRACTION_CHARS}]` +
+  `|${NUM})`;
+
+const ING_RE = new RegExp(`^(${AMOUNT_TOKEN})\\s*(${UNITS})\\s+(.+)$`, "i");
+
+function parseAmountToken(token: string): number {
+  const t = token.trim();
+
+  const range = t.match(/^([\d.,]+)\s*[-–—]\s*([\d.,]+)$/);
+  if (range) {
+    const a = parseFloat(range[1].replace(",", "."));
+    const b = parseFloat(range[2].replace(",", "."));
+    if (Number.isFinite(a) && Number.isFinite(b)) return (a + b) / 2;
+  }
+
+  const mixed = t.match(/^([\d.,]+)\s+(\d+)\s*\/\s*(\d+)$/);
+  if (mixed) {
+    const whole = parseFloat(mixed[1].replace(",", "."));
+    const den = parseFloat(mixed[3]);
+    if (Number.isFinite(whole) && den) return whole + parseFloat(mixed[2]) / den;
+  }
+
+  const frac = t.match(/^([\d.,]+)\s*\/\s*([\d.,]+)$/);
+  if (frac) {
+    const den = parseFloat(frac[2].replace(",", "."));
+    if (den) return parseFloat(frac[1].replace(",", ".")) / den;
+  }
+
+  const attached = t.match(new RegExp(`^(\\d+)\\s*([${FRACTION_CHARS}])$`));
+  if (attached) return parseFloat(attached[1]) + FRACTION_MAP[attached[2]];
+
+  if (t.length === 1 && t in FRACTION_MAP) return FRACTION_MAP[t];
+
+  return parseFloat(t.replace(",", "."));
 }
 
 function parseIngredientString(raw: string): AiRecipe["ingredients"][number] {
-  const s = raw.trim();
+  const s = decodeHtmlEntities(raw.trim());
   const m = s.match(ING_RE);
   if (m) {
-    const amount = parseFraction(m[1]);
+    const amount = parseAmountToken(m[1]);
     const [namePart, ...noteParts] = m[3].split(",");
     return {
       name: namePart.trim(),
@@ -54,6 +114,68 @@ function parseIngredientString(raw: string): AiRecipe["ingredients"][number] {
   }
   const [namePart, ...noteParts] = s.split(",");
   return { name: namePart.trim(), amount: null, unit: "", note: noteParts.join(",").trim() };
+}
+
+// ── HTML-Entity-Dekodierung ──────────────────────────────────────────────────
+
+// JSON-LD-Blöcke stecken im HTML in einem <script>-Tag; der HTML-Parser
+// dekodiert dessen Textinhalt NICHT (script gilt als Raw-Text-Element), und
+// JSON.parse tut es ebenfalls nicht. Manche CMS escapen Sonderzeichen aber
+// trotzdem (z.B. "&amp;" statt "&") — ohne Dekodierung landen die Entities
+// woertlich in Titel/Beschreibung/Zutaten. Bewusst kein DOM-Parsing (cheerio
+// interpretiert "<" als Tag-Start und wuerde Klartext wie "5<10" verstuemmeln)
+// — stattdessen ein minimaler, `he.decode`-artiger Regex-Ersatz nur fuer
+// Entity-Muster.
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+  uuml: "ü",
+  Uuml: "Ü",
+  ouml: "ö",
+  Ouml: "Ö",
+  auml: "ä",
+  Auml: "Ä",
+  szlig: "ß",
+  euro: "€",
+  hellip: "…",
+  ndash: "–",
+  mdash: "—",
+  deg: "°",
+  times: "×",
+  frac12: "½",
+  frac14: "¼",
+  frac34: "¾",
+  eacute: "é",
+  egrave: "è",
+  ecirc: "ê",
+  agrave: "à",
+  ccedil: "ç",
+  oacute: "ó",
+  iacute: "í",
+  uacute: "ú",
+  ntilde: "ñ",
+  copy: "©",
+  reg: "®",
+  trade: "™",
+  laquo: "«",
+  raquo: "»",
+  middot: "·",
+};
+
+function decodeHtmlEntities(str: string): string {
+  if (!str || !str.includes("&")) return str;
+  return str.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/g, (match, entity: string) => {
+    if (entity[0] === "#") {
+      const isHex = entity[1] === "x" || entity[1] === "X";
+      const code = isHex ? parseInt(entity.slice(2), 16) : parseInt(entity.slice(1), 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : match;
+    }
+    return NAMED_ENTITIES[entity] ?? match;
+  });
 }
 
 // ── JSON-LD mapper ───────────────────────────────────────────────────────────
@@ -67,15 +189,15 @@ type LdRecipe = Record<string, unknown>;
 //   - Array<HowToSection> mit {itemListElement: Array<HowToStep>}  ← Chefkoch
 // flattenInstructions normalisiert das alles zu einem Array von Strings.
 function flattenInstructions(value: unknown): string[] {
-  if (typeof value === "string") return value.trim() ? [value] : [];
+  if (typeof value === "string") return value.trim() ? [decodeHtmlEntities(value)] : [];
   if (Array.isArray(value)) return value.flatMap(flattenInstructions);
   if (value && typeof value === "object") {
     const obj = value as Record<string, unknown>;
     if (obj["@type"] === "HowToSection") {
       return flattenInstructions(obj.itemListElement);
     }
-    if (typeof obj.text === "string" && obj.text.trim()) return [obj.text];
-    if (typeof obj.name === "string" && obj.name.trim()) return [obj.name];
+    if (typeof obj.text === "string" && obj.text.trim()) return [decodeHtmlEntities(obj.text)];
+    if (typeof obj.name === "string" && obj.name.trim()) return [decodeHtmlEntities(obj.name)];
   }
   return [];
 }
@@ -125,19 +247,21 @@ function mapJsonLdToAiRecipe(ld: LdRecipe): AiRecipe {
     .filter((i) => i.name.length > 0);
 
   // Tags
+  // Entities MUESSEN vor dem Split auf ","/";" dekodiert werden — sonst
+  // reisst das Semikolon aus z.B. "&amp;" die Entity mittendurch auseinander.
   const kw = ld.keywords;
   const tags: string[] = Array.isArray(kw)
-    ? kw.map(String)
+    ? kw.map((t) => decodeHtmlEntities(String(t)))
     : typeof kw === "string"
-      ? kw
+      ? decodeHtmlEntities(kw)
           .split(/[,;]/)
           .map((t) => t.trim())
           .filter(Boolean)
       : [];
 
   return {
-    title: String(ld.name ?? "Unbekanntes Rezept"),
-    description: String(ld.description ?? ""),
+    title: decodeHtmlEntities(String(ld.name ?? "Unbekanntes Rezept")),
+    description: decodeHtmlEntities(String(ld.description ?? "")),
     servings: parseServings(ld.recipeYield),
     prepTimeMinutes: parseDuration(ld.prepTime),
     cookTimeMinutes: parseDuration(ld.cookTime),
@@ -181,7 +305,7 @@ async function fetchHtml(url: string, externalSignal?: AbortSignal, depth = 0): 
   if (depth > MAX_REDIRECT_HOPS) {
     throw new Error(`Mehr als ${MAX_REDIRECT_HOPS} Redirects beim Import — Abbruch`);
   }
-  const check = await assertPublicUrl(url);
+  const check = await assertPublicUrlPinned(url);
   if (!check.ok) throw new Error(`URL abgelehnt: ${check.reason}`);
 
   const controller = new AbortController();
@@ -198,7 +322,9 @@ async function fetchHtml(url: string, externalSignal?: AbortSignal, depth = 0): 
         Accept: "text/html,application/xhtml+xml",
         "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
       },
-    });
+      // IP an die geprueften Kandidaten pinnen (kein Rebinding beim Connect).
+      ...(check.lookup ? { dispatcher: pinnedDispatcher(check.lookup) } : {}),
+    } as RequestInit & { dispatcher?: Dispatcher });
     if (res.status >= 300 && res.status < 400) {
       const loc = res.headers.get("location");
       if (!loc) throw new Error(`Redirect ohne Location-Header von ${url}`);

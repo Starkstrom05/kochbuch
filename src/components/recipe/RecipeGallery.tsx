@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toThumbPath } from "@/lib/images/thumb";
 
 type GalleryImage = { id: string; path: string; caption?: string | null };
 
@@ -21,23 +22,64 @@ export function RecipeGallery({ images }: Props) {
   const prev = useCallback(() => setActiveIdx((i) => Math.max(i - 1, 0)), []);
 
   const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!fullscreen) return;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    // Initialer Focus auf den Close-Button, damit Tastatur-Nutzer im Dialog
-    // landen statt unter dem Overlay weiter zu tabben.
+
+    // Element merken, das vor dem Öffnen Focus hatte — beim Schließen
+    // zurücksetzen (Focus-Restore), damit Tastatur-Nutzer nicht am body
+    // landen. Initialer Focus auf den Close-Button, damit Tastatur-Nutzer
+    // im Dialog landen statt unter dem Overlay weiter zu tabben.
+    const previouslyFocused = document.activeElement as HTMLElement | null;
     closeBtnRef.current?.focus();
+
+    function focusables(): HTMLElement[] {
+      const dialog = dialogRef.current;
+      if (!dialog) return [];
+      return Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+    }
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-      else if (e.key === "ArrowLeft") prev();
-      else if (e.key === "ArrowRight") next();
+      if (e.key === "Escape") {
+        close();
+        return;
+      }
+      if (e.key === "ArrowLeft") {
+        prev();
+        return;
+      }
+      if (e.key === "ArrowRight") {
+        next();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      // Focus-Trap: Tab/Shift+Tab zykeln im Dialog statt in die Seite dahinter
+      // zu entkommen.
+      const list = focusables();
+      if (list.length === 0) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = prevOverflow;
       window.removeEventListener("keydown", onKey);
+      previouslyFocused?.focus?.();
     };
   }, [fullscreen, close, prev, next]);
 
@@ -50,7 +92,7 @@ export function RecipeGallery({ images }: Props) {
         type="button"
         onClick={() => setFullscreen(true)}
         aria-label="Bild in voller Größe öffnen"
-        className="relative block aspect-[16/9] w-full overflow-hidden rounded-sm bg-paper-100"
+        className="bg-paper-100 relative block aspect-[16/9] w-full overflow-hidden rounded-sm"
       >
         <Image
           src={`/api/images${active.path}`}
@@ -70,13 +112,11 @@ export function RecipeGallery({ images }: Props) {
               onClick={() => setActiveIdx(i)}
               aria-label={`Bild ${i + 1} anzeigen`}
               className={`relative h-16 w-24 overflow-hidden rounded-sm ring-1 transition ${
-                i === activeIdx
-                  ? "ring-2 ring-ribbon"
-                  : "ring-paper-300 hover:ring-paper-400"
+                i === activeIdx ? "ring-ribbon ring-2" : "ring-paper-300 hover:ring-paper-400"
               }`}
             >
               <Image
-                src={`/api/images${img.path}`}
+                src={`/api/images${toThumbPath(img.path)}`}
                 alt={img.caption ?? `Bild ${i + 1}`}
                 fill
                 className="object-cover"
@@ -90,6 +130,7 @@ export function RecipeGallery({ images }: Props) {
 
       {fullscreen ? (
         <div
+          ref={dialogRef}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
           onClick={close}
           role="dialog"
@@ -111,7 +152,7 @@ export function RecipeGallery({ images }: Props) {
               close();
             }}
             aria-label="Schließen"
-            className="absolute right-4 top-4 inline-flex h-11 w-11 items-center justify-center rounded-sm bg-paper-50/10 font-hand text-2xl text-paper-50 hover:bg-paper-50/20"
+            className="bg-paper-50/10 font-hand text-paper-50 hover:bg-paper-50/20 absolute top-4 right-4 inline-flex h-11 w-11 items-center justify-center rounded-sm text-2xl"
           >
             ×
           </button>
@@ -125,7 +166,7 @@ export function RecipeGallery({ images }: Props) {
                 }}
                 disabled={activeIdx === 0}
                 aria-label="Vorheriges Bild"
-                className="absolute left-4 top-1/2 -translate-y-1/2 rounded-sm bg-paper-50/10 px-3 py-2 font-hand text-3xl text-paper-50 hover:bg-paper-50/20 disabled:opacity-30"
+                className="bg-paper-50/10 font-hand text-paper-50 hover:bg-paper-50/20 absolute top-1/2 left-4 -translate-y-1/2 rounded-sm px-3 py-2 text-3xl disabled:opacity-30"
               >
                 ‹
               </button>
@@ -137,11 +178,11 @@ export function RecipeGallery({ images }: Props) {
                 }}
                 disabled={activeIdx === images.length - 1}
                 aria-label="Nächstes Bild"
-                className="absolute right-4 top-1/2 -translate-y-1/2 rounded-sm bg-paper-50/10 px-3 py-2 font-hand text-3xl text-paper-50 hover:bg-paper-50/20 disabled:opacity-30"
+                className="bg-paper-50/10 font-hand text-paper-50 hover:bg-paper-50/20 absolute top-1/2 right-4 -translate-y-1/2 rounded-sm px-3 py-2 text-3xl disabled:opacity-30"
               >
                 ›
               </button>
-              <p className="absolute bottom-4 left-1/2 -translate-x-1/2 font-written text-sm text-paper-50/80">
+              <p className="font-written text-paper-50/80 absolute bottom-4 left-1/2 -translate-x-1/2 text-sm">
                 {activeIdx + 1} / {images.length}
               </p>
             </>

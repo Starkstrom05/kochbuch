@@ -37,6 +37,7 @@
     "react-pageflip": "^2.0.3",
     "sharp": "^0.34.5",
     "tesseract.js": "^7.0.0",
+    "undici": "7.25.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

@@ -22,14 +22,11 @@ export type FamilyBranding = {
 
 /**
  * Aktives Theme-Branding fuer das App-Layout. Seit v0.22 liegt Branding
- * primaer am Cookbook (siehe `cookbook-actions.ts:updateCookbookBrandingAction`);
- * `Family` wird nur noch als Fallback fuer Alt-Daten genutzt, bei denen ein
- * Admin per `assignUserFamilyAction` `User.familyId` gesetzt hat.
+ * am Cookbook (siehe `cookbook-actions.ts:updateCookbookBrandingAction`).
  *
  * Priorisierung:
  *  1. Aktives Cookbook des Users (User.activeCookbookId)
- *  2. Eigene Familie (Family-Tabelle) — Alt-Pfad
- *  3. null → globaler Default
+ *  2. null → globaler Default
  *
  * Der Funktionsname bleibt aus Abwaerts-Kompatibilitaet (Layout + Manifest
  * nutzen ihn an mehreren Stellen).
@@ -38,25 +35,10 @@ export async function getFamilyBranding(): Promise<FamilyBranding | null> {
   try {
     const session = await auth();
     if (!session?.user) return null;
+    if (!session.user.activeCookbookId) return null;
 
-    if (session.user.activeCookbookId) {
-      const cb = await prisma.cookbook.findUnique({
-        where: { id: session.user.activeCookbookId },
-        select: {
-          name: true,
-          accentColor: true,
-          inkColor: true,
-          paperColor: true,
-          coverImagePath: true,
-        },
-      });
-      if (cb) return cb;
-    }
-
-    const familyId = session.user.familyId;
-    if (!familyId) return null;
-    return await prisma.family.findUnique({
-      where: { id: familyId },
+    return await prisma.cookbook.findUnique({
+      where: { id: session.user.activeCookbookId },
       select: {
         name: true,
         accentColor: true,

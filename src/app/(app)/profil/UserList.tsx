@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { deleteUserAction, assignUserFamilyAction } from "./actions";
+import { deleteUserAction } from "./actions";
 import { useOmaConfirm } from "@/components/oma/useConfirm";
 
 type AdminUser = {
@@ -9,14 +9,12 @@ type AdminUser = {
   email: string;
   name: string;
   role: string;
-  familyId: string | null;
   createdAt: Date;
 };
 
 type Props = {
   users: AdminUser[];
   currentUserId: string;
-  families: { id: string; name: string }[];
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -25,7 +23,7 @@ const ROLE_LABEL: Record<string, string> = {
   CHILD: "Kind",
 };
 
-export function UserList({ users, currentUserId, families }: Props) {
+export function UserList({ users, currentUserId }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const { confirm, dialog } = useOmaConfirm();
@@ -44,17 +42,6 @@ export function UserList({ users, currentUserId, families }: Props) {
         await deleteUserAction(id);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Löschen fehlgeschlagen");
-      }
-    });
-  }
-
-  function handleAssign(id: string, familyId: string) {
-    setError(null);
-    startTransition(async () => {
-      try {
-        await assignUserFamilyAction(id, familyId);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Zuordnung fehlgeschlagen");
       }
     });
   }
@@ -84,20 +71,6 @@ export function UserList({ users, currentUserId, families }: Props) {
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-3">
-                <select
-                  value={u.familyId ?? ""}
-                  onChange={(e) => handleAssign(u.id, e.target.value)}
-                  disabled={pending}
-                  aria-label="Familie zuordnen"
-                  className="border-ink-light font-written text-ink border-b border-dotted bg-transparent text-xs outline-none"
-                >
-                  <option value="">(keine Familie)</option>
-                  {families.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
                 {!isSelf ? (
                   <button
                     type="button"

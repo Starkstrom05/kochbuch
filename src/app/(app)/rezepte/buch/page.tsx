@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { searchRecipesFull } from "@/lib/recipes/search";
+import { resolveReadableCookbookId } from "@/lib/recipes/server";
 import RecipeBook from "@/components/book/RecipeBookLoader";
 import type { BookRecipe } from "@/components/book/RecipeBook";
 import { InkFilters } from "@/components/oma/InkFilters";
@@ -12,15 +13,23 @@ type SearchParams = Promise<{ q?: string; categoryId?: string }>;
 export default async function RezepteBuchPage({ searchParams }: { searchParams: SearchParams }) {
   const session = await auth();
   const { q, categoryId } = await searchParams;
-  if (!session?.user?.activeCookbookId) redirect("/rezepte");
+  if (!session?.user) redirect("/rezepte");
+  // JWT-`activeCookbookId` kann stale sein (z.B. nach entzogener Freigabe) —
+  // Leserecht neu pruefen und sonst auf das eigene Cookbook zurueckfallen,
+  // statt Rezepte eines nicht mehr zugaenglichen Cookbooks anzuzeigen.
+  const cookbookId = await resolveReadableCookbookId(
+    { id: session.user.id, role: session.user.role },
+    session.user.activeCookbookId,
+  );
+  if (!cookbookId) redirect("/rezepte");
   const activeCookbook = await prisma.cookbook.findUnique({
-    where: { id: session.user.activeCookbookId },
+    where: { id: cookbookId },
     select: { name: true },
   });
   const detailed = await searchRecipesFull({
     q,
     categoryId,
-    cookbookId: session.user.activeCookbookId,
+    cookbookId,
   });
   if (detailed.length === 0) {
     redirect(
@@ -58,10 +67,7 @@ export default async function RezepteBuchPage({ searchParams }: { searchParams: 
           : `Alle Rezepte`;
 
   return (
-    <main
-      className="pt-safe pb-safe px-safe fixed inset-0 flex flex-col"
-      style={{ background: "linear-gradient(160deg, #2a1d12 0%, #1a120a 100%)" }}
-    >
+    <main className="bg-book-ambience pt-safe pb-safe px-safe fixed inset-0 flex flex-col">
       <InkFilters />
       <RecipeBook
         recipes={recipes}

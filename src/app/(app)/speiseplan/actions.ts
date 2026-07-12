@@ -89,19 +89,23 @@ export async function addMealEntryAction(
   const allowed = await canReadRecipe({ id: user.id, role: user.role }, recipe);
   if (!allowed) throw new Error("Keine Berechtigung");
 
-  const existingCount = await prisma.mealPlanEntry.count({
-    where: { planId: parsed.planId, dayIndex: parsed.dayIndex },
-  });
-
-  await prisma.mealPlanEntry.create({
-    data: {
-      planId: parsed.planId,
-      recipeId: parsed.recipeId,
-      dayIndex: parsed.dayIndex,
-      mealType: parsed.mealType,
-      servings: parsed.servings,
-      order: existingCount,
-    },
+  // count-then-create in einer Transaktion, damit zwei parallele Adds fuer
+  // denselben Tag nicht dieselbe `order` vergeben (SQLite serialisiert die
+  // Writes ueber die Single-Connection).
+  await prisma.$transaction(async (tx) => {
+    const existingCount = await tx.mealPlanEntry.count({
+      where: { planId: parsed.planId, dayIndex: parsed.dayIndex },
+    });
+    await tx.mealPlanEntry.create({
+      data: {
+        planId: parsed.planId,
+        recipeId: parsed.recipeId,
+        dayIndex: parsed.dayIndex,
+        mealType: parsed.mealType,
+        servings: parsed.servings,
+        order: existingCount,
+      },
+    });
   });
 
   revalidatePath(`/speiseplan/${parsed.planId}`);
@@ -123,7 +127,7 @@ export async function exportToShoppingListAction(
   const parsed = exportSchema.parse({ planId, planName, entryIds });
   await requirePlanOwner(parsed.planId, user.id);
 
-  const rawItems = await buildShoppingItemsForEntries(parsed.entryIds);
+  const rawItems = await buildShoppingItemsForEntries(parsed.planId, parsed.entryIds);
 
   const list = await prisma.shoppingList.create({
     data: {

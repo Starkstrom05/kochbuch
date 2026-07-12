@@ -26,6 +26,22 @@ const IMAGE_CACHE = CACHE_VER + "-images";
 
 const OFFLINE_URL = "/offline";
 
+// Bilder werden cache-first gehalten, aber ohne Limit waechst der Cache
+// unbegrenzt (iOS wirft bei Speicherdruck dann willkuerlich ganze Caches weg,
+// nicht nur einzelne Eintraege). Einfacher LRU-Trim nach jedem Schreiben.
+const IMAGE_CACHE_MAX_ENTRIES = 100;
+
+async function trimCache(cacheName, maxEntries) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  const overflow = keys.length - maxEntries;
+  if (overflow <= 0) return;
+  // cache.keys() liefert Insertion-Order => die aeltesten Eintraege zuerst.
+  for (let i = 0; i < overflow; i++) {
+    await cache.delete(keys[i]);
+  }
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(PAGE_CACHE).then((cache) => cache.add(OFFLINE_URL)).catch(() => {}),
@@ -64,9 +80,14 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   if (url.pathname.startsWith("/api/images/")) {
-    event.respondWith(cacheFirst(event.request, IMAGE_CACHE));
+    event.respondWith(cacheFirst(event.request, IMAGE_CACHE, IMAGE_CACHE_MAX_ENTRIES));
     return;
   }
+  // Alle uebrigen /api/*-GETs (u.a. PDF-Export mit mehreren MB, /api/version)
+  // unveraendert durchreichen: network-only, kein Cache. Liefen sie vorher
+  // durch den pageHandler in den PAGE_CACHE, blaehten grosse PDFs den Cache auf
+  // und /api/version haette veraltete Antworten gecacht.
+  if (url.pathname.startsWith("/api/")) return;
   if (
     url.pathname === "/manifest.webmanifest" ||
     url.pathname.startsWith("/icon-") ||
@@ -85,12 +106,15 @@ function isCacheable(response) {
   return response && response.ok && !response.redirected && response.type !== "opaqueredirect";
 }
 
-async function cacheFirst(request, cacheName) {
+async function cacheFirst(request, cacheName, maxEntries) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
   if (cached) return cached;
   const response = await fetch(request);
-  if (isCacheable(response)) cache.put(request, response.clone());
+  if (isCacheable(response)) {
+    await cache.put(request, response.clone());
+    if (maxEntries) await trimCache(cacheName, maxEntries);
+  }
   return response;
 }
 
@@ -98,7 +122,14 @@ async function pageHandler(request) {
   const cache = await caches.open(PAGE_CACHE);
   try {
     const network = await fetch(request);
-    if (isCacheable(network)) cache.put(request, network.clone());
+    // Nur echte Navigationen cachen: RSC-Flight-Requests (fetch-Mode, nicht
+    // "navigate") landen sonst unter derselben URL im Cache und wuerden bei
+    // einer spaeteren Navigation faelschlich als HTML-Seite ausgeliefert
+    // (Safari-Vary-Bug — der Browser unterscheidet Cache-Eintraege pro URL
+    // nicht zuverlaessig nach RSC- vs. Dokument-Anfrage).
+    if (request.mode === "navigate" && isCacheable(network)) {
+      cache.put(request, network.clone());
+    }
     return network;
   } catch {
     const cached = await cache.match(request);

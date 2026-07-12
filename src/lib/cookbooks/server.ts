@@ -78,12 +78,25 @@ export async function deleteCookbook(actor: Actor, cookbookId: string) {
   const ownerCount = await prisma.cookbook.count({ where: { ownerId: cookbook.ownerId } });
   if (ownerCount <= 1) throw new Error("Das letzte eigene Kochbuch kann nicht geloescht werden");
 
+  // MealPlanEntry.recipeId hat onDelete: Restrict — ohne Pre-Check wuerde das
+  // harte Cookbook-Delete mit P2003 scheitern, nachdem die Bilddateien schon
+  // vom Volume entfernt waeren (Bilderverlust ohne zugehoerigen DB-Effekt).
+  const planRefs = await prisma.mealPlanEntry.count({ where: { recipe: { cookbookId } } });
+  if (planRefs > 0) {
+    throw new Error(
+      `Kochbuch enthaelt Rezepte, die in ${planRefs} Speiseplan-Eintrag${planRefs === 1 ? "" : "en"} eingeplant sind — bitte zuerst dort entfernen.`,
+    );
+  }
+
+  const deleted = await prisma.cookbook.delete({ where: { id: cookbookId } });
+
+  // Bilddateien erst NACH erfolgreichem DB-Delete entfernen (best-effort).
   for (const recipe of cookbook.recipes) {
     for (const img of recipe.images) {
       await deleteRecipeImageFiles(img.path);
     }
   }
-  return prisma.cookbook.delete({ where: { id: cookbookId } });
+  return deleted;
 }
 
 export async function shareCookbook(actor: Actor, cookbookId: string, viewerUserId: string) {

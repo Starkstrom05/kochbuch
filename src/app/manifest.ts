@@ -25,6 +25,15 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
         type: "image/png",
         purpose: "maskable",
       },
+      // Gleiche Bilddatei wie oben, zusaetzlich als purpose:"any" registriert:
+      // ohne eigenes 512er-any-Icon nutzen manche Launcher/Installer sonst nur
+      // das 192er in voller Aufloesung hoch (unscharf). Kein neues Asset noetig.
+      {
+        src: "/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
     ],
     categories: ["food", "lifestyle"],
   };

@@ -19,6 +19,17 @@ const manualItemSchema = z.object({
   unit: z.string().trim().max(30).nullable(),
 });
 
+const addRecipeToListSchema = z.object({
+  recipeId: z.string().trim().min(1).max(64),
+  listId: z.string().trim().min(1).max(64).optional(),
+  targetServings: z.number().finite().positive().max(9999).optional(),
+});
+
+const checkAllInGroupSchema = z.object({
+  listId: z.string().trim().min(1).max(64),
+  itemIds: z.array(z.string().trim().min(1).max(64)).min(1).max(500),
+});
+
 // ── Actions ───────────────────────────────────────────────────────────────────
 
 export async function addRecipeToListAction(
@@ -26,18 +37,22 @@ export async function addRecipeToListAction(
   listId?: string,
   targetServings?: number,
 ) {
+  const parsed = addRecipeToListSchema.parse({ recipeId, listId, targetServings });
   const user = await requireUser();
 
   const recipe = await prisma.recipe.findUnique({
-    where: { id: recipeId },
+    where: { id: parsed.recipeId },
     include: { ingredients: { include: { ingredient: true }, orderBy: { order: "asc" } } },
   });
   if (!recipe) throw new Error("Rezept nicht gefunden");
   const allowed = await canReadRecipe({ id: user.id, role: user.role }, recipe);
   if (!allowed) throw new Error("Keine Berechtigung");
 
-  const list = await resolveWriteTargetList({ id: user.id, role: user.role }, listId);
-  const scale = targetServings && targetServings > 0 ? targetServings / recipe.servings : 1;
+  const list = await resolveWriteTargetList({ id: user.id, role: user.role }, parsed.listId);
+  const scale =
+    parsed.targetServings && parsed.targetServings > 0
+      ? parsed.targetServings / recipe.servings
+      : 1;
 
   await prisma.shoppingItem.createMany({
     data: recipe.ingredients.map((ri) => ({
@@ -52,26 +67,28 @@ export async function addRecipeToListAction(
   await touchList(list.id);
   revalidatePath("/einkaufsliste");
   revalidatePath(`/einkaufsliste/${list.id}`);
-  redirect(listId ? `/einkaufsliste/${list.id}` : "/einkaufsliste");
+  redirect(parsed.listId ? `/einkaufsliste/${list.id}` : "/einkaufsliste");
 }
 
 export async function toggleItemAction(itemId: string) {
   const user = await requireUser();
   const item = await prisma.shoppingItem.findUnique({
     where: { id: itemId },
-    include: { list: true },
+    select: { listId: true },
   });
   if (!item) throw new Error("Nicht gefunden");
   if (!(await canAccessShoppingList({ id: user.id, role: user.role }, item.listId)))
     throw new Error("Nicht gefunden");
 
-  await prisma.shoppingItem.update({
-    where: { id: itemId },
-    data: { checked: !item.checked },
-  });
+  // Atomares Toggle statt Read-Modify-Write: bei einem Doppel-Tap (zwei
+  // fast gleichzeitigen Requests) würden sonst beide denselben alten
+  // `checked`-Stand lesen und das Ergebnis des jeweils anderen überschreiben.
+  // Ein einzelnes SQL-Statement kann das nicht — es gibt keinen Lesezeitpunkt,
+  // der veralten könnte.
+  await prisma.$executeRaw`UPDATE "ShoppingItem" SET checked = NOT checked WHERE id = ${itemId}`;
   await touchList(item.listId);
   revalidatePath("/einkaufsliste");
-  revalidatePath(`/einkaufsliste/${item.list.id}`);
+  revalidatePath(`/einkaufsliste/${item.listId}`);
 }
 
 const noteSchema = z.string().trim().max(200);
@@ -97,17 +114,18 @@ export async function setItemNoteAction(itemId: string, note: string) {
 }
 
 export async function checkAllInGroupAction(listId: string, itemIds: string[]) {
+  const parsed = checkAllInGroupSchema.parse({ listId, itemIds });
   const user = await requireUser();
-  if (!(await canAccessShoppingList({ id: user.id, role: user.role }, listId)))
+  if (!(await canAccessShoppingList({ id: user.id, role: user.role }, parsed.listId)))
     throw new Error("Nicht gefunden");
 
   await prisma.shoppingItem.updateMany({
-    where: { id: { in: itemIds }, listId },
+    where: { id: { in: parsed.itemIds }, listId: parsed.listId },
     data: { checked: true },
   });
-  await touchList(listId);
+  await touchList(parsed.listId);
   revalidatePath("/einkaufsliste");
-  revalidatePath(`/einkaufsliste/${listId}`);
+  revalidatePath(`/einkaufsliste/${parsed.listId}`);
 }
 
 export async function clearCheckedAction(listId: string) {
@@ -142,21 +160,38 @@ async function addItemToList(
   listId: string,
   input: { name: string; amount: number | null; unit: string | null },
 ) {
-  const open = await prisma.shoppingItem.findMany({
-    where: { listId, checked: false },
-    select: { id: true, name: true, amount: true, unit: true, checked: true },
-  });
-  const plan = planManualMerge(open, input);
+  // Read-Modify-Write in eine Transaktion gekapselt: zwei parallele Adds
+  // desselben Namens ("Milch 1 l" + "Milch 1 l") dürfen nicht denselben
+  // offenen Bestand lesen und dann beide mit dem alten Stand rechnen (sonst
+  // 2 l statt 3 l, oder zwei separate Items statt einem gemergten). Der
+  // Dummy-Write (touchList) ganz am Anfang holt sich sofort den
+  // SQLite-Schreib-Lock für die gesamte Transaktion, sodass eine zweite,
+  // parallel gestartete Transaktion erst NACH dem Commit dieser hier lesen
+  // kann — kein stale Read mehr möglich.
+  const { row, merged } = await prisma.$transaction(async (tx) => {
+    await tx.shoppingList.update({
+      where: { id: listId },
+      data: { updatedAt: new Date() },
+    });
 
-  const row =
-    plan.kind === "merge"
-      ? await prisma.shoppingItem.update({
-          where: { id: plan.targetId },
-          data: { amount: plan.amount, unit: plan.unit },
-        })
-      : await prisma.shoppingItem.create({
-          data: { listId, name: input.name, amount: input.amount, unit: input.unit },
-        });
+    const open = await tx.shoppingItem.findMany({
+      where: { listId, checked: false },
+      select: { id: true, name: true, amount: true, unit: true, checked: true },
+    });
+    const plan = planManualMerge(open, input);
+
+    const row =
+      plan.kind === "merge"
+        ? await tx.shoppingItem.update({
+            where: { id: plan.targetId },
+            data: { amount: plan.amount, unit: plan.unit },
+          })
+        : await tx.shoppingItem.create({
+            data: { listId, name: input.name, amount: input.amount, unit: input.unit },
+          });
+
+    return { row, merged: plan.kind === "merge" };
+  });
 
   const [item] = await attachCategories([
     {
@@ -170,8 +205,7 @@ async function addItemToList(
     },
   ]);
 
-  await touchList(listId);
-  return { merged: plan.kind === "merge", item };
+  return { merged, item };
 }
 
 export async function addManualItemAction(listId: string, formData: FormData) {

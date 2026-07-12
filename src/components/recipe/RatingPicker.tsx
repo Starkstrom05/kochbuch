@@ -28,7 +28,7 @@ export function RatingPicker({ recipeId, initial, seed = "stars" }: Props) {
 
   return (
     <div className="inline-flex items-center gap-2">
-      <span className="font-written text-sm text-ink-faded">
+      <span className="font-written text-ink-faded text-sm">
         {stars > 0 ? "Deine Bewertung:" : "Bewerten:"}
       </span>
       <div className="inline-flex items-center gap-0.5" onMouseLeave={() => setHover(0)}>
@@ -43,7 +43,7 @@ export function RatingPicker({ recipeId, initial, seed = "stars" }: Props) {
               onMouseEnter={() => setHover(value)}
               onClick={() => setRating(value)}
               aria-label={`${value} Sterne`}
-              className="transition-transform hover:scale-110 disabled:opacity-50"
+              className="flex h-11 w-11 items-center justify-center transition-transform hover:scale-110 disabled:opacity-50"
               disabled={isPending}
             >
               <svg

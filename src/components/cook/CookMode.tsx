@@ -94,7 +94,13 @@ export function CookMode({
     primeTimerAudio();
     setTimers((prev) => [
       ...prev,
-      { id: nextId.current++, label, endsAt: Date.now() + seconds * 1000, total: seconds, done: false },
+      {
+        id: nextId.current++,
+        label,
+        endsAt: Date.now() + seconds * 1000,
+        total: seconds,
+        done: false,
+      },
     ]);
     setNow(Date.now());
   }, []);
@@ -112,9 +118,12 @@ export function CookMode({
 
   if (total === 0 || !step) {
     return (
-      <main className="fixed inset-0 flex flex-col items-center justify-center gap-4 bg-ink px-safe pb-safe pt-safe text-paper-50">
+      <main className="bg-ink px-safe pb-safe pt-safe text-paper-50 fixed inset-0 flex flex-col items-center justify-center gap-4">
         <p className="font-written text-lg">Dieses Rezept hat keine Schritte.</p>
-        <Link href={`/rezepte/${recipe.slug}`} className="font-hand text-2xl text-paper-200 underline">
+        <Link
+          href={`/rezepte/${recipe.slug}`}
+          className="font-hand text-paper-200 text-2xl underline"
+        >
           ← zurück
         </Link>
       </main>
@@ -122,22 +131,26 @@ export function CookMode({
   }
 
   return (
-    <main
-      className="fixed inset-0 flex flex-col px-safe pb-safe pt-safe"
-      style={{ background: "linear-gradient(160deg, #2a1d12 0%, #1a120a 100%)" }}
-    >
-      {flash && <div className="pointer-events-none absolute inset-0 z-20 animate-pulse bg-ribbon/30" />}
+    <main className="bg-book-ambience px-safe pb-safe pt-safe fixed inset-0 flex flex-col">
+      {flash && (
+        <div className="bg-ribbon/30 pointer-events-none absolute inset-0 z-20 animate-pulse" />
+      )}
 
       {/* Top bar */}
-      <header className="flex items-center justify-between gap-3 px-4 py-3 text-paper-100">
-        <Link href={`/rezepte/${recipe.slug}`} className="font-hand text-xl text-paper-200 underline underline-offset-4">
+      <header className="text-paper-100 flex items-center justify-between gap-3 px-4 py-3">
+        <Link
+          href={`/rezepte/${recipe.slug}`}
+          className="font-hand text-paper-200 text-xl underline underline-offset-4"
+        >
           ← fertig
         </Link>
-        <span className="min-w-0 flex-1 truncate text-center font-hand text-2xl">{recipe.title}</span>
+        <span className="font-hand min-w-0 flex-1 truncate text-center text-2xl">
+          {recipe.title}
+        </span>
         <button
           onClick={() => setMuted((m) => !m)}
           aria-label={muted ? "Ton an" : "Ton aus"}
-          className="font-hand text-xl text-paper-200"
+          className="font-hand text-paper-200 text-xl"
         >
           {muted ? "🔇" : "🔊"}
         </button>
@@ -146,10 +159,10 @@ export function CookMode({
       {/* Step card */}
       <div className="flex flex-1 items-center justify-center overflow-y-auto p-4">
         <PaperSheet seed={`${recipe.slug}-${current}`} className="w-full max-w-2xl p-8 sm:p-12">
-          <p className="font-written text-sm uppercase tracking-wide text-ink-faded">
+          <p className="font-written text-ink-faded text-sm tracking-wide uppercase">
             Schritt {current + 1} von {total}
           </p>
-          <p className="mt-4 whitespace-pre-line font-written text-2xl leading-relaxed text-ink sm:text-3xl">
+          <p className="font-written text-ink mt-4 text-2xl leading-relaxed whitespace-pre-line sm:text-3xl">
             {step.text}
           </p>
 
@@ -157,7 +170,7 @@ export function CookMode({
             {step.durationSeconds != null && (
               <button
                 onClick={() => startTimer(step.durationSeconds!, `Schritt ${current + 1}`)}
-                className="rounded-sm bg-ribbon px-4 py-2 font-hand text-xl text-paper-50 shadow-card"
+                className="bg-ribbon font-hand text-paper-50 shadow-card rounded-sm px-4 py-2 text-xl"
               >
                 ⏱ {formatDuration(step.durationSeconds)} starten
               </button>
@@ -166,7 +179,7 @@ export function CookMode({
               <button
                 key={m}
                 onClick={() => startTimer(m * 60, `${m} min`)}
-                className="rounded-sm bg-paper-200 px-3 py-1.5 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
+                className="bg-paper-200 font-written text-ink ring-paper-300 hover:bg-paper-300/60 rounded-sm px-3 py-1.5 text-sm ring-1"
               >
                 +{m} min
               </button>
@@ -179,11 +192,11 @@ export function CookMode({
                 inputMode="numeric"
                 placeholder="min"
                 aria-label="Eigener Timer in Minuten"
-                className="w-16 rounded-sm border border-dotted border-ink-light bg-paper-50 px-2 py-1 text-center font-serif text-ink outline-none"
+                className="border-ink-light bg-paper-50 text-ink w-16 rounded-sm border border-dotted px-2 py-1 text-center font-serif outline-none"
               />
               <button
                 onClick={startCustom}
-                className="rounded-sm bg-paper-200 px-3 py-1.5 font-written text-sm text-ink ring-1 ring-paper-300 hover:bg-paper-300/60"
+                className="bg-paper-200 font-written text-ink ring-paper-300 hover:bg-paper-300/60 rounded-sm px-3 py-1.5 text-sm ring-1"
               >
                 Timer
               </button>
@@ -201,7 +214,7 @@ export function CookMode({
               <span
                 key={t.id}
                 className={`inline-flex items-center gap-2 rounded-sm px-3 py-1.5 font-serif text-sm ${
-                  t.done ? "bg-ribbon text-paper-50" : "bg-paper-100 text-ink ring-1 ring-paper-300"
+                  t.done ? "bg-ribbon text-paper-50" : "bg-paper-100 text-ink ring-paper-300 ring-1"
                 }`}
               >
                 <span className="font-written">{t.label}</span>
@@ -224,7 +237,7 @@ export function CookMode({
         <button
           onClick={() => setCurrent((c) => Math.max(0, c - 1))}
           disabled={current === 0}
-          className="rounded-sm bg-paper-200 px-5 py-2 font-hand text-xl text-ink disabled:opacity-30"
+          className="bg-paper-200 font-hand text-ink rounded-sm px-5 py-2 text-xl disabled:opacity-30"
         >
           ← zurück
         </button>
@@ -239,7 +252,7 @@ export function CookMode({
         <button
           onClick={() => setCurrent((c) => Math.min(total - 1, c + 1))}
           disabled={current === total - 1}
-          className="rounded-sm bg-ribbon px-5 py-2 font-hand text-xl text-paper-50 disabled:opacity-30"
+          className="bg-ribbon font-hand text-paper-50 rounded-sm px-5 py-2 text-xl disabled:opacity-30"
         >
           weiter →
         </button>

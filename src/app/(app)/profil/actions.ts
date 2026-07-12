@@ -3,16 +3,15 @@
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { z } from "zod";
 import { auth, signOut } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
-import { changePasswordSchema, createUserSchema, createFamilySchema } from "@/lib/schemas/profile";
+import { changePasswordSchema, createUserSchema } from "@/lib/schemas/profile";
 import { seedNutrition } from "@/lib/nutrition/seed";
+import { deleteRecipeImageFiles } from "@/lib/images/upload";
 
-const assignUserFamilySchema = z.object({
-  userId: z.string().min(1).max(64),
-  familyId: z.string().min(1).max(64).nullable(),
-});
+// Kostenfaktor 12 statt 10 — robuster gegen Offline-Cracking bei einem
+// DB-Leak, bei vertretbarer Mehrkosten pro Hash auf Server-Hardware.
+const BCRYPT_COST = 12;
 
 export type ChangePasswordState =
   | { status: "idle" }
@@ -48,7 +47,7 @@ export async function changePasswordAction(
     return { status: "error", message: "Aktuelles Passwort ist falsch" };
   }
 
-  const newHash = await bcrypt.hash(parsed.data.newPassword, 10);
+  const newHash = await bcrypt.hash(parsed.data.newPassword, BCRYPT_COST);
   await prisma.user.update({
     where: { id: user.id },
     data: { passwordHash: newHash },
@@ -85,7 +84,6 @@ export async function createUserAction(
     name: String(formData.get("name") ?? "").trim(),
     password: String(formData.get("password") ?? ""),
     role: String(formData.get("role") ?? "MEMBER"),
-    familyId: String(formData.get("familyId") ?? "") || undefined,
   });
   if (!parsed.success) {
     return {
@@ -101,14 +99,13 @@ export async function createUserAction(
     return { status: "error", message: "E-Mail ist bereits vergeben" };
   }
 
-  const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+  const passwordHash = await bcrypt.hash(parsed.data.password, BCRYPT_COST);
   const user = await prisma.user.create({
     data: {
       email: parsed.data.email,
       name: parsed.data.name,
       role: parsed.data.role,
       passwordHash,
-      familyId: parsed.data.familyId ?? null,
     },
   });
 
@@ -179,40 +176,31 @@ export async function deleteUserAction(targetId: string) {
     );
   }
 
+  // Vor dem harten Delete alle Bildpfade der eigenen Cookbooks einsammeln —
+  // die DB-Cascade (Cookbook -> Recipe -> RecipeImage, alles onDelete:
+  // Cascade) räumt nur Zeilen weg, die Dateien im UPLOAD_DIR blieben sonst
+  // als Waisen liegen. Löschen erst NACH erfolgreichem DB-Delete (best-effort,
+  // analog zu deleteCookbook in lib/cookbooks/server.ts).
+  const ownedCookbooks = await prisma.cookbook.findMany({
+    where: { ownerId: targetId },
+    select: {
+      coverImagePath: true,
+      recipes: { select: { handwrittenPath: true, images: { select: { path: true } } } },
+    },
+  });
+
   await prisma.user.delete({ where: { id: targetId } });
-  revalidatePath("/profil");
-}
 
-export async function createFamilyAction(formData: FormData) {
-  const session = await auth();
-  if (session?.user?.role !== "ADMIN") throw new Error("Keine Berechtigung");
-  const parsed = createFamilySchema.safeParse({
-    name: String(formData.get("name") ?? "").trim(),
-  });
-  if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? "Ungültiger Name");
+  const imagePaths: string[] = [];
+  for (const cookbook of ownedCookbooks) {
+    if (cookbook.coverImagePath) imagePaths.push(cookbook.coverImagePath);
+    for (const recipe of cookbook.recipes) {
+      if (recipe.handwrittenPath) imagePaths.push(recipe.handwrittenPath);
+      for (const img of recipe.images) imagePaths.push(img.path);
+    }
   }
-  await prisma.family.create({ data: { name: parsed.data.name } });
-  revalidatePath("/profil");
-}
+  await Promise.all(imagePaths.map((p) => deleteRecipeImageFiles(p).catch(() => undefined)));
 
-export async function assignUserFamilyAction(userId: string, familyId: string) {
-  const session = await auth();
-  if (session?.user?.role !== "ADMIN") throw new Error("Keine Berechtigung");
-  const parsed = assignUserFamilySchema.parse({
-    userId,
-    familyId: familyId ? familyId : null,
-  });
-  const fam = parsed.familyId
-    ? await prisma.family.findUnique({
-        where: { id: parsed.familyId },
-        select: { id: true },
-      })
-    : null;
-  await prisma.user.update({
-    where: { id: parsed.userId },
-    data: { familyId: fam?.id ?? null },
-  });
   revalidatePath("/profil");
 }
 
@@ -222,12 +210,24 @@ export async function createCategoryAction(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const icon = String(formData.get("icon") ?? "").trim() || null;
   if (!name) throw new Error("Name fehlt");
+  const cookbookId = session.user.activeCookbookId ?? null;
+
+  // @@unique([cookbookId, name]) greift bei cookbookId=null NICHT (SQLite
+  // behandelt NULL im Unique-Index als paarweise distinct) — ohne diesen
+  // App-Level-Check könnten beliebig viele globale Duplikate entstehen.
+  const existing = await prisma.category.findFirst({
+    where: { cookbookId, name },
+    select: { id: true },
+  });
+  if (existing) {
+    throw new Error(`Kategorie „${name}" existiert bereits`);
+  }
+
   try {
     await prisma.category.create({
-      data: { name, icon, cookbookId: session.user.activeCookbookId ?? null },
+      data: { name, icon, cookbookId },
     });
   } catch {
-    // Name ist global eindeutig — Kollision freundlich melden.
     throw new Error(`Kategorie „${name}" existiert bereits`);
   }
   revalidatePath("/profil");

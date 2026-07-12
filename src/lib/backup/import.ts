@@ -30,10 +30,15 @@ export async function applyBackup(
       const name = c.name.trim();
       const key = name.toLowerCase();
       if (!name || catMap.has(key)) continue;
+      // Kategorien werden ins Ziel-Cookbook importiert (nie global mit
+      // cookbookId = null) — so greift der Compound-Unique-Key
+      // `cookbookId_name` zuverlaessig gegen Duplikate; SQLite behandelt NULL
+      // im Unique-Index als distinct, was bei globalen Kategorien keine
+      // Dubletten verhindern wuerde.
       const cat = await prisma.category.upsert({
-        where: { name },
+        where: { cookbookId_name: { cookbookId: opts.cookbookId, name } },
         update: {},
-        create: { name, icon: c.icon ?? null },
+        create: { name, icon: c.icon ?? null, cookbookId: opts.cookbookId },
       });
       catMap.set(key, cat.id);
     }

@@ -37,6 +37,6 @@ describe("buildServiceWorkerSource", () => {
   it("behaelt cache-first fuer content-gehashte Assets", () => {
     const src = buildServiceWorkerSource("1.2.3");
     expect(src).toContain("cacheFirst(event.request, STATIC_CACHE)");
-    expect(src).toContain("cacheFirst(event.request, IMAGE_CACHE)");
+    expect(src).toContain("cacheFirst(event.request, IMAGE_CACHE, IMAGE_CACHE_MAX_ENTRIES)");
   });
 });

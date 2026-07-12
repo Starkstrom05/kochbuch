@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { PaperSheet } from "@/components/oma/PaperSheet";
+import type { RecipeActionState } from "@/app/(app)/rezepte/actions";
 
 type IngredientDraft = {
   name: string;
@@ -26,7 +27,10 @@ type NewImage = {
 };
 
 type Props = {
-  action: (formData: FormData) => void | Promise<void>;
+  /** Server Action. Erfolg redirect()t (wirft intern NEXT_REDIRECT); bei
+   *  Validierungs-/Berechtigungsfehlern liefert sie einen Fehler-State
+   *  zurueck statt zu werfen — siehe RecipeActionState. */
+  action: (formData: FormData) => Promise<RecipeActionState>;
   categories: { id: string; name: string; icon: string | null }[];
   initial?: {
     id?: string;
@@ -113,12 +117,19 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
   const [importedUrls, setImportedUrls] = useState<string[]>(initial?.imageUrls ?? []);
   const newIdCounter = useRef(0);
 
+  // Immer den aktuellen Stand mitfuehren, damit das Unmount-Cleanup unten
+  // nicht nur die *initialen* newImages revoked (stale closure bei []-Deps),
+  // sondern auch alle zwischenzeitlich hinzugefuegten.
+  const newImagesRef = useRef<NewImage[]>(newImages);
+  useEffect(() => {
+    newImagesRef.current = newImages;
+  }, [newImages]);
+
   // Object-URLs aufraeumen, damit Memory nicht leaked.
   useEffect(() => {
     return () => {
-      for (const img of newImages) URL.revokeObjectURL(img.previewUrl);
+      for (const img of newImagesRef.current) URL.revokeObjectURL(img.previewUrl);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function addNewFiles(fileList: FileList | null) {
@@ -189,8 +200,26 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
 
   const totalImages = existing.length + newImages.length + importedUrls.length;
 
+  // Kein useActionState: React 19 resettet unkontrollierte Formularfelder
+  // automatisch, sobald die an <form action> gehaengte Funktion ohne Fehler
+  // aufloest — auch bei unserem { status: "error" }-Rueckgabewert, der aus
+  // React-Sicht ein erfolgreicher Submit ist. Mit einem eigenen onSubmit +
+  // useTransition bleibt das DOM unangetastet und alle Eingaben bleiben bei
+  // einem Fehler erhalten.
+  const [state, setState] = useState<RecipeActionState>({ status: "idle" });
+  const [pending, startTransition] = useTransition();
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    startTransition(async () => {
+      const result = await action(formData);
+      setState(result);
+    });
+  }
+
   return (
-    <form action={action} className="space-y-8">
+    <form onSubmit={handleSubmit} className="space-y-8">
       <input type="hidden" name="sourceType" value={initial?.sourceType ?? "MANUAL"} />
 
       {/* Bestehende Bilder, die behalten werden — in aktueller Reihenfolge. */}
@@ -614,13 +643,24 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
         </label>
       </PaperSheet>
 
-      <div className="flex items-center justify-end gap-4">
-        <button
-          type="submit"
-          className="bg-ribbon font-hand text-paper-50 shadow-card rounded-sm px-6 py-2 text-2xl hover:rotate-[-0.5deg]"
-        >
-          {submitLabel}
-        </button>
+      <div className="flex flex-col items-end gap-3">
+        {state.status === "error" ? (
+          <p
+            role="alert"
+            className="font-written w-full rounded-sm bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200"
+          >
+            {state.message}
+          </p>
+        ) : null}
+        <div className="flex items-center justify-end gap-4">
+          <button
+            type="submit"
+            disabled={pending}
+            className="bg-ribbon font-hand text-paper-50 shadow-card rounded-sm px-6 py-2 text-2xl hover:rotate-[-0.5deg] disabled:opacity-50 disabled:hover:rotate-0"
+          >
+            {pending ? "Speichert…" : submitLabel}
+          </button>
+        </div>
       </div>
     </form>
   );

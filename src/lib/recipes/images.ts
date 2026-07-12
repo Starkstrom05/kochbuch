@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
-import { assertPublicUrl } from "@/lib/import/ssrf";
+import { assertPublicUrlPinned, pinnedDispatcher } from "@/lib/import/ssrf";
+import type { Dispatcher } from "undici";
 import {
   MAX_UPLOAD_BYTES,
   deleteRecipeImageFiles,
@@ -58,7 +59,7 @@ export async function addImageFromUrl(
   // SSRF: imageUrl kommt aus der Form (Web-Import) und ist damit user-controlled.
   // Ohne Check kann ein angemeldeter User interne Endpoints (Router, Ollama,
   // Cloud-Metadata) proben. Gleicher Check wie beim Image-Proxy und Web-Import.
-  const check = await assertPublicUrl(absolute);
+  const check = await assertPublicUrlPinned(absolute);
   if (!check.ok) throw new Error(`URL abgelehnt: ${check.reason}`);
 
   const res = await fetch(absolute, {
@@ -68,7 +69,9 @@ export async function addImageFromUrl(
     },
     redirect: "manual",
     signal: AbortSignal.timeout(20_000),
-  });
+    // IP an die geprueften Kandidaten pinnen (kein Rebinding beim Connect).
+    ...(check.lookup ? { dispatcher: pinnedDispatcher(check.lookup) } : {}),
+  } as RequestInit & { dispatcher?: Dispatcher });
   // Redirect-Follow zugelassener Server kann auf interne IPs umlenken — wir
   // weisen 3xx hier ab; legitimes Bild-Hosting liefert 200 direkt.
   if (res.status >= 300 && res.status < 400) {
@@ -123,6 +126,17 @@ export async function clearAllImages(recipeId: string): Promise<void> {
   });
   await prisma.recipeImage.deleteMany({ where: { recipeId } });
   await Promise.all(imgs.map((i) => deleteRecipeImageFiles(i.path)));
+}
+
+/**
+ * Loescht nur die Dateien zu bereits bekannten Bild-Pfaden, ohne DB-Zugriff.
+ * Fuer Aufrufer, deren RecipeImage-Rows schon weg sind (z.B. per Cascade beim
+ * harten Rezept-Loeschen) und die nur noch die vorher geladenen Pfade haben —
+ * `clearAllImages` faende in dem Fall in der DB nichts mehr zum Aufraeumen.
+ * Best-effort: einzelne Fehler werden toleriert.
+ */
+export async function deleteImageFilesForPaths(paths: string[]): Promise<void> {
+  await Promise.all(paths.map((p) => deleteRecipeImageFiles(p).catch(() => undefined)));
 }
 
 /**

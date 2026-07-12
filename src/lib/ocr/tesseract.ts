@@ -53,6 +53,10 @@ export async function recognizeText(imageBuffer: Buffer, signal?: AbortSignal): 
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let onAbort: (() => void) | null = null;
     const recognition = worker.recognize(prepared);
+    // Falls timeoutPromise/Abort das Race gewinnt, haengt recognition() noch
+    // dran und settled spaeter (ggf. mit Fehler, sobald wir unten terminieren) —
+    // ohne diesen Handler wuerde das eine unhandled-rejection-Warnung ausloesen.
+    recognition.catch(() => undefined);
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(() => reject(new Error("OCR-Zeitüberschreitung")), OCR_TIMEOUT_MS);
       if (signal) {
@@ -65,6 +69,18 @@ export async function recognizeText(imageBuffer: Buffer, signal?: AbortSignal): 
         ReturnType<typeof worker.recognize>
       >;
       return data.text;
+    } catch (err) {
+      // Tesseract.js kann einen laufenden recognize()-Call nicht abbrechen: wenn
+      // timeoutPromise oder das Abort-Signal das Race gewinnt, rechnet der Worker
+      // im Hintergrund weiter. Mutex einfach freizugeben wuerde den naechsten
+      // Request denselben (weiterhin beschaeftigten) Worker parallel nutzen lassen
+      // — genau die Situation, die der Mutex verhindern soll, und auf dem
+      // schwachen N5095 blockiert das die CPU dauerhaft. Deshalb Worker hart
+      // terminieren und workerPromise zuruecksetzen, damit der naechste Aufruf
+      // einen frischen Worker initialisiert.
+      workerPromise = null;
+      await worker.terminate().catch(() => undefined);
+      throw err;
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
       if (signal && onAbort) signal.removeEventListener("abort", onAbort);

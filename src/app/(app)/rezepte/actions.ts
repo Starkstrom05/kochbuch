@@ -68,8 +68,17 @@ function optionalNumber(formData: FormData, key: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Fehler-State fuer create/update: Redirect bei Erfolg (wirft intern
+ *  NEXT_REDIRECT), strukturierter State bei Validierungs-/Berechtigungsfehlern
+ *  statt eines geworfenen Errors — Vorbild: ChangePasswordState. */
+export type RecipeActionState = { status: "idle" } | { status: "error"; message: string };
+
+function serviceErrorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
+}
+
 function buildInput(formData: FormData) {
-  return recipeInputSchema.parse({
+  return recipeInputSchema.safeParse({
     title: String(formData.get("title") ?? ""),
     description: String(formData.get("description") ?? "") || null,
     servings: Number(formData.get("servings") ?? 4) || 4,
@@ -159,24 +168,59 @@ async function processImagesFromFormData(
   }
 }
 
-export async function createRecipeAction(formData: FormData) {
+export async function createRecipeAction(formData: FormData): Promise<RecipeActionState> {
   const session = await auth();
-  if (!session?.user) throw new Error("Nicht angemeldet");
-  if (!session.user.activeCookbookId) throw new Error("Kein aktives Kochbuch ausgewaehlt");
-  const input = buildInput(formData);
-  const recipe = await svCreate(input, actorFromSession(session), session.user.activeCookbookId);
-  if (!recipe) throw new Error("Rezept konnte nicht erstellt werden");
+  if (!session?.user) return { status: "error", message: "Nicht angemeldet." };
+  if (!session.user.activeCookbookId) {
+    return { status: "error", message: "Kein aktives Kochbuch ausgewaehlt." };
+  }
+
+  const parsed = buildInput(formData);
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Ungueltige Eingabe." };
+  }
+  const input = parsed.data;
+
+  let recipe: Awaited<ReturnType<typeof svCreate>>;
+  try {
+    recipe = await svCreate(input, actorFromSession(session), session.user.activeCookbookId);
+  } catch (err) {
+    return {
+      status: "error",
+      message: serviceErrorMessage(err, "Rezept konnte nicht erstellt werden."),
+    };
+  }
+  if (!recipe) return { status: "error", message: "Rezept konnte nicht erstellt werden." };
+
   await processImagesFromFormData(recipe.id, formData, input.sourceUrl ?? null, false);
   revalidatePath("/rezepte");
   redirect(`/rezepte/${recipe.slug}`);
 }
 
-export async function updateRecipeAction(id: string, formData: FormData) {
+export async function updateRecipeAction(
+  id: string,
+  formData: FormData,
+): Promise<RecipeActionState> {
   const session = await auth();
-  if (!session?.user) throw new Error("Nicht angemeldet");
-  const input = buildInput(formData);
-  const recipe = await svUpdate(id, input, actorFromSession(session));
-  if (!recipe) throw new Error("Rezept konnte nicht aktualisiert werden");
+  if (!session?.user) return { status: "error", message: "Nicht angemeldet." };
+
+  const parsed = buildInput(formData);
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Ungueltige Eingabe." };
+  }
+  const input = parsed.data;
+
+  let recipe: Awaited<ReturnType<typeof svUpdate>>;
+  try {
+    recipe = await svUpdate(id, input, actorFromSession(session));
+  } catch (err) {
+    return {
+      status: "error",
+      message: serviceErrorMessage(err, "Rezept konnte nicht aktualisiert werden."),
+    };
+  }
+  if (!recipe) return { status: "error", message: "Rezept konnte nicht aktualisiert werden." };
+
   await processImagesFromFormData(recipe.id, formData, input.sourceUrl ?? null, true);
   revalidatePath("/rezepte");
   revalidatePath(`/rezepte/${recipe.slug}`);

@@ -15,25 +15,39 @@ const TO_BASE_VOLUME: Record<string, number> = {
   Prise: 0.3,
 };
 
+const UNIT_ALIASES: Record<string, string> = {
+  gramm: "g",
+  g: "g",
+  kilogramm: "kg",
+  kg: "kg",
+  milliliter: "ml",
+  ml: "ml",
+  zentiliter: "cl",
+  cl: "cl",
+  liter: "l",
+  l: "l",
+  esslöffel: "EL",
+  "esslöffel.": "EL",
+  el: "EL",
+  teelöffel: "TL",
+  tl: "TL",
+  tasse: "Tasse",
+  prise: "Prise",
+  stück: "Stk",
+  stk: "Stk",
+  "stk.": "Stk",
+  bund: "Bund",
+  zehe: "Zehe",
+  scheibe: "Scheibe",
+  dose: "Dose",
+  packung: "Packung",
+};
+
 export function normaliseUnit(raw: string | null | undefined): string {
   if (!raw) return "";
   const t = raw.trim();
   const lower = t.toLowerCase();
-  const map: Record<string, string> = {
-    gramm: "g",
-    kilogramm: "kg",
-    milliliter: "ml",
-    liter: "l",
-    esslöffel: "EL",
-    "esslöffel.": "EL",
-    el: "EL",
-    teelöffel: "TL",
-    tl: "TL",
-    stück: "Stk",
-    stk: "Stk",
-    "stk.": "Stk",
-  };
-  return map[lower] ?? t;
+  return UNIT_ALIASES[lower] ?? t;
 }
 
 export function classify(unit: string): "mass" | "volume" | "count" | "other" {
@@ -67,13 +81,20 @@ export function addAmounts(
 
   const unitA = normaliseUnit(a.unit ?? "");
   const unitB = normaliseUnit(b.unit ?? "");
+
+  if (unitA === unitB) {
+    const sum = a.amount + b.amount;
+    if (unitA === "g" || unitA === "ml") {
+      const rescaled = fromBaseAmount(sum, unitA);
+      return { amount: rescaled.amount, unit: rescaled.unit };
+    }
+    return { amount: sum, unit: unitA };
+  }
+
   const classA = classify(unitA);
   const classB = classify(unitB);
 
-  if (classA !== classB || classA === "other") {
-    if (unitA === unitB) return { amount: a.amount + b.amount, unit: unitA };
-    return null;
-  }
+  if (classA !== classB || classA === "other") return null;
 
   const baseA = toBaseAmount(a.amount, unitA);
   const baseB = toBaseAmount(b.amount, unitB);
