@@ -96,6 +96,11 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
     .filter(Boolean)
     .join("\n");
 
+  // Ohne mindestens einen Schritt bleibt das versteckte instructions-Feld leer
+  // und die serverseitige Zod-Pflicht ("Anleitung fehlt") wirft — statt das als
+  // Absturz durchschlagen zu lassen, sperren wir hier den Speichern-Button.
+  const canSave = instructionsValue.trim().length > 0;
+
   function updateStep(idx: number, patch: Partial<StepDraft>) {
     setSteps((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
   }
@@ -208,13 +213,27 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
   // einem Fehler erhalten.
   const [state, setState] = useState<RecipeActionState>({ status: "idle" });
   const [pending, startTransition] = useTransition();
+  // Doppel-Submit-Schutz: `pending` greift erst nach dem naechsten Render —
+  // schnelles Doppeltippen auf dem iPhone feuert zwei Submits davor und hat
+  // vor v0.33.6 doppelte Rezepte erzeugt. Der Ref sperrt synchron.
+  const submittingRef = useRef(false);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!canSave || submittingRef.current) return;
+    submittingRef.current = true;
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
-      const result = await action(formData);
-      setState(result);
+      try {
+        const result = await action(formData);
+        setState(result);
+        // Erfolg leitet per redirect() weiter — bis dahin gesperrt lassen,
+        // sonst reicht ein Tipp waehrend der Navigation fuer ein Duplikat.
+        if (result?.status === "error") submittingRef.current = false;
+      } catch (err) {
+        submittingRef.current = false;
+        throw err;
+      }
     });
   }
 
@@ -652,11 +671,17 @@ export function RecipeEditor({ action, categories, initial, submitLabel }: Props
             {state.message}
           </p>
         ) : null}
+        {!canSave && (
+          <p role="status" className="font-written text-ribbon text-sm">
+            Füge mindestens einen Schritt mit Text hinzu, um das Rezept zu speichern.
+          </p>
+        )}
         <div className="flex items-center justify-end gap-4">
           <button
             type="submit"
-            disabled={pending}
-            className="bg-ribbon font-hand text-paper-50 shadow-card rounded-sm px-6 py-2 text-2xl hover:rotate-[-0.5deg] disabled:opacity-50 disabled:hover:rotate-0"
+            disabled={!canSave || pending}
+            aria-busy={pending}
+            className="bg-ribbon font-hand text-paper-50 shadow-card rounded-sm px-6 py-2 text-2xl hover:rotate-[-0.5deg] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:rotate-0"
           >
             {pending ? "Speichert…" : submitLabel}
           </button>
