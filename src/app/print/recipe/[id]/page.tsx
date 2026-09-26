@@ -36,8 +36,7 @@ export default async function PrintRecipePage({
   const internalBase = process.env.APP_URL ?? "http://localhost:3000";
   const coverUrl = coverImagePath ? `${internalBase}/api/images${coverImagePath}` : null;
 
-  const totalMinutes =
-    (recipe.prepMinutes ?? 0) + (recipe.cookMinutes ?? 0) || null;
+  const totalMinutes = (recipe.prepMinutes ?? 0) + (recipe.cookMinutes ?? 0) || null;
 
   const steps = recipe.instructions
     .split(/\n+/)
@@ -61,10 +60,11 @@ export default async function PrintRecipePage({
           color: #1A1008;
           background: #ffffff;
           /* A4: 210×297mm. Mit margin 12mm bleiben 186×273mm Content-Area.
-             overflow:hidden zwingt eine Seite. */
-          height: 273mm;
+             min-height statt height: kurze Rezepte fuellen genau eine Seite
+             (Footer unten), lange brechen auf Folgeseiten um statt
+             abgeschnitten zu werden. */
+          min-height: 273mm;
           width: 186mm;
-          overflow: hidden;
           display: flex;
           flex-direction: column;
         }
@@ -190,11 +190,11 @@ export default async function PrintRecipePage({
           gap: 8mm;
           margin-top: 3mm;
           flex: 1;
-          min-height: 0;
-          overflow: hidden;
         }
 
         /* Zutaten */
+        h2 { break-after: avoid; }
+        .ingredients li, .instructions li, .notes { break-inside: avoid; }
         .ingredients h2 { margin-bottom: 2mm; }
         .ingredients ul { list-style: none; padding: 0; margin: 0; }
         .ingredients li {
