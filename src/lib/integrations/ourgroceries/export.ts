@@ -56,9 +56,21 @@ export function buildOurGroceriesCsv(items: OurGroceriesItem[]): string {
   return [header, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\r\n") + "\r\n";
 }
 
+// Feldwerte stammen aus user-kontrollierten Zutaten-/Rezeptnamen. Ein Name
+// wie "=1+1" oder "@SUM(...)" wuerde beim CSV-Import in Excel/Sheets/OG als
+// Formel statt als Text interpretiert (Formula-Injection) — daher fuehrende
+// Formel-Praefixe mit einem harmlosen Apostroph neutralisieren, bevor
+// RFC-4180-Quoting greift.
+const FORMULA_PREFIX = /^[=+\-@]/;
+
+function neutraliseFormulaPrefix(value: string): string {
+  return FORMULA_PREFIX.test(value) ? `'${value}` : value;
+}
+
 function escapeCsv(value: string): string {
-  if (/[",\r\n]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
+  const safe = neutraliseFormulaPrefix(value);
+  if (/[",\r\n]/.test(safe)) {
+    return `"${safe.replace(/"/g, '""')}"`;
   }
-  return value;
+  return safe;
 }

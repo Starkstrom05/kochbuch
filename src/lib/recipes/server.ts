@@ -2,8 +2,10 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { type RecipeInput, slugify } from "@/lib/schemas/recipe";
 import { splitInstructionsToSteps, stepsToInstructions } from "@/lib/recipes/steps";
+import { deleteImageFilesForPaths } from "@/lib/recipes/images";
 import {
   type Actor,
+  canReadCookbook,
   canReadRecipe,
   canWriteCookbook,
   canWriteRecipe,
@@ -212,7 +214,10 @@ export async function restoreRecipe(id: string, actor: Actor) {
 export async function permanentlyDeleteRecipe(id: string, actor: Actor) {
   const existing = await prisma.recipe.findUnique({
     where: { id },
-    include: { cookbook: { select: { ownerId: true } } },
+    include: {
+      cookbook: { select: { ownerId: true } },
+      images: { select: { path: true } },
+    },
   });
   if (!existing) throw new Error("Rezept nicht gefunden");
   if (!(await canWriteRecipe(actor, existing))) throw new Error("Keine Berechtigung");
@@ -229,16 +234,46 @@ export async function permanentlyDeleteRecipe(id: string, actor: Actor) {
     );
   }
 
-  return prisma.recipe.delete({ where: { id } });
+  const deleted = await prisma.recipe.delete({ where: { id } });
+  // Cascade hat die RecipeImage-Rows schon entfernt — Pfade sind daher vorher
+  // aus `existing` zu nehmen, nicht ueber `clearAllImages` (das faende nach
+  // dem Cascade nichts mehr in der DB). Best-effort: eine liegen gebliebene
+  // Datei ist kein Grund, den (bereits erfolgreichen) DB-Delete scheitern zu
+  // lassen.
+  await deleteImageFilesForPaths(existing.images.map((img) => img.path));
+  return deleted;
 }
 
 /**
- * Archiv eines Cookbooks. Admin sieht alle inaktiven Rezepte; normaler User
- * sieht nur seine eigenen inaktiven Rezepte im aktiven Cookbook.
+ * Loest die fuer Listen/Buch zu verwendende Cookbook-Id auf: das im JWT
+ * gespeicherte `cookbookId` kann stale sein (z.B. nach entzogener Freigabe,
+ * die serverseitig nur `User.activeCookbookId` korrigiert, nicht aber
+ * bestehende Sessions). Statt hart zu scheitern, faellt diese Funktion auf
+ * das aelteste eigene Cookbook des Actors zurueck; liefert null, wenn der
+ * Actor gar kein eigenes Cookbook (mehr) hat.
+ */
+export async function resolveReadableCookbookId(
+  actor: Actor,
+  cookbookId: string | null | undefined,
+): Promise<string | null> {
+  if (cookbookId && (await canReadCookbook(actor, cookbookId))) return cookbookId;
+  const own = await prisma.cookbook.findFirst({
+    where: { ownerId: actor.id },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  return own?.id ?? null;
+}
+
+/**
+ * Archiv eines Cookbooks. Owner des Cookbooks (oder Admin) sehen alle
+ * inaktiven Rezepte darin; alle anderen (z.B. Viewer mit Leserecht) nur ihre
+ * eigenen inaktiven Rezepte — konsistent mit `canWriteRecipe`, wo
+ * Schreibrechte am Cookbook haengen, nicht an `createdById`.
  */
 export async function getArchivedRecipes(actor: Actor, cookbookId: string) {
   const where: Prisma.RecipeWhereInput = { isActive: false, cookbookId };
-  if (actor.role !== "ADMIN") where.createdById = actor.id;
+  if (!(await canWriteCookbook(actor, cookbookId))) where.createdById = actor.id;
   return prisma.recipe.findMany({
     where,
     orderBy: { updatedAt: "desc" },
@@ -280,7 +315,7 @@ export async function getRecipeBySlug(slug: string, viewer: Actor | null) {
 
 export async function getRecipeByShareToken(token: string) {
   return prisma.recipe.findFirst({
-    where: { shareToken: token, isPublic: true },
+    where: { shareToken: token, isPublic: true, isActive: true },
     include: {
       ingredients: { include: { ingredient: true }, orderBy: { order: "asc" } },
       categories: { include: { category: true } },

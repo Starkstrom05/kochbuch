@@ -24,6 +24,8 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
     mem_limit: 2g
 
   ollama:
@@ -41,6 +43,9 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
+    # 8g hier (vs. 7g in den TrueNAS-Composes): generischer Host mit mehr
+    # RAM-Spielraum unterstellt. Auf dem NAS selbst ist RAM knapper (laeuft
+    # neben Nextcloud & Co.), daher dort bewusst niedriger begrenzt.
     mem_limit: 8g
     # GPU optional — auskommentieren falls vorhanden
     # deploy:
@@ -50,6 +55,27 @@ services:
     #         - driver: nvidia
     #           count: 1
     #           capabilities: [gpu]
+
+  # Pullt das Ollama-Modell beim ersten Start und beendet sich danach.
+  # Bei jedem Restart prueft Ollama selbst, ob das Modell schon vorhanden ist —
+  # ein zweiter Pull ist quasi instant (No-Op). Analog zu den TrueNAS-Composes,
+  # damit auch ein Erststart mit diesem Basis-Compose ohne manuellen
+  # `ollama pull` funktioniert.
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: kochbuch-ollama-pull
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: "http://ollama:11434"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        echo "Pulling ${OLLAMA_MODEL:-phi3:3.8b-mini-4k-instruct-q4_K_M} (~2.3 GB, erster Start kann 5–15 min dauern)…" &&
+        ollama pull ${OLLAMA_MODEL:-phi3:3.8b-mini-4k-instruct-q4_K_M} &&
+        echo "Modell bereit."
 
   caddy:
     image: caddy:2-alpine

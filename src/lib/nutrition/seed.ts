@@ -2,48 +2,44 @@ import type { PrismaClient } from "@prisma/client";
 import { NUTRITION_DATA } from "./data";
 
 /**
- * Upsert die lokale Nährwert-Tabelle: legt fehlende Zutaten an, ergänzt Dichte
- * und Nährwerte. Idempotent — kann gefahrlos erneut laufen (Seed + Admin-Reload).
- * Nimmt den Prisma-Client als Argument, damit prisma/seed.ts seinen eigenen
- * Client nutzen kann und kein Singleton-Import nötig ist.
+ * Legt fehlende Zutaten + deren Nährwerte an. Create-only (kein Update-Zweig):
+ * Bestandsdaten (User-Korrekturen an Dichte/Aliasen/Kategorie/Nährwerten)
+ * duerfen bei einem erneuten Lauf (Seed + Container-Restart) nicht
+ * ueberschrieben werden. Nimmt den Prisma-Client als Argument, damit
+ * prisma/seed.ts seinen eigenen Client nutzen kann und kein Singleton-Import
+ * nötig ist.
  */
 export async function seedNutrition(prisma: PrismaClient): Promise<{ count: number }> {
   let count = 0;
   for (const e of NUTRITION_DATA) {
-    const ing = await prisma.ingredient.upsert({
-      where: { name: e.name },
-      update: {
-        ...(e.aliases !== undefined ? { aliases: e.aliases } : {}),
-        ...(e.category !== undefined ? { category: e.category } : {}),
-        ...(e.density !== undefined ? { density: e.density } : {}),
-      },
-      create: {
-        name: e.name,
-        aliases: e.aliases ?? null,
-        category: e.category ?? null,
-        density: e.density ?? null,
-      },
-    });
+    let ing = await prisma.ingredient.findUnique({ where: { name: e.name } });
+    if (!ing) {
+      ing = await prisma.ingredient.create({
+        data: {
+          name: e.name,
+          aliases: e.aliases ?? null,
+          category: e.category ?? null,
+          density: e.density ?? null,
+        },
+      });
+    }
 
-    await prisma.ingredientNutrition.upsert({
+    const existingNutrition = await prisma.ingredientNutrition.findUnique({
       where: { ingredientId: ing.id },
-      update: {
-        kcal: e.kcal,
-        proteinG: e.proteinG ?? null,
-        carbsG: e.carbsG ?? null,
-        fatG: e.fatG ?? null,
-        fiberG: e.fiberG ?? null,
-      },
-      create: {
-        ingredientId: ing.id,
-        kcal: e.kcal,
-        proteinG: e.proteinG ?? null,
-        carbsG: e.carbsG ?? null,
-        fatG: e.fatG ?? null,
-        fiberG: e.fiberG ?? null,
-      },
     });
-    count++;
+    if (!existingNutrition) {
+      await prisma.ingredientNutrition.create({
+        data: {
+          ingredientId: ing.id,
+          kcal: e.kcal,
+          proteinG: e.proteinG ?? null,
+          carbsG: e.carbsG ?? null,
+          fatG: e.fatG ?? null,
+          fiberG: e.fiberG ?? null,
+        },
+      });
+      count++;
+    }
   }
   return { count };
 }

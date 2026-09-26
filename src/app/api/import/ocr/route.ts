@@ -32,7 +32,17 @@ export async function POST(req: Request) {
     send("progress", {
       message: "Text erkannt — strukturiere Rezept mit KI (kann 30–60 s dauern)…",
     });
-    const recipe = await structureRecipeFromText(text, signal);
+    let recipe;
+    try {
+      recipe = await structureRecipeFromText(text, signal);
+    } catch (err) {
+      // KI-Strukturierung gescheitert (Ollama down, Timeout, Zod-Fehler …) —
+      // Regel 5 aus CLAUDE.md: Fallback = Roh-Text-Editor statt Datenverlust.
+      // Bei Client-Abbruch (Navigation weg) lohnt sich das Fallback-Event nicht.
+      if (signal.aborted) throw err;
+      send("result", { rawText: text, method: "ocr-raw" });
+      return;
+    }
     send("result", { recipe, method: "ocr" });
   });
 }

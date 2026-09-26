@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/oma/EmptyState";
 import { getPantryForUser, matchRecipesForUser } from "@/lib/pantry/server";
+import { resolveReadableCookbookId } from "@/lib/recipes/server";
 import {
   addPantryItemAction,
   clearPantryAction,
@@ -16,9 +17,16 @@ export default async function VorraetePage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
+  // JWT-`activeCookbookId` kann stale sein (z.B. nach entzogener Freigabe) —
+  // gegen canReadCookbook aufloesen, sonst matcht der Vorrat weiter Rezepte
+  // eines nicht mehr lesbaren Cookbooks.
+  const readableCookbookId = await resolveReadableCookbookId(
+    { id: session.user.id, role: session.user.role },
+    session.user.activeCookbookId,
+  );
   const [pantry, matches, accessibleLists] = await Promise.all([
     getPantryForUser(session.user.id),
-    matchRecipesForUser(session.user.id, session.user.activeCookbookId, 15),
+    matchRecipesForUser(session.user.id, readableCookbookId, 15),
     listAccessibleLists({ id: session.user.id, role: session.user.role }),
   ]);
   const shoppingLists = accessibleLists.map((l) => ({

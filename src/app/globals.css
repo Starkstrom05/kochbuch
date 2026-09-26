@@ -48,6 +48,11 @@ body {
 }
 
 @layer utilities {
+  /* Dunkles Leder-/Buch-Ambiente fuer Kochmodus + Rezeptbuch (statt doppeltem Inline-Gradient). */
+  .bg-book-ambience {
+    background: linear-gradient(160deg, #2a1d12 0%, #1a120a 100%);
+  }
+
   .hand-tilt-1 {
     transform: rotate(-0.4deg);
   }

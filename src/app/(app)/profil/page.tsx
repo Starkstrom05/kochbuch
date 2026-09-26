@@ -8,7 +8,6 @@ import { UserList } from "./UserList";
 import { AppNameForm } from "./AppNameForm";
 import { BackupSection } from "./BackupSection";
 import { NutritionDataForm } from "./NutritionDataForm";
-import { FamilyManager } from "./FamilyManager";
 import { CategoryManager } from "./CategoryManager";
 import { CookbookManager, type ManagedCookbook } from "./CookbookManager";
 import { getAppName } from "@/lib/config/app-config";
@@ -20,70 +19,52 @@ export default async function ProfilPage() {
 
   const isAdmin = session.user.role === "ADMIN";
 
-  const [currentAppName, users, families, ownCategories, cookbookRows, allUsers] =
-    await Promise.all([
-      getAppName(),
-      isAdmin
-        ? prisma.user.findMany({
-            select: {
-              id: true,
-              email: true,
-              name: true,
-              role: true,
-              familyId: true,
-              createdAt: true,
-            },
-            orderBy: { createdAt: "asc" },
-          })
-        : Promise.resolve([]),
-      isAdmin
-        ? prisma.family.findMany({
-            select: { id: true, name: true, _count: { select: { members: true } } },
-            orderBy: { name: "asc" },
-          })
-        : Promise.resolve([]),
-      isAdmin && session.user.activeCookbookId
-        ? prisma.category.findMany({
-            where: { cookbookId: session.user.activeCookbookId },
-            select: { id: true, name: true, icon: true },
-            orderBy: { name: "asc" },
-          })
-        : Promise.resolve([]),
-      // Cookbooks: eigene + freigegebene. Admin sieht alle.
-      isAdmin
-        ? prisma.cookbook.findMany({
-            include: {
-              owner: { select: { id: true, name: true } },
-              accesses: { include: { user: { select: { id: true, name: true } } } },
-            },
-            orderBy: [{ ownerId: "asc" }, { name: "asc" }],
-          })
-        : prisma.cookbook.findMany({
-            where: {
-              OR: [
-                { ownerId: session.user.id },
-                { accesses: { some: { userId: session.user.id } } },
-              ],
-            },
-            include: {
-              owner: { select: { id: true, name: true } },
-              accesses: { include: { user: { select: { id: true, name: true } } } },
-            },
-            orderBy: [{ ownerId: "asc" }, { name: "asc" }],
-          }),
-      prisma.user.findMany({
-        where: { id: { not: session.user.id } },
-        select: { id: true, name: true, email: true },
-        orderBy: { name: "asc" },
-      }),
-    ]);
-
-  const familyOptions = families.map((f) => ({ id: f.id, name: f.name }));
-  const familyList = families.map((f) => ({
-    id: f.id,
-    name: f.name,
-    memberCount: f._count.members,
-  }));
+  const [currentAppName, users, ownCategories, cookbookRows, allUsers] = await Promise.all([
+    getAppName(),
+    isAdmin
+      ? prisma.user.findMany({
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: "asc" },
+        })
+      : Promise.resolve([]),
+    isAdmin && session.user.activeCookbookId
+      ? prisma.category.findMany({
+          where: { cookbookId: session.user.activeCookbookId },
+          select: { id: true, name: true, icon: true },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
+    // Cookbooks: eigene + freigegebene. Admin sieht alle.
+    isAdmin
+      ? prisma.cookbook.findMany({
+          include: {
+            owner: { select: { id: true, name: true } },
+            accesses: { include: { user: { select: { id: true, name: true } } } },
+          },
+          orderBy: [{ ownerId: "asc" }, { name: "asc" }],
+        })
+      : prisma.cookbook.findMany({
+          where: {
+            OR: [{ ownerId: session.user.id }, { accesses: { some: { userId: session.user.id } } }],
+          },
+          include: {
+            owner: { select: { id: true, name: true } },
+            accesses: { include: { user: { select: { id: true, name: true } } } },
+          },
+          orderBy: [{ ownerId: "asc" }, { name: "asc" }],
+        }),
+    prisma.user.findMany({
+      where: { id: { not: session.user.id } },
+      select: { id: true, name: true, email: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   const cookbooks: ManagedCookbook[] = cookbookRows.map((c) => ({
     id: c.id,
@@ -163,12 +144,11 @@ export default async function ProfilPage() {
         {isAdmin ? (
           <>
             <AppNameForm currentName={currentAppName} />
-            <FamilyManager families={familyList} />
             <CategoryManager categories={ownCategories} />
             <BackupSection />
             <NutritionDataForm />
-            <UserList users={users} currentUserId={session.user.id} families={familyOptions} />
-            <CreateUserForm families={familyOptions} />
+            <UserList users={users} currentUserId={session.user.id} />
+            <CreateUserForm />
           </>
         ) : null}
       </div>

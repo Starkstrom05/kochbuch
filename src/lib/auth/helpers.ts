@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth/auth";
 import { isRole } from "@/lib/db/enums";
 import type { Actor } from "@/lib/cookbooks/permissions";
 
-/** Wirft, wenn nicht angemeldet. Liefert den Session-User (inkl. familyId). */
+/** Wirft, wenn nicht angemeldet. Liefert den Session-User. */
 export async function requireUser() {
   const session = await auth();
   if (!session?.user) throw new Error("Nicht angemeldet");

@@ -16,6 +16,8 @@ type Props = {
   className?: string;
 };
 
+const PAPER_COLOR = "#FBF6E9";
+
 // ── Catmull-Rom smoothing ─────────────────────────────────────────────────────
 
 function catmullRomPoint(
@@ -56,8 +58,10 @@ function drawSmoothedStroke(
   ctx.lineJoin = "round";
 
   if (tool === "eraser") {
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.strokeStyle = "rgba(0,0,0,1)";
+    // source-over statt destination-out: sonst stanzt der Radierer
+    // transparente Loecher statt Papierfarbe, was beim PNG-Export sichtbar wird.
+    ctx.globalCompositeOperation = "source-over";
+    ctx.strokeStyle = PAPER_COLOR;
   } else {
     ctx.globalCompositeOperation = "source-over";
     ctx.strokeStyle = inkColor;
@@ -123,6 +127,11 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
   const currentStroke = useRef<Stroke>([]);
   const isDrawing = useRef(false);
   const undoStack = useRef<ImageData[]>([]);
+  // Sobald einmal ein Apple-Pencil-Event gesehen wurde, ignorieren wir Touch
+  // fuers Zeichnen fuer den Rest der Session (Palm Rejection: der aufliegende
+  // Handballen ist oft der PRIMAERE Touch-Pointer, nicht Teil eines Multi-Touch).
+  const sawPen = useRef(false);
+  const hasSized = useRef(false);
 
   // ── Canvas sizing ─────────────────────────────────────────────────────────
 
@@ -131,21 +140,56 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
     const container = containerRef.current;
     if (!canvas || !container) return;
 
-    const dpr = window.devicePixelRatio || 1;
-    const w = width ?? container.clientWidth;
-    const h = height ?? Math.min(container.clientHeight, window.innerHeight * 0.6);
+    // Als const-Arrow-Function deklariert (nicht `function resize() {}`):
+    // TS verwirft sonst die oben erfolgte Non-Null-Narrowing von
+    // canvas/container innerhalb der verschachtelten Funktionsdeklaration.
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const w = width ?? container.clientWidth;
+      const h = height ?? Math.min(container.clientHeight, window.innerHeight * 0.6);
+      if (w <= 0 || h <= 0) return;
 
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-    canvas.style.width = `${w}px`;
-    canvas.style.height = `${h}px`;
+      // Bestehende Zeichnung best-effort sichern: eine iPad-Rotation soll die
+      // Notiz nicht kommentarlos loeschen. Stretch bei Seitenverhaeltnis-
+      // Aenderung ist der akzeptierte Kompromiss gegenueber Datenverlust.
+      let snapshot: HTMLCanvasElement | null = null;
+      if (hasSized.current) {
+        snapshot = document.createElement("canvas");
+        snapshot.width = canvas.width;
+        snapshot.height = canvas.height;
+        snapshot.getContext("2d")!.drawImage(canvas, 0, 0);
+      }
 
-    const ctx = canvas.getContext("2d")!;
-    ctx.scale(dpr, dpr);
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
 
-    // Warm paper background
-    ctx.fillStyle = "#FBF6E9";
-    ctx.fillRect(0, 0, w, h);
+      const ctx = canvas.getContext("2d")!;
+      ctx.scale(dpr, dpr);
+
+      // Warm paper background
+      ctx.fillStyle = PAPER_COLOR;
+      ctx.fillRect(0, 0, w, h);
+
+      if (snapshot) {
+        ctx.drawImage(snapshot, 0, 0, snapshot.width, snapshot.height, 0, 0, w, h);
+      }
+
+      hasSized.current = true;
+      // Undo-Stack enthaelt ImageData in alten Geraete-Pixel-Massen — nach
+      // einem Resize waeren putImageData-Restores falsch positioniert/skaliert.
+      undoStack.current = [];
+      setCanUndo(false);
+    };
+
+    resize();
+
+    if (width != null && height != null) return; // feste Groesse: kein Observer noetig
+
+    const observer = new ResizeObserver(resize);
+    observer.observe(container);
+    return () => observer.disconnect();
   }, [width, height]);
 
   // ── Pointer helpers ───────────────────────────────────────────────────────
@@ -167,8 +211,10 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
   function saveUndo() {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
-    const dpr = window.devicePixelRatio || 1;
-    undoStack.current.push(ctx.getImageData(0, 0, canvas.width / dpr, canvas.height / dpr));
+    // getImageData/putImageData ignorieren den Transform (ctx.scale) und
+    // arbeiten immer in Geraete-Pixeln — canvas.width/height (nicht /dpr)
+    // verwenden, sonst sichert der Undo-Stack auf dpr>1 nur einen Ausschnitt.
+    undoStack.current.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
     if (undoStack.current.length > 30) undoStack.current.shift();
     setCanUndo(true);
   }
@@ -176,8 +222,12 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
   // ── Draw handlers ─────────────────────────────────────────────────────────
 
   function onPointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (e.pointerType === "pen") sawPen.current = true;
+    // Pinch-Zoom (nicht-primaerer Touch) oder Handballen-Touch nach Pencil-
+    // Einsatz verwerfen — und zwar VOR setPointerCapture, damit der
+    // verworfene Pointer das Canvas nicht faelschlich fuer sich beansprucht.
+    if (e.pointerType === "touch" && (e.isPrimary === false || sawPen.current)) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    if (e.pointerType === "touch" && e.isPrimary === false) return; // pinch-zoom
     saveUndo();
     isDrawing.current = true;
     currentStroke.current = [getCanvasPoint(e)];
@@ -231,7 +281,7 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
     const ctx = canvas.getContext("2d")!;
     const dpr = window.devicePixelRatio || 1;
     saveUndo();
-    ctx.fillStyle = "#FBF6E9";
+    ctx.fillStyle = PAPER_COLOR;
     ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
   }, []);
 
@@ -278,7 +328,7 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
               key={t}
               onClick={() => setTool(t)}
               title={t === "pen" ? "Stift" : "Radierer"}
-              className={`font-written rounded-sm px-3 py-1.5 text-sm transition-colors ${
+              className={`font-written min-h-11 min-w-11 rounded-sm px-3 py-1.5 text-sm transition-colors ${
                 tool === t ? "bg-ribbon text-paper-50" : "text-ink-faded hover:bg-paper-200"
               }`}
             >
@@ -289,7 +339,7 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
 
         {/* Ink color */}
         {tool === "pen" && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {INK_COLORS.map((c) => (
               <button
                 key={c.value}
@@ -297,13 +347,18 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
                 title={c.label}
                 aria-label={`Tintenfarbe ${c.label}`}
                 aria-pressed={inkColor === c.value}
-                className="h-6 w-6 rounded-full ring-2 ring-offset-1 transition-transform hover:scale-110"
-                style={{
-                  backgroundColor: c.value,
-                  outlineOffset: "2px",
-                  outline: inkColor === c.value ? "2px solid #A23E2E" : "2px solid transparent",
-                }}
-              />
+                className="flex h-11 w-11 items-center justify-center rounded-full transition-transform hover:scale-110"
+              >
+                <span
+                  aria-hidden="true"
+                  className="block h-6 w-6 rounded-full ring-2 ring-offset-1"
+                  style={{
+                    backgroundColor: c.value,
+                    outlineOffset: "2px",
+                    outline: inkColor === c.value ? "2px solid #A23E2E" : "2px solid transparent",
+                  }}
+                />
+              </button>
             ))}
           </div>
         )}
@@ -312,13 +367,13 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
           <button
             onClick={undo}
             disabled={!canUndo}
-            className="font-written text-ink-faded hover:bg-paper-200 rounded-sm px-3 py-1.5 text-sm disabled:opacity-30"
+            className="font-written text-ink-faded hover:bg-paper-200 min-h-11 min-w-11 rounded-sm px-3 py-1.5 text-sm disabled:opacity-30"
           >
             ↩ Zurück
           </button>
           <button
             onClick={clear}
-            className="font-written text-ink-faded hover:bg-paper-200 rounded-sm px-3 py-1.5 text-sm"
+            className="font-written text-ink-faded hover:bg-paper-200 min-h-11 min-w-11 rounded-sm px-3 py-1.5 text-sm"
           >
             Leeren
           </button>
@@ -333,9 +388,12 @@ export function HandwritingCanvas({ width, height, onSave, className }: Props) {
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerLeave={onPointerUp}
+          onPointerCancel={onPointerUp}
           // Prevent scroll/zoom on iPad while drawing
           style={{ touchAction: "none", cursor: tool === "eraser" ? "cell" : "crosshair" }}
           className="block"
+          role="img"
+          aria-label="Zeichenflaeche fuer handschriftliche Notiz"
         />
       </div>
 

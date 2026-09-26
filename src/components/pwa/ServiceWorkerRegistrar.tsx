@@ -62,7 +62,18 @@ export function ServiceWorkerRegistrar() {
       attempt();
     };
 
-    const onControllerChange = () => scheduleReload();
+    // Nur bei einem echten Update neu laden: Beim allerersten Besuch gibt es
+    // noch keinen Controller, und clients.claim() des frisch installierten SW
+    // loest ebenfalls `controllerchange` aus. Ein Reload dort bricht z.B. den
+    // ersten Login auf einem neuen Geraet ab (Seite springt zurueck auf /login).
+    let hadController = navigator.serviceWorker.controller !== null;
+    const onControllerChange = () => {
+      if (!hadController) {
+        hadController = true;
+        return;
+      }
+      scheduleReload();
+    };
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
 
     // iOS liefert beim Resume aus dem Hintergrund keinen automatischen

@@ -7,31 +7,28 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  name          String
-  passwordHash  String
-  role          String         @default("MEMBER")
-  familyId      String?
-  family        Family?        @relation(fields: [familyId], references: [id])
-  activeCookbookId String?
-  activeCookbook   Cookbook?    @relation("UserActiveCookbook", fields: [activeCookbookId], references: [id], onDelete: SetNull)
-  createdAt     DateTime       @default(now())
-  recipes       Recipe[]
-  ratings       Rating[]
-  shoppingLists ShoppingList[]
-  mealPlans     MealPlan[]
-  pantry        PantryItem[]
-  shoppingListAccesses ShoppingListAccess[] @relation("ShoppingListMember")
-  shoppingListGrants   ShoppingListAccess[] @relation("ShoppingListGranter")
-  sessions      Session[]
-  accounts      Account[]
-  ourGroceries  UserOurGroceriesCredentials?
-  cookbooks         Cookbook[]       @relation("CookbookOwner")
-  cookbookAccesses  CookbookAccess[] @relation("CookbookViewer")
-  cookbookGrants    CookbookAccess[] @relation("CookbookGranter")
+  id                   String                       @id @default(cuid())
+  email                String                       @unique
+  name                 String
+  passwordHash         String
+  role                 String                       @default("MEMBER")
+  activeCookbookId     String?
+  activeCookbook       Cookbook?                    @relation("UserActiveCookbook", fields: [activeCookbookId], references: [id], onDelete: SetNull)
+  createdAt            DateTime                     @default(now())
+  recipes              Recipe[]
+  ratings              Rating[]
+  shoppingLists        ShoppingList[]
+  mealPlans            MealPlan[]
+  pantry               PantryItem[]
+  shoppingListAccesses ShoppingListAccess[]         @relation("ShoppingListMember")
+  shoppingListGrants   ShoppingListAccess[]         @relation("ShoppingListGranter")
+  sessions             Session[]
+  accounts             Account[]
+  ourGroceries         UserOurGroceriesCredentials?
+  cookbooks            Cookbook[]                   @relation("CookbookOwner")
+  cookbookAccesses     CookbookAccess[]             @relation("CookbookViewer")
+  cookbookGrants       CookbookAccess[]             @relation("CookbookGranter")
 
-  @@index([familyId])
   @@index([activeCookbookId])
 }
 
@@ -61,26 +58,14 @@ model CookbookAccess {
   id          String   @id @default(cuid())
   cookbookId  String
   userId      String
-  grantedById String
+  grantedById String?
   grantedAt   DateTime @default(now())
   cookbook    Cookbook @relation(fields: [cookbookId], references: [id], onDelete: Cascade)
   user        User     @relation("CookbookViewer", fields: [userId], references: [id], onDelete: Cascade)
-  grantedBy   User     @relation("CookbookGranter", fields: [grantedById], references: [id])
+  grantedBy   User?    @relation("CookbookGranter", fields: [grantedById], references: [id], onDelete: SetNull)
 
   @@unique([cookbookId, userId])
   @@index([userId])
-}
-
-// Mandant: eine Familie/ein Haushalt. Branding-Spalten werden in Phase 8e genutzt.
-model Family {
-  id             String   @id @default(cuid())
-  name           String
-  coverImagePath String?
-  accentColor    String?
-  inkColor       String?
-  paperColor     String?
-  createdAt      DateTime @default(now())
-  members        User[]
 }
 
 model Account {
@@ -121,46 +106,46 @@ model VerificationToken {
 }
 
 model Recipe {
-  id              String             @id @default(cuid())
-  title           String
-  slug            String             @unique
-  description     String?
-  servings        Int                @default(4)
-  prepMinutes     Int?
-  cookMinutes     Int?
-  difficulty      Int?
-  sourceUrl       String?
-  sourceType      String             @default("MANUAL")
-  instructions    String
-  notes           String?
-  handwrittenPath String?
-  isPublic        Boolean            @default(false)
-  isActive        Boolean            @default(true)
-  shareToken      String?            @unique
-  tags            String?
-  cookbookId      String
-  cookbook        Cookbook           @relation(fields: [cookbookId], references: [id], onDelete: Cascade)
+  id                       String             @id @default(cuid())
+  title                    String
+  slug                     String             @unique
+  description              String?
+  servings                 Int                @default(4)
+  prepMinutes              Int?
+  cookMinutes              Int?
+  difficulty               Int?
+  sourceUrl                String?
+  sourceType               String             @default("MANUAL")
+  instructions             String
+  notes                    String?
+  handwrittenPath          String?
+  isPublic                 Boolean            @default(false)
+  isActive                 Boolean            @default(true)
+  shareToken               String?            @unique
+  tags                     String?
+  cookbookId               String
+  cookbook                 Cookbook           @relation(fields: [cookbookId], references: [id], onDelete: Cascade)
   // Quellen-Vermerk fuer importierte Rezepte (Vollkopie aus fremdem Cookbook)
-  importedFromRecipeId   String?
-  importedFromRecipe     Recipe?     @relation("RecipeImportSource", fields: [importedFromRecipeId], references: [id], onDelete: SetNull)
-  importedFromRecipeCopies Recipe[]  @relation("RecipeImportSource")
-  importedFromCookbookId String?
-  importedFromUserId     String?
+  importedFromRecipeId     String?
+  importedFromRecipe       Recipe?            @relation("RecipeImportSource", fields: [importedFromRecipeId], references: [id], onDelete: SetNull)
+  importedFromRecipeCopies Recipe[]           @relation("RecipeImportSource")
+  importedFromCookbookId   String?
+  importedFromUserId       String?
   // Optionale Nährwert-Override pro Portion (überschreibt die Auto-Schätzung)
-  nutritionKcal     Float?
-  nutritionProteinG Float?
-  nutritionCarbsG   Float?
-  nutritionFatG     Float?
-  createdById     String
-  createdBy       User               @relation(fields: [createdById], references: [id])
-  ingredients     RecipeIngredient[]
-  categories      CategoryOnRecipe[]
-  ratings         Rating[]
-  images          RecipeImage[]
-  steps           RecipeStep[]
-  mealPlanEntries MealPlanEntry[]
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  nutritionKcal            Float?
+  nutritionProteinG        Float?
+  nutritionCarbsG          Float?
+  nutritionFatG            Float?
+  createdById              String
+  createdBy                User               @relation(fields: [createdById], references: [id])
+  ingredients              RecipeIngredient[]
+  categories               CategoryOnRecipe[]
+  ratings                  Rating[]
+  images                   RecipeImage[]
+  steps                    RecipeStep[]
+  mealPlanEntries          MealPlanEntry[]
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
 
   @@index([createdById])
   @@index([title])
@@ -184,12 +169,12 @@ model RecipeImage {
 }
 
 model RecipeStep {
-  id              String  @id @default(cuid())
+  id              String @id @default(cuid())
   recipeId        String
   position        Int
   text            String
   durationSeconds Int?
-  recipe          Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipe          Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
 
   @@unique([recipeId, position])
   @@index([recipeId])
@@ -231,6 +216,7 @@ model PantryItem {
 
   @@unique([ownerId, ingredientId])
   @@index([ownerId])
+  @@index([ingredientId])
 }
 
 model RecipeIngredient {
@@ -246,17 +232,26 @@ model RecipeIngredient {
   ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
 
   @@index([recipeId])
+  @@index([ingredientId])
 }
 
+// Name ist nur INNERHALB eines Cookbooks eindeutig (Category-Scoping seit v0.22);
+// globale Kategorien (cookbookId = null) duerfen denselben Namen wie eine
+// cookbook-lokale Kategorie tragen. SQLite behandelt NULL im Unique-Index als
+// paarweise distinct, d.h. das Constraint verhindert KEINE doppelten globalen
+// Kategorien gleichen Namens — das muss die App-seitige Erstellungslogik pruefen.
 model Category {
   id         String             @id @default(cuid())
-  name       String             @unique
+  name       String
   icon       String?
   // null = global (in jedem Cookbook sichtbar); sonst nur im zugehörigen Cookbook
   cookbookId String?
-  cookbook   Cookbook?          @relation(fields: [cookbookId], references: [id], onDelete: SetNull)
+  // Cascade statt SetNull: eine private Kategorie darf beim Loeschen ihres
+  // Cookbooks nicht zur globalen (dann ueberall sichtbaren) Kategorie werden.
+  cookbook   Cookbook?          @relation(fields: [cookbookId], references: [id], onDelete: Cascade)
   recipes    CategoryOnRecipe[]
 
+  @@unique([cookbookId, name])
   @@index([cookbookId])
 }
 
@@ -278,7 +273,7 @@ model Rating {
   comment   String?
   createdAt DateTime @default(now())
   recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([recipeId, userId])
   // recipeId-only Lookups (z. B. `GROUP BY recipeId` im Search-Path) profitieren
@@ -288,15 +283,15 @@ model Rating {
 }
 
 model ShoppingList {
-  id        String               @id @default(cuid())
-  name      String
-  ownerId   String
-  owner     User                 @relation(fields: [ownerId], references: [id])
-  items     ShoppingItem[]
-  accesses  ShoppingListAccess[]
+  id            String               @id @default(cuid())
+  name          String
+  ownerId       String
+  owner         User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  items         ShoppingItem[]
+  accesses      ShoppingListAccess[]
   frequentItems FrequentItem[]
-  createdAt DateTime             @default(now())
-  updatedAt DateTime             @updatedAt
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
 
   @@index([ownerId])
 }
@@ -308,11 +303,11 @@ model ShoppingListAccess {
   id          String       @id @default(cuid())
   listId      String
   userId      String
-  grantedById String
+  grantedById String?
   grantedAt   DateTime     @default(now())
   list        ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
   user        User         @relation("ShoppingListMember", fields: [userId], references: [id], onDelete: Cascade)
-  grantedBy   User         @relation("ShoppingListGranter", fields: [grantedById], references: [id])
+  grantedBy   User?        @relation("ShoppingListGranter", fields: [grantedById], references: [id], onDelete: SetNull)
 
   @@unique([listId, userId])
   @@index([userId])
@@ -355,10 +350,10 @@ model MealPlan {
   firstDay     Int             @default(1)
   familyShared Boolean         @default(false)
   weekStart    DateTime
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-  owner     User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  entries   MealPlanEntry[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  owner        User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  entries      MealPlanEntry[]
 
   @@index([ownerId])
 }
@@ -388,15 +383,15 @@ model AppMeta {
 // (Key aus OURGROCERIES_ENCRYPTION_KEY). Siehe CLAUDE.md "Bewusste Ausnahmen
 // vom Lokal-First-Prinzip".
 model UserOurGroceriesCredentials {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   encryptedSecret Bytes
   iv              Bytes
   authTag         Bytes
   defaultListId   String?
   defaultListName String?
   lastSyncAt      DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }

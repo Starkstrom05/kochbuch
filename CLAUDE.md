@@ -74,7 +74,7 @@ das aktive Cookbook (Header-Switcher). Permission-Helper liegen in
 3. Niemals direktes SQL ausser in dedizierten Modulen (z.B. FTS5-Setup)
 4. Bei UI: Oma-Theme respektieren → `src/components/oma/*` nutzen, nicht neu erfinden
 5. KI-Calls (Ollama):
-   - Timeout 60 s
+   - Timeout 90 s (bewusst hoch wegen Celeron N5095 ohne GPU, s. `src/lib/ai/ollama.ts`)
    - Antwort immer mit Zod validieren
    - Bei Fehler: Fallback (Roh-Text-Editor) bereitstellen
 6. **Keine externen Cloud-Calls** (DSGVO, alles lokal — auch keine CDNs zur Laufzeit)

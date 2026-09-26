@@ -194,9 +194,7 @@ describe("parseRecipeFromHtml", () => {
     expect(result).not.toBeNull();
     expect(result!.recipe.title).toBe("Koro-artige Bites");
     expect(result!.recipe.ingredients).toHaveLength(2);
-    expect(result!.recipe.instructions).toContain(
-      "1. Zutaten in eine Schüssel geben",
-    );
+    expect(result!.recipe.instructions).toContain("1. Zutaten in eine Schüssel geben");
     expect(result!.recipe.instructions).toContain("2. Im Airfryer");
     // "Schritt N/M"-Präfix entfernt
     expect(result!.recipe.instructions).not.toMatch(/Schritt\s+\d+\/\d+/);
@@ -241,21 +239,121 @@ describe("parseRecipeFromHtml", () => {
         {
           "@type": "HowToSection",
           name: "Vorspeise",
-          itemListElement: [
-            { "@type": "HowToStep", text: "Schnippeln." },
-          ],
+          itemListElement: [{ "@type": "HowToStep", text: "Schnippeln." }],
         },
         {
           "@type": "HowToSection",
           name: "Hauptgang",
-          itemListElement: [
-            { "@type": "HowToStep", text: "Braten ganz lange auf hoher Hitze." },
-          ],
+          itemListElement: [{ "@type": "HowToStep", text: "Braten ganz lange auf hoher Hitze." }],
         },
       ],
     });
     const result = parseRecipeFromHtml(html, URL);
     expect(result?.recipe.instructions).toContain("1. Schnippeln");
     expect(result?.recipe.instructions).toContain("2. Braten");
+  });
+
+  it("parst Unicode-Bruchzeichen als Menge (½ TL Salz)", () => {
+    const html = htmlWithLd({
+      "@type": "Recipe",
+      name: "Bruch-Test",
+      recipeIngredient: ["½ TL Salz", "¾ l Wasser"],
+      recipeInstructions: "Alles gut verrühren und servieren.",
+    });
+    const result = parseRecipeFromHtml(html, URL);
+    expect(result!.recipe.ingredients[0]).toMatchObject({
+      name: "Salz",
+      amount: 0.5,
+      unit: "TL",
+    });
+    expect(result!.recipe.ingredients[1]).toMatchObject({
+      name: "Wasser",
+      amount: 0.75,
+      unit: "l",
+    });
+  });
+
+  it("parst an Zahl angehängte Unicode-Brüche (1½ EL Öl)", () => {
+    const html = htmlWithLd({
+      "@type": "Recipe",
+      name: "Angehängter Bruch",
+      recipeIngredient: ["1½ EL Öl"],
+      recipeInstructions: "Alles gut verrühren und servieren.",
+    });
+    const result = parseRecipeFromHtml(html, URL);
+    expect(result!.recipe.ingredients[0]).toMatchObject({
+      name: "Öl",
+      amount: 1.5,
+      unit: "EL",
+    });
+  });
+
+  it("parst gemischte Zahlen (1 1/2 EL Zucker)", () => {
+    const html = htmlWithLd({
+      "@type": "Recipe",
+      name: "Gemischte Zahl",
+      recipeIngredient: ["1 1/2 EL Zucker"],
+      recipeInstructions: "Alles gut verrühren und servieren.",
+    });
+    const result = parseRecipeFromHtml(html, URL);
+    expect(result!.recipe.ingredients[0]).toMatchObject({
+      name: "Zucker",
+      amount: 1.5,
+      unit: "EL",
+    });
+  });
+
+  it("parst Mengen-Bereiche als Mittelwert (2-3 EL Olivenöl)", () => {
+    const html = htmlWithLd({
+      "@type": "Recipe",
+      name: "Bereich",
+      recipeIngredient: ["2-3 EL Olivenöl", "2 – 4 g Salz"],
+      recipeInstructions: "Alles gut verrühren und servieren.",
+    });
+    const result = parseRecipeFromHtml(html, URL);
+    expect(result!.recipe.ingredients[0]).toMatchObject({
+      name: "Olivenöl",
+      amount: 2.5,
+      unit: "EL",
+    });
+    expect(result!.recipe.ingredients[1]).toMatchObject({
+      name: "Salz",
+      amount: 3,
+      unit: "g",
+    });
+  });
+
+  it("dekodiert HTML-Entities in Titel, Beschreibung und Zutaten", () => {
+    const html = htmlWithLd({
+      "@type": "Recipe",
+      name: "Test &amp;amp; Co",
+      description: "Schnell &amp; einfach",
+      recipeIngredient: ["200 g Mehl &amp; Zucker"],
+      recipeInstructions: "Mehl &amp; Zucker verrühren und backen.",
+      keywords: "schnell &amp; einfach",
+    });
+    const result = parseRecipeFromHtml(html, URL);
+    expect(result).not.toBeNull();
+    // Ein Dekodier-Durchlauf loest genau eine Entity-Ebene auf (Standardverhalten
+    // von HTML-Entity-Decodern bei kaputt doppelt-escaptem Input).
+    expect(result!.recipe.title).toBe("Test &amp; Co");
+    expect(result!.recipe.description).toBe("Schnell & einfach");
+    expect(result!.recipe.ingredients[0].name).toBe("Mehl & Zucker");
+    expect(result!.recipe.instructions).toContain("Mehl & Zucker verrühren");
+    expect(result!.recipe.tags).toEqual(["schnell & einfach"]);
+  });
+
+  it("liest Prep-/Cook-Time mit Tages-Komponente in ISO-8601 (P0DT0H45M)", () => {
+    const html = htmlWithLd({
+      "@type": "Recipe",
+      name: "Tages-Dauer",
+      recipeIngredient: ["1 Zutat"],
+      recipeInstructions: "Schritt 1 dies und das.",
+      prepTime: "P0DT0H45M",
+      cookTime: "P1DT2H",
+    });
+    const result = parseRecipeFromHtml(html, URL);
+    expect(result!.recipe.prepTimeMinutes).toBe(45);
+    expect(result!.recipe.cookTimeMinutes).toBe(1 * 24 * 60 + 2 * 60);
   });
 });
